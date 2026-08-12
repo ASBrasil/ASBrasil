@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 export default async function WinnersPage({ params }: { params: { slug: string } }) {
   const event = await db.event.findUnique({
     where: { slug: params.slug },
