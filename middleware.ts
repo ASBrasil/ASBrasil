@@ -7,7 +7,10 @@ export async function middleware(req: NextRequest) {
   const isAdminRoute =
     req.nextUrl.pathname.startsWith("/admin") &&
     !req.nextUrl.pathname.startsWith("/admin/login");
-  const isAdminApi = req.nextUrl.pathname.startsWith("/api/admin");
+
+  const isAdminApi =
+    req.nextUrl.pathname.startsWith("/api/admin") &&
+    req.nextUrl.pathname !== "/api/admin/auth"; // <- exceção pro login
 
   if (!isAdminRoute && !isAdminApi) return NextResponse.next();
 
