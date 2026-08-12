@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 export default async function EventPage({ params }: { params: { slug: string } }) {
   const event = await db.event.findUnique({
     where: { slug: params.slug },
