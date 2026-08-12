@@ -1,0 +1,28 @@
+:root {
+  /* Identidade AS Brasil, aplicada ao admin */
+  --navy-900: #0a1330;
+  --navy-700: #1b2a5c;
+  --indigo-600: #4f5fff;
+  --indigo-700: #3c4bdb;
+  --bg: #f7f8fb;
+  --surface: #ffffff;
+  --border: #e6e8f0;
+  --text: #12172b;
+  --text-muted: #6b7280;
+  --step-inactive: #d7dae5;
+
+  --font-display: "Sora", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+}

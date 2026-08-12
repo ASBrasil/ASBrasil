@@ -1,0 +1,163 @@
+// Reference schema. Use Postgres in production (set provider = "postgresql"
+// and DATABASE_URL to a managed instance). SQLite is fine for local dev.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ParticipantSource {
+  IMPORT
+  SIGNUP
+}
+
+enum WinnerPolicy {
+  KEEP      // winner keeps competing in later draws of the same event
+  REMOVE    // winner is excluded from later draws of the same event
+}
+
+enum PrizeStatus {
+  PENDING
+  DRAWN
+  VOIDED // a draw was invalidated and redone; kept for audit, never deleted
+}
+
+enum ImportStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         String   @default("ADMIN") // ADMIN | OPERATOR (extend as needed)
+  createdAt    DateTime @default(now())
+}
+
+model Event {
+  id                   String   @id @default(cuid())
+  slug                 String   @unique
+  name                 String
+  campaign             String?
+  description          String?
+  startAt              DateTime?
+  endAt                DateTime?
+  active               Boolean  @default(true)
+
+  // Theme is a JSON blob edited through the visual theme editor.
+  // { colors: {...}, fonts: {...}, bannerUrl, logoUrl, customCss }
+  theme                Json     @default("{}")
+
+  publicSignupEnabled  Boolean  @default(false)
+  // Which fields the public signup form asks for + which are required.
+  // [{ key: "name", label: "Nome", required: true }, ...]
+  signupFields         Json     @default("[]")
+
+  winnerPolicy         WinnerPolicy @default(KEEP)
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  participants         Participant[]
+  prizes                Prize[]
+  imports               ImportBatch[]
+
+  @@index([active])
+}
+
+model Participant {
+  id            String            @id @default(cuid())
+  eventId       String
+  event         Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  name          String
+  email         String
+  phone         String?
+  cpf           String?
+  orderNumber   String?
+
+  // Unique, permanent number used across every draw in the event.
+  raffleNumber  Int
+
+  source        ParticipantSource @default(IMPORT)
+  importBatchId String?
+  removedFromDraws Boolean        @default(false) // set when they win under REMOVE policy
+
+  // Lookup token lets us avoid ever exposing raffle numbers by guessable id;
+  // the public lookup endpoint matches on normalized email + event, rate limited.
+  createdAt     DateTime          @default(now())
+
+  drawResults   DrawResult[]
+
+  @@unique([eventId, email])
+  @@unique([eventId, raffleNumber])
+  @@index([eventId])
+}
+
+model Prize {
+  id           String      @id @default(cuid())
+  eventId      String
+  event        Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  name         String
+  description  String?
+  imageUrl     String?
+  quantity     Int         @default(1)
+  order        Int         @default(0)
+  status       PrizeStatus @default(PENDING)
+  scheduledAt  DateTime?
+  rules        String?
+
+  createdAt    DateTime    @default(now())
+
+  drawResults  DrawResult[]
+
+  @@index([eventId, order])
+}
+
+// Append-only. A draw is never edited in place - redoing a draw VOIDs the
+// previous result and inserts a new one, so the full history is auditable.
+model DrawResult {
+  id             String   @id @default(cuid())
+  prizeId        String
+  prize          Prize    @relation(fields: [prizeId], references: [id])
+  participantId  String
+  participant    Participant @relation(fields: [participantId], references: [id])
+
+  winningNumber  Int
+  eligibleCount  Int      // how many participants were in the pool, for audit
+  rngSeed        String   // hex seed used, so the draw can be independently verified
+  voided         Boolean  @default(false)
+
+  winnerPhotoUrl String?
+  publishedAt    DateTime?
+
+  drawnAt        DateTime @default(now())
+  drawnByAdminId String?
+
+  @@index([prizeId])
+}
+
+model ImportBatch {
+  id            String       @id @default(cuid())
+  eventId       String
+  event         Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  filename      String
+  columnMapping Json         // { name: "Nome", email: "E-mail", orderNumber: "Pedido", ... }
+  totalRows     Int          @default(0)
+  validRows     Int          @default(0)
+  errorRows     Int          @default(0)
+  errors        Json         @default("[]") // sample of first N errors for the admin to review
+  status        ImportStatus @default(PROCESSING)
+
+  createdAt     DateTime     @default(now())
+  finishedAt    DateTime?
+}
