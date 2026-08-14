@@ -32,9 +32,7 @@ export default async function MeusEventosPage() {
       <header className="topbar">
         <span>Meus sorteios</span>
         <form action="/api/public/session" method="post">
-          <button formMethod="delete" className="logout">
-            Sair
-          </button>
+          <button className="logout">Sair</button>
         </form>
       </header>
 

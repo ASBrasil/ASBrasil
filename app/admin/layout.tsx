@@ -14,10 +14,8 @@ export default function AdminLayout({ children }: PropsWithChildren) {
           <a href="/admin/events/new">Novo evento</a>
         </nav>
         <div className="sidebar-footer">
-          <form action="/api/admin/auth" method="post">
-            <button formMethod="delete" className="logout">
-              Sair
-            </button>
+          <form action="/api/admin/logout" method="post">
+            <button className="logout">Sair</button>
           </form>
         </div>
       </aside>

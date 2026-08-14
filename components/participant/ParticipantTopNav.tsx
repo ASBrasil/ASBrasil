@@ -11,9 +11,7 @@ export function ParticipantTopNav({ eventName }: { eventName: string }) {
       <div className="right">
         <span className="current">{eventName}</span>
         <form action="/api/public/session" method="post">
-          <button formMethod="delete" className="logout">
-            Sair
-          </button>
+          <button className="logout">Sair</button>
         </form>
       </div>
 

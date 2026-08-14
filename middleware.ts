@@ -10,7 +10,8 @@ export async function middleware(req: NextRequest) {
 
   const isAdminApi =
     req.nextUrl.pathname.startsWith("/api/admin") &&
-    req.nextUrl.pathname !== "/api/admin/auth"; // <- exceção pro login
+    req.nextUrl.pathname !== "/api/admin/auth" && // <- exceção pro login
+    req.nextUrl.pathname !== "/api/admin/logout"; // <- e pro logout: precisa funcionar mesmo com sessão expirada/invalida
 
   if (!isAdminRoute && !isAdminApi) return NextResponse.next();
 
