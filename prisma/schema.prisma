@@ -66,6 +66,11 @@ model Event {
 
   winnerPolicy         WinnerPolicy @default(KEEP)
 
+  // Manual ordering for the admin listing (and anywhere else events are
+  // shown side by side). Scoped independently for active vs archived -
+  // moving an event only ever compares against others in the same tab.
+  order                Int      @default(0)
+
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -75,6 +80,7 @@ model Event {
 
   @@index([active])
   @@index([archived])
+  @@index([archived, order])
 }
 
 model Participant {

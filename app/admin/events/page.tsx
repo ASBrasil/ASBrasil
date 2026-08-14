@@ -13,7 +13,7 @@ export default async function EventsListPage({
 
   const events = await db.event.findMany({
     where: { archived: showArchived },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ order: "asc" }, { createdAt: "desc" }],
     include: { _count: { select: { participants: true, prizes: true } } },
   });
 
@@ -48,7 +48,7 @@ export default async function EventsListPage({
         </div>
       ) : (
         <div className="grid">
-          {events.map((event) => (
+          {events.map((event, i) => (
             <EventCard
               key={event.id}
               event={{
@@ -60,6 +60,8 @@ export default async function EventsListPage({
                 participantsCount: event._count.participants,
                 prizesCount: event._count.prizes,
               }}
+              isFirst={i === 0}
+              isLast={i === events.length - 1}
             />
           ))}
         </div>

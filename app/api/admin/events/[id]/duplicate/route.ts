@@ -29,6 +29,14 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     suffix++;
   }
 
+  // Lands at the end of the active list, same as a brand-new event -
+  // otherwise it'd default to order 0 and jump to the top unexpectedly.
+  const last = await db.event.findFirst({
+    where: { archived: false },
+    orderBy: { order: "desc" },
+    select: { order: true },
+  });
+
   const event = await db.$transaction(async (tx) => {
     const created = await tx.event.create({
       data: {
@@ -42,6 +50,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
         winnerPolicy: original.winnerPolicy,
         active: false, // always starts as a draft, even if the original was published
         archived: false,
+        order: (last?.order ?? -1) + 1,
       },
     });
 

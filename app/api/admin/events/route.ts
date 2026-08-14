@@ -5,7 +5,7 @@ import { requireAdmin } from "@/lib/auth";
 export async function GET() {
   await requireAdmin();
   const events = await db.event.findMany({
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ order: "asc" }, { createdAt: "desc" }],
     include: {
       _count: { select: { participants: true, prizes: true } },
     },
@@ -27,6 +27,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Esse slug já está em uso" }, { status: 409 });
   }
 
+  // New events land at the end of the active list by default, admin can
+  // reorder from there.
+  const last = await db.event.findFirst({
+    where: { archived: false },
+    orderBy: { order: "desc" },
+    select: { order: true },
+  });
+
   const event = await db.event.create({
     data: {
       name,
@@ -35,6 +43,7 @@ export async function POST(req: NextRequest) {
       description,
       startAt: startAt ? new Date(startAt) : null,
       endAt: endAt ? new Date(endAt) : null,
+      order: (last?.order ?? -1) + 1,
       theme: {
         colors: { primary: "#E8B646", background: "#12121A", surface: "#1B1B26", text: "#F5F0E6" },
       },

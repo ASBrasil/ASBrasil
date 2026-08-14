@@ -14,11 +14,35 @@ interface EventCardData {
   prizesCount: number;
 }
 
-export function EventCard({ event }: { event: EventCardData }) {
+export function EventCard({
+  event,
+  isFirst,
+  isLast,
+}: {
+  event: EventCardData;
+  isFirst: boolean;
+  isLast: boolean;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function move(direction: "up" | "down") {
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/admin/events/${event.id}/move`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ direction }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setError("Não foi possível reordenar.");
+      return;
+    }
+    router.refresh();
+  }
 
   async function toggleArchive() {
     setBusy(true);
@@ -65,6 +89,25 @@ export function EventCard({ event }: { event: EventCardData }) {
 
   return (
     <div className="event-card">
+      <div className="reorder">
+        <button
+          type="button"
+          aria-label="Mover para cima"
+          onClick={() => move("up")}
+          disabled={busy || isFirst}
+        >
+          ▲
+        </button>
+        <button
+          type="button"
+          aria-label="Mover para baixo"
+          onClick={() => move("down")}
+          disabled={busy || isLast}
+        >
+          ▼
+        </button>
+      </div>
+
       <Link href={`/admin/events/${event.id}`} className="card-link">
         <div className="status">
           <span className={`dot ${event.active ? "active" : ""}`} />
@@ -118,6 +161,7 @@ export function EventCard({ event }: { event: EventCardData }) {
 
       <style jsx>{`
         .event-card {
+          position: relative;
           background: var(--surface);
           border: 1px solid var(--border);
           border-radius: 1rem;
@@ -129,10 +173,41 @@ export function EventCard({ event }: { event: EventCardData }) {
         .event-card:hover {
           border-color: var(--indigo-600);
         }
+        .reorder {
+          position: absolute;
+          top: 0.85rem;
+          right: 0.85rem;
+          display: flex;
+          gap: 0.25rem;
+          z-index: 1;
+        }
+        .reorder button {
+          width: 1.5rem;
+          height: 1.5rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: var(--bg);
+          border: 1px solid var(--border);
+          border-radius: 0.35rem;
+          color: var(--text-muted);
+          font-size: 0.6rem;
+          cursor: pointer;
+          padding: 0;
+        }
+        .reorder button:hover:not(:disabled) {
+          border-color: var(--indigo-600);
+          color: var(--text);
+        }
+        .reorder button:disabled {
+          opacity: 0.3;
+          cursor: default;
+        }
         .card-link {
           text-decoration: none;
           color: var(--text);
           display: block;
+          padding-right: 3.5rem;
         }
         .status {
           display: flex;
