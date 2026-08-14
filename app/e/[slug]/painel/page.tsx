@@ -73,6 +73,7 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
       style={
         {
           "--primary": colors.primary ?? "#4F5FFF",
+          "--background": colors.background ?? "#0A1330",
           background: colors.background ?? "#0A1330",
           color: colors.text ?? "#F5F6FA",
           minHeight: "100vh",
@@ -82,21 +83,18 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
     >
       <ParticipantTopNav eventName={event.name} />
 
-      {bannerUrl ? (
-        <div className="banner-hero">
-          <img src={bannerUrl} alt="" className="banner-img" />
-          <div className="banner-scrim" />
-          <div className="banner-text">
-            {event.campaign && <span className="eyebrow">{event.campaign}</span>}
-            <h1>{event.name}</h1>
-          </div>
-        </div>
-      ) : (
-        <section className="hero">
+      <section className={`hero ${bannerUrl ? "has-banner" : ""}`}>
+        {bannerUrl && (
+          <>
+            <img src={bannerUrl} alt="" className="hero-bg" />
+            <div className="hero-scrim" />
+          </>
+        )}
+        <div className="hero-content">
           {event.campaign && <span className="eyebrow">{event.campaign}</span>}
           <h1>{event.name}</h1>
-        </section>
-      )}
+        </div>
+      </section>
 
       <section className="numbers-section">
         <div className="number-pill">
@@ -126,38 +124,39 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
       </section>
 
       <style>{`
-        .banner-hero {
+        .hero {
           position: relative;
-          height: 13rem;
+          padding: 3rem 1.5rem 1.5rem;
+          text-align: center;
+        }
+        .hero.has-banner {
+          padding: 0;
+          min-height: min(24rem, 60vh);
+          display: flex;
+          align-items: flex-end;
           overflow: hidden;
         }
-        .banner-img {
+        .hero-bg {
           position: absolute;
           inset: 0;
           width: 100%;
           height: 100%;
           object-fit: cover;
+          z-index: 0;
         }
-        .banner-scrim {
+        .hero-scrim {
           position: absolute;
           inset: 0;
-          background: linear-gradient(180deg, rgba(0, 0, 0, 0.05) 40%, rgba(0, 0, 0, 0.75) 100%);
+          background: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, var(--background, #0a1330) 95%);
+          z-index: 1;
         }
-        .banner-text {
-          position: absolute;
-          left: 1.5rem;
-          bottom: 1rem;
-          right: 1.5rem;
+        .hero-content {
+          position: relative;
+          z-index: 2;
+          width: 100%;
         }
-        .banner-text h1 {
-          font-family: "Sora", system-ui, sans-serif;
-          font-size: clamp(1.3rem, 3.5vw, 1.8rem);
-          margin: 0.15rem 0 0;
-          color: #fff;
-        }
-        .hero {
-          padding: 3rem 1.5rem 1rem;
-          text-align: center;
+        .has-banner .hero-content {
+          padding: 3rem 1.5rem 2rem;
         }
         .eyebrow {
           text-transform: uppercase;
@@ -168,7 +167,7 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
         .hero h1 {
           font-family: "Sora", system-ui, sans-serif;
           font-size: clamp(1.8rem, 4vw, 2.6rem);
-          margin: 0.5rem 0 1.25rem;
+          margin: 0.5rem 0 0;
         }
         .numbers-section {
           padding: 1.5rem 1.5rem 0.5rem;

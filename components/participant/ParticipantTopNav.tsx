@@ -6,52 +6,61 @@ export function ParticipantTopNav({ eventName }: { eventName: string }) {
   return (
     <header className="topnav">
       <Link href="/meus-eventos" className="back">
-        <span aria-hidden>←</span> Meus eventos
+        ← Meus eventos
       </Link>
-      <span className="current">{eventName}</span>
-      <form action="/api/public/session" method="post">
-        <button formMethod="delete" className="logout">
-          Sair
-        </button>
-      </form>
+      <div className="right">
+        <span className="current">{eventName}</span>
+        <form action="/api/public/session" method="post">
+          <button formMethod="delete" className="logout">
+            Sair
+          </button>
+        </form>
+      </div>
 
       <style jsx>{`
         .topnav {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          padding: 0.6rem 1rem;
-          background: rgba(10, 15, 35, 0.75);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-          font-size: 0.8rem;
           position: sticky;
           top: 0;
-          z-index: 30;
+          z-index: 40;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          padding: 0.65rem 1.25rem;
+          background: rgba(0, 0, 0, 0.35);
           backdrop-filter: blur(10px);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          font-size: 0.78rem;
         }
         .back {
           display: inline-flex;
           align-items: center;
           gap: 0.35rem;
-          color: inherit;
+          color: #12121a;
           text-decoration: none;
-          background: rgba(255, 255, 255, 0.07);
-          border: 1px solid rgba(255, 255, 255, 0.12);
+          background: var(--primary, #4f5fff);
           border-radius: 999px;
-          padding: 0.35rem 0.8rem 0.35rem 0.65rem;
-          font-weight: 600;
+          padding: 0.45rem 1rem;
+          font-weight: 700;
           font-size: 0.78rem;
-          transition: border-color 0.15s, background 0.15s;
+          flex-shrink: 0;
+          transition: filter 0.15s;
         }
         .back:hover {
-          border-color: rgba(255, 255, 255, 0.3);
-          background: rgba(255, 255, 255, 0.1);
+          filter: brightness(1.08);
+        }
+        .right {
+          display: flex;
+          align-items: center;
+          gap: 0.9rem;
+          min-width: 0;
         }
         .current {
-          margin-left: auto;
-          margin-right: 0.25rem;
-          opacity: 0.5;
+          opacity: 0.7;
           font-size: 0.75rem;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          font-weight: 600;
           max-width: 11rem;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -59,18 +68,19 @@ export function ParticipantTopNav({ eventName }: { eventName: string }) {
         }
         .logout {
           background: none;
-          border: 1px solid rgba(255, 255, 255, 0.15);
+          border: 1px solid rgba(255, 255, 255, 0.2);
           color: inherit;
-          opacity: 0.75;
+          opacity: 0.85;
           border-radius: 999px;
-          padding: 0.35rem 0.85rem;
+          padding: 0.4rem 0.9rem;
           cursor: pointer;
           font-size: 0.75rem;
+          flex-shrink: 0;
           transition: opacity 0.15s, border-color 0.15s;
         }
         .logout:hover {
           opacity: 1;
-          border-color: rgba(255, 255, 255, 0.35);
+          border-color: rgba(255, 255, 255, 0.4);
         }
       `}</style>
     </header>
