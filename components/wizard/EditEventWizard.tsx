@@ -18,9 +18,9 @@ interface EditableEvent {
   description: string;
   active: boolean;
   archived: boolean;
-  theme: { colors?: any; customCss?: string } | null;
+  theme: { colors?: any; customCss?: string; bannerUrl?: string | null } | null;
   participantsCount: number;
-  prizes: { id: string; name: string }[];
+  prizes: { id: string; name: string; imageUrl?: string | null }[];
 }
 
 export function EditEventWizard({ event }: { event: EditableEvent }) {

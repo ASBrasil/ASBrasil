@@ -49,10 +49,14 @@ export default async function MeusEventosPage() {
             {participations.map(({ event, numbers }) => {
               const theme = event.theme as any;
               const primary = theme?.colors?.primary ?? "#4F5FFF";
+              const bannerUrl = theme?.bannerUrl as string | undefined;
               return (
                 <Link key={event.id} href={`/e/${event.slug}/painel`} className="card">
-                  {/* espaço reservado para banner/logo do evento, a ser definido depois */}
-                  <div className="banner" style={{ background: primary }} />
+                  {bannerUrl ? (
+                    <img src={bannerUrl} alt="" className="banner-img" />
+                  ) : (
+                    <div className="banner" style={{ background: primary }} />
+                  )}
                   <div className="info">
                     {event.campaign && <span className="campaign">{event.campaign}</span>}
                     <h3>{event.name}</h3>
@@ -108,6 +112,7 @@ export default async function MeusEventosPage() {
         }
         .card:hover { border-color: #4f5fff; }
         .banner { height: 5rem; }
+        .banner-img { width: 100%; height: 5rem; object-fit: cover; display: block; }
         .info { padding: 1rem 1.25rem 1.25rem; }
         .campaign { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #4f5fff; }
         .info h3 { margin: 0.25rem 0 0.5rem; }

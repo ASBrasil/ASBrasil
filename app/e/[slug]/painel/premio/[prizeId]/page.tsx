@@ -56,8 +56,11 @@ export default async function ParticipantPrizePage({
           ← {event.name}
         </Link>
 
-        {/* espaço reservado para a imagem do prêmio, a ser definida depois */}
-        <div className="prize-icon">🎁</div>
+        {prize.imageUrl ? (
+          <img src={prize.imageUrl} alt="" className="prize-photo" />
+        ) : (
+          <div className="prize-icon">🎁</div>
+        )}
         <h1>{prize.name}</h1>
         {prize.description && <p className="description">{prize.description}</p>}
 
@@ -71,6 +74,9 @@ export default async function ParticipantPrizePage({
           scheduledAt={prize.scheduledAt ? prize.scheduledAt.toISOString() : null}
           raffleNumbers={myNumbers}
           won={won}
+          winMessage={prize.winMessage}
+          loseMessage={prize.loseMessage}
+          couponCode={prize.couponCode}
         />
       </section>
 
@@ -98,6 +104,16 @@ export default async function ParticipantPrizePage({
           align-items: center;
           justify-content: center;
           font-size: 2rem;
+        }
+        .prize-photo {
+          width: 100%;
+          max-width: 20rem;
+          aspect-ratio: 4 / 3;
+          object-fit: cover;
+          margin: 0 auto 1.5rem;
+          border-radius: 1rem;
+          display: block;
+          box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.35);
         }
         h1 {
           font-family: "Sora", system-ui, sans-serif;

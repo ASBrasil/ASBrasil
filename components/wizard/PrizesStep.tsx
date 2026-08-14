@@ -2,12 +2,27 @@
 
 import { useState } from "react";
 import { Button, Field, Input, Card } from "@/components/ui/primitives";
+import { ImageUpload } from "@/components/admin/ImageUpload";
 
 interface DraftPrize {
   name: string;
   description: string;
   scheduledAt: string;
+  imageUrl: string | null;
+  winMessage: string;
+  loseMessage: string;
+  couponCode: string;
 }
+
+const EMPTY_DRAFT: DraftPrize = {
+  name: "",
+  description: "",
+  scheduledAt: "",
+  imageUrl: null,
+  winMessage: "",
+  loseMessage: "",
+  couponCode: "",
+};
 
 export function PrizesStep({
   eventId,
@@ -16,11 +31,11 @@ export function PrizesStep({
 }: {
   eventId: string;
   onDone: () => void;
-  existingPrizes?: { id: string; name: string }[];
+  existingPrizes?: { id: string; name: string; imageUrl?: string | null }[];
 }) {
-  const [saved, setSaved] = useState<string[]>([]);
-  const allNames = [...existingPrizes.map((p) => p.name), ...saved];
-  const [draft, setDraft] = useState<DraftPrize>({ name: "", description: "", scheduledAt: "" });
+  const [saved, setSaved] = useState<{ name: string; imageUrl: string | null }[]>([]);
+  const allPrizes = [...existingPrizes, ...saved];
+  const [draft, setDraft] = useState<DraftPrize>(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
 
   async function addPrize() {
@@ -33,14 +48,18 @@ export function PrizesStep({
         eventId,
         name: draft.name,
         description: draft.description || undefined,
-        order: existingPrizes.length + saved.length,
+        order: allPrizes.length,
         scheduledAt: draft.scheduledAt || undefined,
+        imageUrl: draft.imageUrl || undefined,
+        winMessage: draft.winMessage || undefined,
+        loseMessage: draft.loseMessage || undefined,
+        couponCode: draft.couponCode || undefined,
       }),
     });
     setSaving(false);
     if (res.ok) {
-      setSaved((s) => [...s, draft.name]);
-      setDraft({ name: "", description: "", scheduledAt: "" });
+      setSaved((s) => [...s, { name: draft.name, imageUrl: draft.imageUrl }]);
+      setDraft(EMPTY_DRAFT);
     }
   }
 
@@ -49,10 +68,17 @@ export function PrizesStep({
       <h2>Cadastre os prêmios</h2>
       <p className="subtitle">Cada prêmio terá seu próprio sorteio, na ordem em que forem criados.</p>
 
-      {allNames.length > 0 && (
+      {allPrizes.length > 0 && (
         <ul className="saved-list">
-          {allNames.map((name, i) => (
-            <li key={i}>🎁 {name}</li>
+          {allPrizes.map((p, i) => (
+            <li key={i}>
+              {p.imageUrl ? (
+                <img src={p.imageUrl} alt="" className="thumb" />
+              ) : (
+                <span className="thumb placeholder">🎁</span>
+              )}
+              {p.name}
+            </li>
           ))}
         </ul>
       )}
@@ -64,6 +90,16 @@ export function PrizesStep({
           onChange={(e) => setDraft({ ...draft, name: e.target.value })}
         />
       </Field>
+
+      <ImageUpload
+        label="Imagem do prêmio"
+        hint="Aparece no card do prêmio e na tela de resultado do participante."
+        value={draft.imageUrl}
+        onChange={(url) => setDraft({ ...draft, imageUrl: url })}
+        folder="prize-images"
+        aspectRatio="4 / 3"
+      />
+
       <Field label="Descrição">
         <Input
           placeholder="Encontro com a banda antes do show"
@@ -79,11 +115,50 @@ export function PrizesStep({
         />
       </Field>
 
+      <div className="divider">
+        <span>Mensagens de resultado</span>
+      </div>
+
+      <Field
+        label="Mensagem para quem ganhar"
+        hint="Aparece na tela de resultado só para o vencedor. Em branco, usa a mensagem padrão."
+      >
+        <textarea
+          className="textarea"
+          rows={2}
+          placeholder="Parabéns! Você ganhou o Meet & Greet 🎉 Fique de olho no seu e-mail com os detalhes."
+          value={draft.winMessage}
+          onChange={(e) => setDraft({ ...draft, winMessage: e.target.value })}
+        />
+      </Field>
+      <Field
+        label="Cupom para o vencedor"
+        hint="Opcional. Mostrado junto com a mensagem de vitória, só para quem ganhar."
+      >
+        <Input
+          placeholder="MEETBTS10"
+          value={draft.couponCode}
+          onChange={(e) => setDraft({ ...draft, couponCode: e.target.value })}
+        />
+      </Field>
+      <Field
+        label="Mensagem para quem não ganhar"
+        hint="Aparece para todo mundo que concorreu a esse prêmio e não ganhou."
+      >
+        <textarea
+          className="textarea"
+          rows={2}
+          placeholder="Essa foi por pouco! Ainda tem mais sorteios rolando, continue de olho."
+          value={draft.loseMessage}
+          onChange={(e) => setDraft({ ...draft, loseMessage: e.target.value })}
+        />
+      </Field>
+
       <div className="actions">
         <Button variant="ghost" onClick={addPrize} disabled={!draft.name || saving}>
           {saving ? "Adicionando…" : "+ Adicionar outro prêmio"}
         </Button>
-        <Button onClick={onDone} disabled={allNames.length === 0}>
+        <Button onClick={onDone} disabled={allPrizes.length === 0}>
           Continuar →
         </Button>
       </div>
@@ -100,10 +175,54 @@ export function PrizesStep({
           gap: 0.4rem;
         }
         .saved-list li {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
           font-size: 0.9rem;
           background: var(--bg);
           border-radius: 0.5rem;
-          padding: 0.5rem 0.75rem;
+          padding: 0.4rem 0.75rem;
+        }
+        .thumb {
+          width: 1.75rem;
+          height: 1.75rem;
+          border-radius: 0.4rem;
+          object-fit: cover;
+          flex-shrink: 0;
+        }
+        .thumb.placeholder {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: var(--surface);
+          font-size: 0.9rem;
+        }
+        .divider {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          margin: 1.75rem 0 1.25rem;
+          font-size: 0.78rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--text-muted);
+        }
+        .divider::before,
+        .divider::after {
+          content: "";
+          flex: 1;
+          height: 1px;
+          background: var(--border);
+        }
+        .textarea {
+          padding: 0.7rem 0.9rem;
+          border-radius: 0.6rem;
+          border: 1px solid var(--border);
+          font-size: 0.9rem;
+          font-family: inherit;
+          resize: vertical;
+          background: var(--surface);
         }
         .actions { display: flex; gap: 0.75rem; margin-top: 1.25rem; }
       `}</style>

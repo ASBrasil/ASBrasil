@@ -24,9 +24,9 @@ export default async function EditEventPage({ params }: { params: { id: string }
         description: event.description ?? "",
         active: event.active,
         archived: event.archived,
-        theme: event.theme as unknown as { colors?: any; customCss?: string } | null,
+        theme: event.theme as unknown as { colors?: any; customCss?: string; bannerUrl?: string | null } | null,
         participantsCount: event._count.participants,
-        prizes: event.prizes.map((p) => ({ id: p.id, name: p.name })),
+        prizes: event.prizes.map((p) => ({ id: p.id, name: p.name, imageUrl: p.imageUrl })),
       }}
     />
   );

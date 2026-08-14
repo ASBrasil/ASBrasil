@@ -134,6 +134,12 @@ model Prize {
   scheduledAt  DateTime?
   rules        String?
 
+  // Shown on the participant's result screen for this prize. Falls back to
+  // a generic message in the UI when null, so setting these is optional.
+  winMessage   String?     // shown only to the winner
+  loseMessage  String?     // shown to everyone else once the draw is done
+  couponCode   String?     // revealed only to the winner, alongside winMessage
+
   createdAt    DateTime    @default(now())
 
   drawResults  DrawResult[]

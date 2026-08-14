@@ -37,6 +37,7 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
       return {
         id: prize.id,
         name: prize.name,
+        imageUrl: prize.imageUrl,
         order: prize.order,
         state: "completed",
         won: myParticipantIds.has(result.participantId),
@@ -44,13 +45,28 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
     }
     if (!currentAssigned) {
       currentAssigned = true;
-      return { id: prize.id, name: prize.name, order: prize.order, state: "current", won: false };
+      return {
+        id: prize.id,
+        name: prize.name,
+        imageUrl: prize.imageUrl,
+        order: prize.order,
+        state: "current",
+        won: false,
+      };
     }
-    return { id: prize.id, name: prize.name, order: prize.order, state: "locked", won: false };
+    return {
+      id: prize.id,
+      name: prize.name,
+      imageUrl: prize.imageUrl,
+      order: prize.order,
+      state: "locked",
+      won: false,
+    };
   });
 
   const theme = event.theme as any;
   const colors = theme?.colors ?? {};
+  const bannerUrl = theme?.bannerUrl as string | undefined;
 
   return (
     <main
@@ -66,9 +82,23 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
     >
       <ParticipantTopNav eventName={event.name} />
 
-      <section className="hero">
-        {event.campaign && <span className="eyebrow">{event.campaign}</span>}
-        <h1>{event.name}</h1>
+      {bannerUrl ? (
+        <div className="banner-hero">
+          <img src={bannerUrl} alt="" className="banner-img" />
+          <div className="banner-scrim" />
+          <div className="banner-text">
+            {event.campaign && <span className="eyebrow">{event.campaign}</span>}
+            <h1>{event.name}</h1>
+          </div>
+        </div>
+      ) : (
+        <section className="hero">
+          {event.campaign && <span className="eyebrow">{event.campaign}</span>}
+          <h1>{event.name}</h1>
+        </section>
+      )}
+
+      <section className="numbers-section">
         <div className="number-pill">
           {myNumbers.length === 1 ? (
             <>
@@ -96,8 +126,37 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
       </section>
 
       <style>{`
+        .banner-hero {
+          position: relative;
+          height: 13rem;
+          overflow: hidden;
+        }
+        .banner-img {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .banner-scrim {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(180deg, rgba(0, 0, 0, 0.05) 40%, rgba(0, 0, 0, 0.75) 100%);
+        }
+        .banner-text {
+          position: absolute;
+          left: 1.5rem;
+          bottom: 1rem;
+          right: 1.5rem;
+        }
+        .banner-text h1 {
+          font-family: "Sora", system-ui, sans-serif;
+          font-size: clamp(1.3rem, 3.5vw, 1.8rem);
+          margin: 0.15rem 0 0;
+          color: #fff;
+        }
         .hero {
-          padding: 3rem 1.5rem 1.5rem;
+          padding: 3rem 1.5rem 1rem;
           text-align: center;
         }
         .eyebrow {
@@ -106,10 +165,14 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
           font-size: 0.7rem;
           color: var(--primary);
         }
-        h1 {
+        .hero h1 {
           font-family: "Sora", system-ui, sans-serif;
           font-size: clamp(1.8rem, 4vw, 2.6rem);
           margin: 0.5rem 0 1.25rem;
+        }
+        .numbers-section {
+          padding: 1.5rem 1.5rem 0.5rem;
+          text-align: center;
         }
         .number-pill {
           display: inline-block;

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button, Field, Input, Card } from "@/components/ui/primitives";
+import { ImageUpload } from "@/components/admin/ImageUpload";
 
 const PRESETS = [
   { name: "AS Brasil", primary: "#4F5FFF", background: "#0A1330", surface: "#141B3D", text: "#F5F6FA" },
@@ -24,12 +25,13 @@ export function ThemeStep({
 }: {
   eventId: string;
   onDone: () => void;
-  initialTheme?: { colors?: ThemeColors; customCss?: string } | null;
+  initialTheme?: { colors?: ThemeColors; customCss?: string; bannerUrl?: string | null } | null;
 }) {
   const [colors, setColors] = useState<ThemeColors>(
     initialTheme?.colors ?? PRESETS[0]
   );
   const [customCss, setCustomCss] = useState(initialTheme?.customCss ?? "");
+  const [bannerUrl, setBannerUrl] = useState<string | null>(initialTheme?.bannerUrl ?? null);
   const [saving, setSaving] = useState(false);
 
   async function save() {
@@ -38,7 +40,7 @@ export function ThemeStep({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        theme: { colors: { ...colors }, customCss: customCss || undefined },
+        theme: { colors: { ...colors }, customCss: customCss || undefined, bannerUrl: bannerUrl || undefined },
       }),
     });
     setSaving(false);
@@ -48,7 +50,18 @@ export function ThemeStep({
   return (
     <Card icon="🎨">
       <h2>Dê a cara do evento à campanha</h2>
-      <p className="subtitle">Essas cores aparecem na página pública e nos e-mails de sorteio.</p>
+      <p className="subtitle">
+        Essas cores e o banner aparecem na página pública, no painel do participante e nos e-mails.
+      </p>
+
+      <ImageUpload
+        label="Banner do evento"
+        hint="Aparece no topo da página pública e no card do evento para o participante. Recomendado: 1200×630px."
+        value={bannerUrl}
+        onChange={setBannerUrl}
+        folder="event-banners"
+        aspectRatio="1200 / 630"
+      />
 
       <div className="presets">
         {PRESETS.map((p) => (

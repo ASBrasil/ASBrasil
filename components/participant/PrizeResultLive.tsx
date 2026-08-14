@@ -15,12 +15,18 @@ export function PrizeResultLive({
   scheduledAt,
   raffleNumbers,
   won: initialWon,
+  winMessage,
+  loseMessage,
+  couponCode,
 }: {
   prizeId: string;
   initialResult: Result | null;
   scheduledAt: string | null;
   raffleNumbers: number[];
   won: boolean;
+  winMessage?: string | null;
+  loseMessage?: string | null;
+  couponCode?: string | null;
 }) {
   // "waiting"  -> ainda não saiu resultado nenhum, mostra contagem/número
   // "drawing"  -> resultado já saiu no servidor, mas ainda estamos girando os dígitos
@@ -95,12 +101,18 @@ export function PrizeResultLive({
         <span className="tag">Resultado</span>
         {won ? (
           <>
-            <p className="big">🎉 Parabéns, você ganhou!</p>
+            <p className="big">{winMessage || "🎉 Parabéns, você ganhou!"}</p>
             <p className="detail">Número sorteado: {result.winningNumber}</p>
+            {couponCode && (
+              <div className="coupon">
+                <span className="coupon-label">Seu cupom</span>
+                <span className="coupon-code">{couponCode}</span>
+              </div>
+            )}
           </>
         ) : (
           <>
-            <p className="big">Dessa vez não foi você.</p>
+            <p className="big">{loseMessage || "Dessa vez não foi você."}</p>
             <p className="detail">
               Vencedor(a): {result.winnerName} · Número {result.winningNumber}
             </p>
@@ -122,6 +134,30 @@ export function PrizeResultLive({
           .detail {
             opacity: 0.7;
             font-size: 0.9rem;
+          }
+          .coupon {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.2rem;
+            margin-top: 1.25rem;
+            padding: 0.85rem 1.5rem;
+            border-radius: 0.75rem;
+            border: 1.5px dashed var(--primary, #4f5fff);
+            background: color-mix(in srgb, var(--primary, #4f5fff) 12%, transparent);
+          }
+          .coupon-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            opacity: 0.75;
+          }
+          .coupon-code {
+            font-family: monospace;
+            font-size: 1.2rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            color: var(--primary, #4f5fff);
           }
         `}</style>
       </div>

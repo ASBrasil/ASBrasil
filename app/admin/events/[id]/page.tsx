@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { PrizeDrawPanel } from "@/components/PrizeDrawPanel";
 import { EventActionsBar } from "@/components/EventActionsBar";
+import { PrizeEditPanel } from "@/components/admin/PrizeEditPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -55,9 +56,27 @@ export default async function EventDashboardPage({ params }: { params: { id: str
       <div className="prizes">
         {event.prizes.map((prize) => (
           <div key={prize.id} className="prize-row">
-            <div>
-              <strong>{prize.name}</strong>
-              {prize.description && <p>{prize.description}</p>}
+            <div className="prize-main">
+              {prize.imageUrl ? (
+                <img src={prize.imageUrl} alt="" className="prize-thumb" />
+              ) : (
+                <span className="prize-thumb placeholder">🎁</span>
+              )}
+              <div>
+                <strong>{prize.name}</strong>
+                {prize.description && <p>{prize.description}</p>}
+                <PrizeEditPanel
+                  prize={{
+                    id: prize.id,
+                    name: prize.name,
+                    description: prize.description,
+                    imageUrl: prize.imageUrl,
+                    winMessage: prize.winMessage,
+                    loseMessage: prize.loseMessage,
+                    couponCode: prize.couponCode,
+                  }}
+                />
+              </div>
             </div>
             <PrizeDrawPanel prize={{ id: prize.id, name: prize.name, status: prize.status }} />
           </div>
@@ -131,8 +150,29 @@ export default async function EventDashboardPage({ params }: { params: { id: str
           padding: 1.25rem 1.5rem;
           display: flex;
           justify-content: space-between;
-          align-items: center;
+          align-items: flex-start;
           gap: 1.5rem;
+          flex-wrap: wrap;
+        }
+        .prize-main {
+          display: flex;
+          gap: 1rem;
+          flex: 1;
+          min-width: 16rem;
+        }
+        .prize-thumb {
+          width: 3.5rem;
+          height: 3.5rem;
+          border-radius: 0.6rem;
+          object-fit: cover;
+          flex-shrink: 0;
+        }
+        .prize-thumb.placeholder {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: var(--bg);
+          font-size: 1.3rem;
         }
         .prize-row p {
           margin: 0.2rem 0 0;

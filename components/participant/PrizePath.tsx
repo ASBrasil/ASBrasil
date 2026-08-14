@@ -3,6 +3,7 @@ import Link from "next/link";
 export interface PathStep {
   id: string;
   name: string;
+  imageUrl?: string | null;
   order: number;
   state: "completed" | "current" | "locked";
   won: boolean; // only meaningful when state === "completed"
@@ -15,8 +16,9 @@ export interface PathStep {
  * clear they've already happened. Every step is still a real link -
  * dim doesn't mean disabled, it's just not the one asking for attention.
  *
- * Each node is a plain circle with an emoji placeholder for now - swap the
- * `iconFor()` output for real per-prize artwork once that's ready.
+ * Each node shows the prize's own photo when the admin uploaded one, with
+ * a small result badge overlaid in the corner; falls back to an emoji
+ * placeholder for prizes without a photo yet.
  */
 export function PrizePath({ slug, steps }: { slug: string; steps: PathStep[] }) {
   return (
@@ -24,7 +26,14 @@ export function PrizePath({ slug, steps }: { slug: string; steps: PathStep[] }) 
       {steps.map((step, i) => (
         <div className="step-wrap" key={step.id}>
           <Link href={`/e/${slug}/painel/premio/${step.id}`} className={`node ${step.state}`}>
-            <span className="icon">{iconFor(step)}</span>
+            {step.imageUrl ? (
+              <>
+                <img src={step.imageUrl} alt="" className="node-img" />
+                <span className={`badge badge-${step.state}`}>{iconFor(step)}</span>
+              </>
+            ) : (
+              <span className="icon">{iconFor(step)}</span>
+            )}
           </Link>
           <span className="label">{step.name}</span>
           {i < steps.length - 1 && <span className={`connector ${step.state === "completed" ? "done" : ""}`} />}
@@ -58,6 +67,36 @@ export function PrizePath({ slug, steps }: { slug: string; steps: PathStep[] }) 
           text-decoration: none;
           flex-shrink: 0;
           position: relative;
+          overflow: visible;
+        }
+        .node-img {
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          object-fit: cover;
+        }
+        .badge {
+          position: absolute;
+          bottom: -0.2rem;
+          right: -0.2rem;
+          width: 1.35rem;
+          height: 1.35rem;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.7rem;
+          background: var(--background, #0a1330);
+          border: 2px solid var(--background, #0a1330);
+        }
+        .badge-locked {
+          background: rgba(255, 255, 255, 0.15);
+        }
+        .badge-current {
+          background: var(--primary, #4f5fff);
+        }
+        .badge-completed {
+          background: rgba(255, 255, 255, 0.15);
         }
         .node.locked {
           background: rgba(255, 255, 255, 0.06);

@@ -14,7 +14,18 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   await requireAdmin();
   const body = await req.json();
-  const { eventId, name, description, imageUrl, quantity, order, scheduledAt } = body;
+  const {
+    eventId,
+    name,
+    description,
+    imageUrl,
+    quantity,
+    order,
+    scheduledAt,
+    winMessage,
+    loseMessage,
+    couponCode,
+  } = body;
 
   if (!eventId || !name) {
     return NextResponse.json({ error: "eventId e name são obrigatórios" }, { status: 400 });
@@ -29,6 +40,9 @@ export async function POST(req: NextRequest) {
       quantity: quantity ?? 1,
       order: order ?? 0,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
+      winMessage,
+      loseMessage,
+      couponCode,
     },
   });
 

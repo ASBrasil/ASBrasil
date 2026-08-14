@@ -13,6 +13,7 @@ export default async function EventPage({ params }: { params: { slug: string } }
 
   const theme = event.theme as any;
   const colors = theme?.colors ?? {};
+  const bannerUrl = theme?.bannerUrl as string | undefined;
 
   return (
     <main
@@ -31,13 +32,21 @@ export default async function EventPage({ params }: { params: { slug: string } }
     >
       {theme?.customCss && <style dangerouslySetInnerHTML={{ __html: theme.customCss }} />}
 
-      <section className="hero">
-        {event.campaign && <span className="eyebrow">{event.campaign}</span>}
-        <h1>{event.name}</h1>
-        {event.description && <p className="description">{event.description}</p>}
-        <a href={`/e/${event.slug}/vencedores`} className="winners-link">
-          🏆 Ver vencedores
-        </a>
+      <section className={`hero ${bannerUrl ? "has-banner" : ""}`}>
+        {bannerUrl && (
+          <>
+            <img src={bannerUrl} alt="" className="hero-bg" />
+            <div className="hero-scrim" />
+          </>
+        )}
+        <div className="hero-content">
+          {event.campaign && <span className="eyebrow">{event.campaign}</span>}
+          <h1>{event.name}</h1>
+          {event.description && <p className="description">{event.description}</p>}
+          <a href={`/e/${event.slug}/vencedores`} className="winners-link">
+            🏆 Ver vencedores
+          </a>
+        </div>
       </section>
 
       <section className="prizes">
@@ -83,8 +92,38 @@ export default async function EventPage({ params }: { params: { slug: string } }
 
       <style>{`
         .hero {
+          position: relative;
           padding: 5rem 1.5rem 3rem;
           text-align: center;
+        }
+        .hero.has-banner {
+          padding: 0;
+          min-height: min(32rem, 80vh);
+          display: flex;
+          align-items: flex-end;
+          overflow: hidden;
+        }
+        .hero-bg {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          z-index: 0;
+        }
+        .hero-scrim {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(180deg, rgba(0, 0, 0, 0.15) 0%, var(--background) 96%);
+          z-index: 1;
+        }
+        .hero-content {
+          position: relative;
+          z-index: 2;
+          width: 100%;
+        }
+        .has-banner .hero-content {
+          padding: 3rem 1.5rem 2.5rem;
         }
         .eyebrow {
           text-transform: uppercase;
