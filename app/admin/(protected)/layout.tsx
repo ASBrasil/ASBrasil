@@ -1,4 +1,4 @@
-import "../globals.css";
+import "../../globals.css";
 import { PropsWithChildren } from "react";
 
 export default function AdminLayout({ children }: PropsWithChildren) {
@@ -12,6 +12,7 @@ export default function AdminLayout({ children }: PropsWithChildren) {
         <nav>
           <a href="/admin/events">Eventos</a>
           <a href="/admin/events/new">Novo evento</a>
+          <a href="/admin/destaques">Destaques do login</a>
         </nav>
         <div className="sidebar-footer">
           <form action="/api/admin/logout" method="post">

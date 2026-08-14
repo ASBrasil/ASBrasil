@@ -1,35 +1,15 @@
-"use client";
+import { db } from "@/lib/db";
+import { EntrarForm } from "@/components/EntrarForm";
+import { LoginEventsBanner } from "@/components/LoginEventsBanner";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+export const dynamic = "force-dynamic";
 
-export default function EntrarPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setMessage(null);
-    const res = await fetch("/api/public/identify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) {
-      setMessage(data.error ?? "Algo deu errado. Tente novamente.");
-      return;
-    }
-    if (!data.found) {
-      setMessage(data.message);
-      return;
-    }
-    router.push("/meus-eventos");
-  }
+export default async function EntrarPage() {
+  const featured = await db.event.findMany({
+    where: { featuredOnLogin: true, active: true, archived: false },
+    orderBy: [{ order: "asc" }, { createdAt: "desc" }],
+    select: { id: true, name: true, campaign: true, slug: true },
+  });
 
   return (
     <div className="split">
@@ -42,32 +22,15 @@ export default function EntrarPage() {
         <div className="pitch">
           <h1>Acompanhe seus sorteios em um só lugar</h1>
           <p>
-            Digite o e-mail que você usou na inscrição e veja seu número, os prêmios em disputa e
-            os resultados de cada sorteio.
+            Digite o e-mail que você usou nas suas compras com a AS Brasil e veja seu número, os
+            prêmios em disputa e os resultados de cada sorteio.
           </p>
+          <LoginEventsBanner events={featured} />
         </div>
       </section>
 
       <section className="panel-light">
-        <form onSubmit={handleSubmit} className="form">
-          <div className="icon">✉️</div>
-          <h2>Digite o seu e-mail e acompanhe</h2>
-          <p className="hint">Sem senha — é só o e-mail usado na inscrição.</p>
-
-          <input
-            type="email"
-            required
-            placeholder="seu@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-
-          {message && <p className="message">{message}</p>}
-
-          <button type="submit" disabled={loading}>
-            {loading ? "Verificando…" : "Continuar →"}
-          </button>
-        </form>
+        <EntrarForm />
       </section>
 
       <style>{`
@@ -107,49 +70,6 @@ export default function EntrarPage() {
           justify-content: center;
           background: #f7f8fb;
         }
-        .form {
-          width: 22rem;
-          max-width: 100%;
-          display: flex;
-          flex-direction: column;
-        }
-        .icon {
-          width: 2.5rem;
-          height: 2.5rem;
-          border-radius: 0.75rem;
-          background: rgba(79, 95, 255, 0.12);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-bottom: 1rem;
-          font-size: 1.1rem;
-        }
-        h2 { margin: 0 0 0.25rem; font-size: 1.2rem; }
-        .hint { color: #6b7280; font-size: 0.85rem; margin-bottom: 1.5rem; }
-        input {
-          width: 100%;
-          box-sizing: border-box;
-          padding: 0.7rem 0.9rem;
-          border-radius: 0.6rem;
-          border: 1px solid #e6e8f0;
-          margin-bottom: 1rem;
-          font-size: 16px; /* abaixo disso, Safari no iPhone dá zoom automático ao focar o campo */
-        }
-        .message {
-          font-size: 0.85rem;
-          color: #6b7280;
-          margin: -0.4rem 0 1rem;
-        }
-        button {
-          padding: 0.75rem;
-          border-radius: 999px;
-          border: none;
-          background: #4f5fff;
-          color: white;
-          font-weight: 600;
-          cursor: pointer;
-        }
-        button:disabled { opacity: 0.6; cursor: default; }
       `}</style>
     </div>
   );

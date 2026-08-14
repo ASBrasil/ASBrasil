@@ -71,6 +71,11 @@ model Event {
   // moving an event only ever compares against others in the same tab.
   order                Int      @default(0)
 
+  // Shown in the rotating banner on /entrar (the participant login page).
+  // Admin-curated on purpose, not automatic from `active` - not every
+  // running event necessarily wants to be advertised there.
+  featuredOnLogin      Boolean  @default(false)
+
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
