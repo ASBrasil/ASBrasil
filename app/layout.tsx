@@ -5,6 +5,11 @@ export const metadata = {
   description: "Sorteios para eventos e campanhas promocionais",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
