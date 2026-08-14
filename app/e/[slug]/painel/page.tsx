@@ -91,8 +91,8 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
           </>
         )}
         <div className="hero-content">
-          {event.campaign && <span className="eyebrow">{event.campaign}</span>}
           <h1>{event.name}</h1>
+          {event.campaign && <span className="eyebrow">{event.campaign}</span>}
         </div>
       </section>
 
@@ -147,7 +147,7 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
         .hero-scrim {
           position: absolute;
           inset: 0;
-          background: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, var(--background, #0a1330) 95%);
+          background: linear-gradient(180deg, rgba(0, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.55) 55%, var(--background, #0a1330) 92%);
           z-index: 1;
         }
         .hero-content {
@@ -159,15 +159,17 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
           padding: 3rem 1.5rem 2rem;
         }
         .eyebrow {
+          display: block;
           text-transform: uppercase;
           letter-spacing: 0.15em;
           font-size: 0.7rem;
           color: var(--primary);
+          margin-top: 0.4rem;
         }
         .hero h1 {
           font-family: "Sora", system-ui, sans-serif;
           font-size: clamp(1.8rem, 4vw, 2.6rem);
-          margin: 0.5rem 0 0;
+          margin: 0;
         }
         .numbers-section {
           padding: 1.5rem 1.5rem 0.5rem;
@@ -194,7 +196,7 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
           opacity: 0.65;
         }
         .path-section {
-          max-width: 48rem;
+          max-width: 60rem;
           margin: 0 auto;
           padding: 1rem 1.5rem 4rem;
         }
@@ -202,6 +204,12 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
           font-size: 1rem;
           opacity: 0.75;
           font-weight: 500;
+        }
+        @media (min-width: 40rem) {
+          h2 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+          }
         }
         .empty {
           opacity: 0.6;

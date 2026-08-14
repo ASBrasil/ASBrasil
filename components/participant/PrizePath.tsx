@@ -52,6 +52,7 @@ export function PrizePath({ slug, steps }: { slug: string; steps: PathStep[] }) 
           display: flex;
           align-items: center;
           flex-shrink: 0;
+          position: relative;
         }
         .step-wrap:last-child .label-col {
           margin-right: 0;
@@ -113,11 +114,13 @@ export function PrizePath({ slug, steps }: { slug: string; steps: PathStep[] }) 
         }
         .label {
           position: absolute;
-          margin-top: 4.4rem;
+          top: 100%;
+          left: 50%;
+          margin-top: 0.6rem;
           font-size: 0.72rem;
           text-align: center;
           width: 5rem;
-          margin-left: -0.65rem;
+          transform: translateX(-50%);
           opacity: 0.75;
         }
         .connector {
@@ -128,6 +131,36 @@ export function PrizePath({ slug, steps }: { slug: string; steps: PathStep[] }) 
         }
         .connector.done {
           background: var(--primary, #4f5fff);
+        }
+
+        /* Telas maiores (desktop/tablet): itens claramente pequenos demais
+           no formato mobile-first original, aumentados aqui sem mexer no
+           que já funciona bem no celular. */
+        @media (min-width: 40rem) {
+          .path {
+            padding: 2.5rem 1rem 3.5rem;
+            gap: 0.5rem;
+          }
+          .node {
+            width: 6rem;
+            height: 6rem;
+            font-size: 2.2rem;
+          }
+          .badge {
+            width: 1.9rem;
+            height: 1.9rem;
+            font-size: 0.95rem;
+            bottom: -0.25rem;
+            right: -0.25rem;
+          }
+          .label {
+            font-size: 0.85rem;
+            width: 7rem;
+            margin-top: 0.75rem;
+          }
+          .connector {
+            width: 3.5rem;
+          }
         }
       `}</style>
     </div>
