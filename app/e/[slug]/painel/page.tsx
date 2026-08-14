@@ -14,10 +14,17 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
   });
   if (!event || !event.active) notFound();
 
-  const participant = await db.participant.findUnique({
-    where: { eventId_email: { eventId: event.id, email } },
+  // One e-mail can now hold several tickets (Participant rows) for the same
+  // event, each with its own raffleNumber - so this is every row that
+  // matches, not a single lookup.
+  const myParticipants = await db.participant.findMany({
+    where: { eventId: event.id, email },
+    orderBy: { raffleNumber: "asc" },
   });
-  if (!participant) redirect("/meus-eventos");
+  if (myParticipants.length === 0) redirect("/meus-eventos");
+
+  const myParticipantIds = new Set(myParticipants.map((p) => p.id));
+  const myNumbers = myParticipants.map((p) => p.raffleNumber);
 
   const drawResults = await db.drawResult.findMany({
     where: { prizeId: { in: event.prizes.map((p) => p.id) }, voided: false },
@@ -32,7 +39,7 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
         name: prize.name,
         order: prize.order,
         state: "completed",
-        won: result.participantId === participant.id,
+        won: myParticipantIds.has(result.participantId),
       };
     }
     if (!currentAssigned) {
@@ -63,8 +70,20 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
         {event.campaign && <span className="eyebrow">{event.campaign}</span>}
         <h1>{event.name}</h1>
         <div className="number-pill">
-          Seu número é: <strong>{participant.raffleNumber}</strong>
+          {myNumbers.length === 1 ? (
+            <>
+              Seu número é: <strong>{myNumbers[0]}</strong>
+            </>
+          ) : (
+            <>
+              Seus números ({myNumbers.length}):{" "}
+              <strong>{myNumbers.join(" · ")}</strong>
+            </>
+          )}
         </div>
+        {myNumbers.length > 1 && (
+          <p className="odds-note">Quanto mais números, mais chances em cada sorteio.</p>
+        )}
       </section>
 
       <section className="path-section">
@@ -94,16 +113,23 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
         }
         .number-pill {
           display: inline-block;
+          max-width: 32rem;
           background: rgba(255, 255, 255, 0.08);
-          border-radius: 999px;
+          border-radius: 1.5rem;
           padding: 0.6rem 1.4rem;
           font-size: 0.9rem;
+          line-height: 1.6;
         }
         .number-pill strong {
           font-family: monospace;
           color: var(--primary);
           font-size: 1.1rem;
           margin-left: 0.3rem;
+        }
+        .odds-note {
+          margin-top: 0.6rem;
+          font-size: 0.8rem;
+          opacity: 0.65;
         }
         .path-section {
           max-width: 48rem;

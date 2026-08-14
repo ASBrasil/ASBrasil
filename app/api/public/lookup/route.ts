@@ -36,8 +36,12 @@ export async function POST(req: NextRequest) {
   const event = await db.event.findUnique({ where: { slug } });
   if (!event) return NextResponse.json({ error: "Campanha não encontrada" }, { status: 404 });
 
-  const participant = await db.participant.findUnique({
-    where: { eventId_email: { eventId: event.id, email: String(email).trim().toLowerCase() } },
+  // findFirst, not findUnique: e-mail is no longer unique per event (one
+  // buyer can hold several tickets), so this returns whichever entry comes
+  // first. This endpoint is legacy/unused (see README) - kept working
+  // rather than left to crash if anything ever calls it again.
+  const participant = await db.participant.findFirst({
+    where: { eventId: event.id, email: String(email).trim().toLowerCase() },
     select: { name: true, raffleNumber: true },
   });
 

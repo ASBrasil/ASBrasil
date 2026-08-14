@@ -14,29 +14,38 @@ export async function* parseCsvRows(buffer: Buffer): AsyncGenerator<RawRow> {
 }
 
 /**
- * Streams rows from an XLSX file using ExcelJS's streaming reader, so a
- * 10k+ row workbook is processed row-by-row instead of loaded whole into
- * memory. Returns header names alongside the row generator so the caller
- * can build the column-mapping UI before committing to an import.
+ * Reads the whole workbook via ExcelJS's standard loader rather than its
+ * streaming WorkbookReader. The streaming reader assumes workbook.xml (and
+ * its rels) appear before the worksheet parts inside the .xlsx zip, which
+ * the OOXML spec does not actually guarantee - plenty of real export tools
+ * (ticket platforms, Google Sheets exports, etc.) order the zip differently
+ * and crash the streaming reader outright ("Cannot read properties of
+ * undefined (reading 'sheets')"). Loading fully trades away true streaming,
+ * but for the realistic size range here (tens of thousands of rows) the
+ * memory cost is trivial next to a serverless function's default limit,
+ * and "actually parses the file" beats "streams but only for well-behaved
+ * files".
  */
 export async function* parseXlsxRows(buffer: Buffer): AsyncGenerator<RawRow> {
-  const workbookReader = new ExcelJS.stream.xlsx.WorkbookReader(bufferToStream(buffer), {});
-  let headers: string[] = [];
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  const worksheet = workbook.worksheets[0];
+  if (!worksheet) return;
 
-  for await (const worksheet of workbookReader) {
-    let isFirstRow = true;
-    for await (const row of worksheet) {
-      const values = (row.values as (string | number | undefined)[]).slice(1); // 1-indexed
-      if (isFirstRow) {
-        headers = values.map((v) => String(v ?? "").trim());
-        isFirstRow = false;
-        continue;
-      }
-      const record: RawRow = {};
-      headers.forEach((h, i) => (record[h] = values[i]));
-      yield record;
+  let headers: string[] = [];
+  let isFirstRow = true;
+
+  for (let i = 1; i <= worksheet.rowCount; i++) {
+    const row = worksheet.getRow(i);
+    const values = (row.values as (string | number | undefined)[]).slice(1); // 1-indexed
+    if (isFirstRow) {
+      headers = values.map((v) => String(v ?? "").trim());
+      isFirstRow = false;
+      continue;
     }
-    break; // only the first sheet
+    const record: RawRow = {};
+    headers.forEach((h, idx) => (record[h] = values[idx]));
+    yield record;
   }
 }
 
@@ -52,8 +61,4 @@ export async function peekHeaders(buffer: Buffer, kind: "csv" | "xlsx"): Promise
     return Object.keys(row);
   }
   return [];
-}
-
-function bufferToStream(buffer: Buffer) {
-  return Readable.from(buffer);
 }

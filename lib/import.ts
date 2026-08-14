@@ -4,10 +4,17 @@ import { ParticipantSource } from "@prisma/client";
 
 export interface ColumnMapping {
   name: string;         // required - which spreadsheet column holds the name
-  email: string;        // required - identity / dedup key
+  email: string;        // required - contact info, NOT a uniqueness key (see below)
   orderNumber?: string;
   phone?: string;
   cpf?: string;
+  // Per-ticket external ID (e.g. a ticketing platform's "código do
+  // ingresso"), when the source spreadsheet has one. When mapped, it's
+  // used to dedupe both within the file and against prior imports, so
+  // re-uploading the same spreadsheet is safe. When not mapped, every
+  // valid row becomes its own participant with no cross-row dedup beyond
+  // exact in-file repeats of the same identity fields.
+  ticketCode?: string;
 }
 
 export interface RawRow {
@@ -29,18 +36,24 @@ function isValidEmail(v: string) {
 /**
  * Consumes rows one at a time (an async generator, so callers can feed it
  * from a streaming XLSX/CSV reader without ever holding the whole file in
- * memory) and produces a validated, deduplicated participant list, then
- * inserts it in chunks with freshly generated unique raffle numbers.
+ * memory) and produces a validated participant list, then inserts it in
+ * chunks with freshly generated unique raffle numbers.
  *
  * Design choices for the "10k+ rows" requirement:
- *  - one pass builds an in-memory Set of normalized emails seen so far,
- *    which is enough to catch in-file duplicates without touching the DB;
- *  - a single query loads existing emails for the event to catch
- *    cross-import duplicates, instead of one query per row;
+ *  - a single query loads existing ticket codes for the event (when the
+ *    mapping provides one) to catch cross-import duplicates, instead of
+ *    one query per row;
  *  - raffle numbers are generated as a single pre-shuffled pool and handed
  *    out in order, so there is no per-row collision retry loop;
  *  - inserts happen in bounded batches (createMany) inside short
  *    transactions, so a 10k-row import is ~10 round-trips, not 10k.
+ *
+ * Deliberately NOT deduped on e-mail: one buyer's e-mail can legitimately
+ * cover several distinct people/tickets in the same event (a group
+ * purchase), and each one gets their own raffleNumber - meaning their own
+ * independent shot at every draw. The only reliable per-row identity a
+ * spreadsheet export usually offers is a ticket code, so that's what
+ * dedup uses when the admin maps one.
  */
 export async function importParticipants(params: {
   eventId: string;
@@ -55,18 +68,27 @@ export async function importParticipants(params: {
   });
 
   try {
-    const existingEmails = new Set(
-      (
-        await db.participant.findMany({
-          where: { eventId },
-          select: { email: true },
-        })
-      ).map((p) => p.email.toLowerCase())
-    );
+    const existingTicketCodes = mapping.ticketCode
+      ? new Set(
+          (
+            await db.participant.findMany({
+              where: { eventId, ticketCode: { not: null } },
+              select: { ticketCode: true },
+            })
+          ).map((p) => p.ticketCode as string)
+        )
+      : null;
 
-    const seenInFile = new Set<string>();
+    const seenTicketCodes = new Set<string>();
     const errors: ImportError[] = [];
-    const valid: { name: string; email: string; phone?: string; cpf?: string; orderNumber?: string }[] = [];
+    const valid: {
+      name: string;
+      email: string;
+      phone?: string;
+      cpf?: string;
+      orderNumber?: string;
+      ticketCode?: string;
+    }[] = [];
 
     let rowIndex = 0;
     for await (const row of rows) {
@@ -82,12 +104,17 @@ export async function importParticipants(params: {
         errors.push({ row: rowIndex, reason: `E-mail inválido: ${email}` });
         continue;
       }
-      if (existingEmails.has(email) || seenInFile.has(email)) {
-        errors.push({ row: rowIndex, reason: `E-mail duplicado: ${email}` });
+
+      const ticketCode = mapping.ticketCode
+        ? String(row[mapping.ticketCode] ?? "").trim() || undefined
+        : undefined;
+
+      if (ticketCode && (existingTicketCodes?.has(ticketCode) || seenTicketCodes.has(ticketCode))) {
+        errors.push({ row: rowIndex, reason: `Ingresso já importado antes: ${ticketCode}` });
         continue;
       }
+      if (ticketCode) seenTicketCodes.add(ticketCode);
 
-      seenInFile.add(email);
       valid.push({
         name,
         email,
@@ -96,6 +123,7 @@ export async function importParticipants(params: {
         orderNumber: mapping.orderNumber
           ? String(row[mapping.orderNumber] ?? "").trim() || undefined
           : undefined,
+        ticketCode,
       });
     }
 

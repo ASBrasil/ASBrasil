@@ -88,6 +88,17 @@ model Participant {
   cpf           String?
   orderNumber   String?
 
+  // Per-ticket external identifier from the source spreadsheet (e.g. a
+  // ticketing platform's "ticket code"), when the import mapped one. Lets a
+  // re-import of the same file skip rows it already created instead of
+  // relying on email uniqueness - which we deliberately do NOT enforce here,
+  // since one buyer's e-mail legitimately covers several distinct people /
+  // tickets (each with their own raffle number and their own shot at
+  // winning). Nullable + unique: Postgres treats every NULL as distinct, so
+  // participants without a ticket code (e.g. public signups) never collide
+  // with each other on this column.
+  ticketCode    String?
+
   // Unique, permanent number used across every draw in the event.
   raffleNumber  Int
 
@@ -101,9 +112,12 @@ model Participant {
 
   drawResults   DrawResult[]
 
-  @@unique([eventId, email])
+  // Intentionally NOT @@unique([eventId, email]) - a single buyer's e-mail
+  // can legitimately own several Participant rows in the same event (one
+  // per ticket), each with its own raffleNumber and its own draw odds.
+  @@unique([eventId, ticketCode])
   @@unique([eventId, raffleNumber])
-  @@index([eventId])
+  @@index([eventId, email])
 }
 
 model Prize {

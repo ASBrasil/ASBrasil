@@ -3,7 +3,14 @@
 import { useState } from "react";
 import { Button, Field, Card } from "@/components/ui/primitives";
 
-type Mapping = { name: string; email: string; orderNumber?: string; phone?: string; cpf?: string };
+type Mapping = {
+  name: string;
+  email: string;
+  orderNumber?: string;
+  phone?: string;
+  cpf?: string;
+  ticketCode?: string;
+};
 
 export function ParticipantsStep({
   eventId,
@@ -264,6 +271,20 @@ export function ParticipantsStep({
               <select
                 value={mapping.phone ?? ""}
                 onChange={(e) => setMapping({ ...mapping, phone: e.target.value || undefined })}
+              >
+                <option value="">Não usar</option>
+                {headers.map((h) => (
+                  <option key={h} value={h}>{h}</option>
+                ))}
+              </select>
+            </Field>
+            <Field
+              label="Código do ingresso"
+              hint="Opcional, mas recomendado se a planilha tiver um: permite reimportar o mesmo arquivo sem duplicar ninguém. Sem isso, cada linha vira um participante mesmo que o e-mail se repita."
+            >
+              <select
+                value={mapping.ticketCode ?? ""}
+                onChange={(e) => setMapping({ ...mapping, ticketCode: e.target.value || undefined })}
               >
                 <option value="">Não usar</option>
                 {headers.map((h) => (

@@ -7,11 +7,25 @@ export default async function MeusEventosPage() {
   const email = await getParticipantEmail();
   if (!email) redirect("/entrar");
 
-  const participations = await db.participant.findMany({
+  // A single e-mail can now own several Participant rows per event (one per
+  // ticket), so this is grouped by event below instead of assuming one row
+  // per event like it used to.
+  const rows = await db.participant.findMany({
     where: { email, event: { active: true } },
     include: { event: true },
     orderBy: { createdAt: "desc" },
   });
+
+  const byEvent = new Map<string, { event: (typeof rows)[number]["event"]; numbers: number[] }>();
+  for (const row of rows) {
+    const entry = byEvent.get(row.event.id);
+    if (entry) {
+      entry.numbers.push(row.raffleNumber);
+    } else {
+      byEvent.set(row.event.id, { event: row.event, numbers: [row.raffleNumber] });
+    }
+  }
+  const participations = [...byEvent.values()];
 
   return (
     <main className="page">
@@ -26,13 +40,13 @@ export default async function MeusEventosPage() {
 
       <section className="content">
         <h1>Seus eventos</h1>
-        <p className="subtitle">Escolha uma campanha para ver seu número e os sorteios.</p>
+        <p className="subtitle">Escolha uma campanha para ver seus números e os sorteios.</p>
 
         {participations.length === 0 ? (
           <p className="empty">Nenhuma campanha ativa encontrada para esse e-mail.</p>
         ) : (
           <div className="grid">
-            {participations.map(({ event, raffleNumber }) => {
+            {participations.map(({ event, numbers }) => {
               const theme = event.theme as any;
               const primary = theme?.colors?.primary ?? "#4F5FFF";
               return (
@@ -42,7 +56,11 @@ export default async function MeusEventosPage() {
                   <div className="info">
                     {event.campaign && <span className="campaign">{event.campaign}</span>}
                     <h3>{event.name}</h3>
-                    <span className="number">Seu número: {raffleNumber}</span>
+                    <span className="number">
+                      {numbers.length === 1
+                        ? `Seu número: ${numbers[0]}`
+                        : `Seus números (${numbers.length}): ${numbers.join(", ")}`}
+                    </span>
                   </div>
                 </Link>
               );

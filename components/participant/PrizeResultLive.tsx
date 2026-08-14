@@ -13,13 +13,13 @@ export function PrizeResultLive({
   prizeId,
   initialResult,
   scheduledAt,
-  raffleNumber,
+  raffleNumbers,
   won: initialWon,
 }: {
   prizeId: string;
   initialResult: Result | null;
   scheduledAt: string | null;
-  raffleNumber: number;
+  raffleNumbers: number[];
   won: boolean;
 }) {
   // "waiting"  -> ainda não saiu resultado nenhum, mostra contagem/número
@@ -40,7 +40,7 @@ export function PrizeResultLive({
         const data = await res.json();
         if (data.result) {
           setResult(data.result);
-          setWon(data.result.winningNumber === raffleNumber);
+          setWon(raffleNumbers.includes(data.result.winningNumber));
           setPhase("drawing"); // começa a girar em vez de revelar na hora
         }
       } catch {
@@ -49,7 +49,7 @@ export function PrizeResultLive({
     }, 4000);
 
     return () => clearInterval(interval);
-  }, [phase, prizeId, raffleNumber]);
+  }, [phase, prizeId, raffleNumbers]);
 
   if (phase === "drawing" && result) {
     return (
@@ -137,7 +137,15 @@ export function PrizeResultLive({
         <p className="detail">Data do sorteio ainda não definida.</p>
       )}
       <div className="number-pill">
-        Seu número é: <strong>{raffleNumber}</strong>
+        {raffleNumbers.length === 1 ? (
+          <>
+            Seu número é: <strong>{raffleNumbers[0]}</strong>
+          </>
+        ) : (
+          <>
+            Seus números: <strong>{raffleNumbers.join(" · ")}</strong>
+          </>
+        )}
       </div>
       <style jsx>{`
         .tag {
@@ -154,10 +162,12 @@ export function PrizeResultLive({
         }
         .number-pill {
           display: inline-block;
+          max-width: 28rem;
           background: rgba(255, 255, 255, 0.08);
-          border-radius: 999px;
+          border-radius: 1.5rem;
           padding: 0.6rem 1.4rem;
           font-size: 0.9rem;
+          line-height: 1.6;
           margin-top: 0.5rem;
         }
         .number-pill strong {

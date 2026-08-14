@@ -16,10 +16,14 @@ export default async function ParticipantPrizePage({
   const event = await db.event.findUnique({ where: { slug: params.slug } });
   if (!event || !event.active) notFound();
 
-  const participant = await db.participant.findUnique({
-    where: { eventId_email: { eventId: event.id, email } },
+  const myParticipants = await db.participant.findMany({
+    where: { eventId: event.id, email },
+    orderBy: { raffleNumber: "asc" },
   });
-  if (!participant) redirect("/meus-eventos");
+  if (myParticipants.length === 0) redirect("/meus-eventos");
+
+  const myParticipantIds = new Set(myParticipants.map((p) => p.id));
+  const myNumbers = myParticipants.map((p) => p.raffleNumber);
 
   const prize = await db.prize.findUnique({ where: { id: params.prizeId } });
   if (!prize || prize.eventId !== event.id) notFound();
@@ -31,7 +35,7 @@ export default async function ParticipantPrizePage({
 
   const theme = event.theme as any;
   const colors = theme?.colors ?? {};
-  const won = result?.participantId === participant.id;
+  const won = result ? myParticipantIds.has(result.participantId) : false;
 
   return (
     <main
@@ -65,7 +69,7 @@ export default async function ParticipantPrizePage({
               : null
           }
           scheduledAt={prize.scheduledAt ? prize.scheduledAt.toISOString() : null}
-          raffleNumber={participant.raffleNumber}
+          raffleNumbers={myNumbers}
           won={won}
         />
       </section>
