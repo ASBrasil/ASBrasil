@@ -1,0 +1,445 @@
+From b133e020a3ef21def871f5d4c75cd3612725428b Mon Sep 17 00:00:00 2001
+From: Paulo Emanuel <pauloemanuel96@gmail.com>
+Date: Fri, 14 Aug 2026 16:35:34 +0000
+Subject: [PATCH 2/2] Corrige timeout e melhora fluxo de importacao de
+ participantes
+
+- API de import ganha maxDuration=60s (Vercel corta em 10s/5s por
+  padrao, provavel causa dos erros com planilhas de 3000+ linhas)
+- lib/import.ts marca o ImportBatch como FAILED se algo quebrar no
+  meio do processo, em vez de ficar PROCESSING para sempre; retry
+  com o mesmo arquivo e seguro (skipDuplicates cobre os chunks ja
+  inseridos)
+- ParticipantsStep ganha botao 'Trocar arquivo' antes de confirmar
+  e 'Importar outra planilha' depois de concluir, permitindo varias
+  planilhas na mesma sessao
+- Erros no commit da importacao agora aparecem na tela em vez de
+  falhar silenciosamente
+- Pagina de participantes ganha botao 'Importar participantes',
+  reaproveitando o ParticipantsStep num painel, com refresh
+  automatico da tabela ao concluir
+---
+ app/admin/events/[id]/participants/page.tsx   |   4 +-
+ app/api/admin/participants/import/route.ts    |  22 ++-
+ .../participant/ParticipantsPageClient.tsx    |  55 ++++++
+ components/wizard/ParticipantsStep.tsx        |  47 +++++-
+ lib/import.ts                                 | 158 ++++++++++--------
+ 5 files changed, 208 insertions(+), 78 deletions(-)
+ create mode 100644 components/participant/ParticipantsPageClient.tsx
+
+diff --git a/app/admin/events/[id]/participants/page.tsx b/app/admin/events/[id]/participants/page.tsx
+index 46c9fd2..5abb23b 100644
+--- a/app/admin/events/[id]/participants/page.tsx
++++ b/app/admin/events/[id]/participants/page.tsx
+@@ -1,7 +1,7 @@
+ import { db } from "@/lib/db";
+ import { notFound } from "next/navigation";
+ import Link from "next/link";
+-import { ParticipantsTable } from "@/components/ParticipantsTable";
++import { ParticipantsPageClient } from "@/components/participant/ParticipantsPageClient";
+ 
+ export const dynamic = "force-dynamic";
+ 
+@@ -20,7 +20,7 @@ export default async function EventParticipantsPage({ params }: { params: { id:
+         </div>
+       </div>
+ 
+-      <ParticipantsTable eventId={event.id} />
++      <ParticipantsPageClient eventId={event.id} />
+ 
+       <style>{`
+         .header { margin-bottom: 1.5rem; }
+diff --git a/app/api/admin/participants/import/route.ts b/app/api/admin/participants/import/route.ts
+index a319bdb..012b214 100644
+--- a/app/api/admin/participants/import/route.ts
++++ b/app/api/admin/participants/import/route.ts
+@@ -3,6 +3,13 @@ import { requireAdmin } from "@/lib/auth";
+ import { importParticipants } from "@/lib/import";
+ import { parseCsvRows, parseXlsxRows, peekHeaders } from "@/lib/parsers";
+ 
++// Vercel kills serverless functions at 10s by default (5s on Hobby) - way
++// too short for a few-thousand-row import once you add Neon network
++// latency on top of parsing + chunked inserts. This raises the ceiling;
++// see lib/import.ts for how the actual work stays bounded regardless.
++export const maxDuration = 60;
++export const runtime = "nodejs";
++
+ /**
+  * Two modes, both multipart/form-data with a `file` and `eventId`:
+  *  - mode=peek   -> returns just the column headers, so the admin UI can
+@@ -41,6 +48,17 @@ export async function POST(req: NextRequest) {
+   const mapping = JSON.parse(mappingRaw);
+   const rows = kind === "csv" ? parseCsvRows(buffer) : parseXlsxRows(buffer);
+ 
+-  const result = await importParticipants({ eventId, filename: file.name, mapping, rows });
+-  return NextResponse.json({ result });
++  try {
++    const result = await importParticipants({ eventId, filename: file.name, mapping, rows });
++    return NextResponse.json({ result });
++  } catch (err) {
++    // A crash mid-import (bad row shape, DB hiccup, etc.) shouldn't leave
++    // the admin staring at a generic 500 - report what's known and let the
++    // ImportBatch record (marked FAILED in lib/import.ts) carry the rest.
++    console.error("Import failed:", err);
++    return NextResponse.json(
++      { error: "A importação falhou no meio do processo. Tente novamente com o mesmo arquivo." },
++      { status: 500 }
++    );
++  }
+ }
+diff --git a/components/participant/ParticipantsPageClient.tsx b/components/participant/ParticipantsPageClient.tsx
+new file mode 100644
+index 0000000..229393f
+--- /dev/null
++++ b/components/participant/ParticipantsPageClient.tsx
+@@ -0,0 +1,55 @@
++"use client";
++
++import { useState } from "react";
++import { ParticipantsTable } from "@/components/ParticipantsTable";
++import { ParticipantsStep } from "@/components/wizard/ParticipantsStep";
++
++export function ParticipantsPageClient({ eventId }: { eventId: string }) {
++  const [importing, setImporting] = useState(false);
++  const [refreshKey, setRefreshKey] = useState(0);
++
++  return (
++    <div>
++      <div className="toolbar">
++        <button type="button" className="import-toggle" onClick={() => setImporting((v) => !v)}>
++          {importing ? "✕ Fechar importação" : "+ Importar participantes"}
++        </button>
++      </div>
++
++      {importing && (
++        <div className="panel">
++          <ParticipantsStep
++            eventId={eventId}
++            onDone={() => {
++              setImporting(false);
++              setRefreshKey((k) => k + 1); // remounts the table below, forcing a refetch
++            }}
++          />
++        </div>
++      )}
++
++      <ParticipantsTable key={refreshKey} eventId={eventId} />
++
++      <style jsx>{`
++        .toolbar {
++          display: flex;
++          justify-content: flex-end;
++          margin-bottom: 1rem;
++        }
++        .import-toggle {
++          background: var(--indigo-600);
++          color: white;
++          border: none;
++          border-radius: 999px;
++          padding: 0.6rem 1.2rem;
++          font-size: 0.85rem;
++          font-weight: 600;
++          cursor: pointer;
++        }
++        .panel {
++          margin-bottom: 1.5rem;
++        }
++      `}</style>
++    </div>
++  );
++}
+diff --git a/components/wizard/ParticipantsStep.tsx b/components/wizard/ParticipantsStep.tsx
+index 8a0e7ec..9b21532 100644
+--- a/components/wizard/ParticipantsStep.tsx
++++ b/components/wizard/ParticipantsStep.tsx
+@@ -1,7 +1,7 @@
+ "use client";
+ 
+ import { useState } from "react";
+-import { Button, Field, Input, Card } from "@/components/ui/primitives";
++import { Button, Field, Card } from "@/components/ui/primitives";
+ 
+ type Mapping = { name: string; email: string; orderNumber?: string; phone?: string; cpf?: string };
+ 
+@@ -24,6 +24,7 @@ export function ParticipantsStep({
+   const [headers, setHeaders] = useState<string[] | null>(null);
+   const [mapping, setMapping] = useState<Mapping>({ name: "", email: "" });
+   const [importing, setImporting] = useState(false);
++  const [importError, setImportError] = useState<string | null>(null);
+   const [result, setResult] = useState<{
+     validRows: number;
+     errorRows: number;
+@@ -71,9 +72,18 @@ export function ParticipantsStep({
+     setHeaders(data.headers ?? []);
+   }
+ 
++  function resetFile() {
++    setFile(null);
++    setHeaders(null);
++    setMapping({ name: "", email: "" });
++    setResult(null);
++    setImportError(null);
++  }
++
+   async function commitImport() {
+     if (!file) return;
+     setImporting(true);
++    setImportError(null);
+     const form = new FormData();
+     form.append("file", file);
+     form.append("eventId", eventId);
+@@ -82,6 +92,10 @@ export function ParticipantsStep({
+     const res = await fetch("/api/admin/participants/import", { method: "POST", body: form });
+     const data = await res.json();
+     setImporting(false);
++    if (!res.ok) {
++      setImportError(data.error ?? "Não foi possível importar. Tente novamente.");
++      return;
++    }
+     setResult(data.result);
+   }
+ 
+@@ -212,6 +226,12 @@ export function ParticipantsStep({
+ 
+       {headers && !result && (
+         <>
++          <div className="file-chip">
++            <span>📄 {file?.name}</span>
++            <button type="button" className="swap" onClick={resetFile}>
++              Trocar arquivo
++            </button>
++          </div>
+           <div className="mapping-grid">
+             <Field label="Nome" required>
+               <select value={mapping.name} onChange={(e) => setMapping({ ...mapping, name: e.target.value })}>
+@@ -258,6 +278,7 @@ export function ParticipantsStep({
+               {importing ? "Importando…" : "Importar e continuar →"}
+             </Button>
+           </div>
++          {importError && <p className="error">{importError}</p>}
+         </>
+       )}
+ 
+@@ -275,6 +296,9 @@ export function ParticipantsStep({
+             </ul>
+           )}
+           <div className="actions">
++            <Button variant="ghost" onClick={resetFile}>
++              + Importar outra planilha
++            </Button>
+             <Button onClick={onDone}>Continuar →</Button>
+           </div>
+         </div>
+@@ -283,6 +307,26 @@ export function ParticipantsStep({
+       <style jsx>{`
+         h2 { margin: 0 0 0.35rem; }
+         .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
++        .file-chip {
++          display: flex;
++          align-items: center;
++          justify-content: space-between;
++          gap: 0.75rem;
++          background: var(--bg);
++          border: 1px solid var(--border);
++          border-radius: 0.6rem;
++          padding: 0.6rem 0.9rem;
++          margin-bottom: 1.25rem;
++          font-size: 0.85rem;
++        }
++        .swap {
++          background: none;
++          border: none;
++          color: var(--indigo-600);
++          font-size: 0.8rem;
++          font-weight: 600;
++          cursor: pointer;
++        }
+         .mapping-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem 1rem; }
+         select {
+           padding: 0.6rem 0.7rem;
+@@ -290,6 +334,7 @@ export function ParticipantsStep({
+           border: 1px solid var(--border);
+         }
+         .actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
++        .error { color: #c0392b; font-size: 0.85rem; margin-top: 0.75rem; }
+         .result .summary { font-size: 0.95rem; }
+         .errors { font-size: 0.8rem; color: var(--text-muted); }
+       `}</style>
+diff --git a/lib/import.ts b/lib/import.ts
+index c53ffd4..9772059 100644
+--- a/lib/import.ts
++++ b/lib/import.ts
+@@ -54,85 +54,97 @@ export async function importParticipants(params: {
+     data: { eventId, filename, columnMapping: mapping as any, status: "PROCESSING" },
+   });
+ 
+-  const existingEmails = new Set(
+-    (
+-      await db.participant.findMany({
+-        where: { eventId },
+-        select: { email: true },
+-      })
+-    ).map((p) => p.email.toLowerCase())
+-  );
+-
+-  const seenInFile = new Set<string>();
+-  const errors: ImportError[] = [];
+-  const valid: { name: string; email: string; phone?: string; cpf?: string; orderNumber?: string }[] = [];
+-
+-  let rowIndex = 0;
+-  for await (const row of rows) {
+-    rowIndex++;
+-    const name = String(row[mapping.name] ?? "").trim();
+-    const email = String(row[mapping.email] ?? "").trim().toLowerCase();
+-
+-    if (!name || !email) {
+-      errors.push({ row: rowIndex, reason: "Nome ou e-mail ausente" });
+-      continue;
+-    }
+-    if (!isValidEmail(email)) {
+-      errors.push({ row: rowIndex, reason: `E-mail inválido: ${email}` });
+-      continue;
+-    }
+-    if (existingEmails.has(email) || seenInFile.has(email)) {
+-      errors.push({ row: rowIndex, reason: `E-mail duplicado: ${email}` });
+-      continue;
++  try {
++    const existingEmails = new Set(
++      (
++        await db.participant.findMany({
++          where: { eventId },
++          select: { email: true },
++        })
++      ).map((p) => p.email.toLowerCase())
++    );
++
++    const seenInFile = new Set<string>();
++    const errors: ImportError[] = [];
++    const valid: { name: string; email: string; phone?: string; cpf?: string; orderNumber?: string }[] = [];
++
++    let rowIndex = 0;
++    for await (const row of rows) {
++      rowIndex++;
++      const name = String(row[mapping.name] ?? "").trim();
++      const email = String(row[mapping.email] ?? "").trim().toLowerCase();
++
++      if (!name || !email) {
++        errors.push({ row: rowIndex, reason: "Nome ou e-mail ausente" });
++        continue;
++      }
++      if (!isValidEmail(email)) {
++        errors.push({ row: rowIndex, reason: `E-mail inválido: ${email}` });
++        continue;
++      }
++      if (existingEmails.has(email) || seenInFile.has(email)) {
++        errors.push({ row: rowIndex, reason: `E-mail duplicado: ${email}` });
++        continue;
++      }
++
++      seenInFile.add(email);
++      valid.push({
++        name,
++        email,
++        phone: mapping.phone ? String(row[mapping.phone] ?? "").trim() || undefined : undefined,
++        cpf: mapping.cpf ? String(row[mapping.cpf] ?? "").trim() || undefined : undefined,
++        orderNumber: mapping.orderNumber
++          ? String(row[mapping.orderNumber] ?? "").trim() || undefined
++          : undefined,
++      });
+     }
+ 
+-    seenInFile.add(email);
+-    valid.push({
+-      name,
+-      email,
+-      phone: mapping.phone ? String(row[mapping.phone] ?? "").trim() || undefined : undefined,
+-      cpf: mapping.cpf ? String(row[mapping.cpf] ?? "").trim() || undefined : undefined,
+-      orderNumber: mapping.orderNumber
+-        ? String(row[mapping.orderNumber] ?? "").trim() || undefined
+-        : undefined,
+-    });
+-  }
++    const numbers = valid.length > 0 ? generateNumberPool(valid.length) : [];
++
++    for (let i = 0; i < valid.length; i += CHUNK_SIZE) {
++      const chunk = valid.slice(i, i + CHUNK_SIZE);
++      const chunkNumbers = numbers.slice(i, i + CHUNK_SIZE);
++
++      await db.participant.createMany({
++        data: chunk.map((p, j) => ({
++          eventId,
++          importBatchId: batch.id,
++          source: ParticipantSource.IMPORT,
++          raffleNumber: chunkNumbers[j],
++          ...p,
++        })),
++        skipDuplicates: true, // final safety net against the unique constraints
++      });
++    }
+ 
+-  const numbers = valid.length > 0 ? generateNumberPool(valid.length) : [];
+-
+-  for (let i = 0; i < valid.length; i += CHUNK_SIZE) {
+-    const chunk = valid.slice(i, i + CHUNK_SIZE);
+-    const chunkNumbers = numbers.slice(i, i + CHUNK_SIZE);
+-
+-    await db.participant.createMany({
+-      data: chunk.map((p, j) => ({
+-        eventId,
+-        importBatchId: batch.id,
+-        source: ParticipantSource.IMPORT,
+-        raffleNumber: chunkNumbers[j],
+-        ...p,
+-      })),
+-      skipDuplicates: true, // final safety net against the unique constraints
++    await db.importBatch.update({
++      where: { id: batch.id },
++      data: {
++        totalRows: rowIndex,
++        validRows: valid.length,
++        errorRows: errors.length,
++        errors: errors.slice(0, MAX_SAMPLE_ERRORS) as any,
++        status: "COMPLETED",
++        finishedAt: new Date(),
++      },
+     });
+-  }
+ 
+-  await db.importBatch.update({
+-    where: { id: batch.id },
+-    data: {
++    return {
++      batchId: batch.id,
+       totalRows: rowIndex,
+       validRows: valid.length,
+       errorRows: errors.length,
+-      errors: errors.slice(0, MAX_SAMPLE_ERRORS) as any,
+-      status: "COMPLETED",
+-      finishedAt: new Date(),
+-    },
+-  });
+-
+-  return {
+-    batchId: batch.id,
+-    totalRows: rowIndex,
+-    validRows: valid.length,
+-    errorRows: errors.length,
+-    sampleErrors: errors.slice(0, 20),
+-  };
++      sampleErrors: errors.slice(0, 20),
++    };
++  } catch (err) {
++    // Without this, a crash partway through (timeout, bad row, DB blip)
++    // leaves the batch stuck at PROCESSING forever with no explanation -
++    // and since createMany chunks that already committed stay committed,
++    // a retry with the same file is safe (skipDuplicates catches them).
++    await db.importBatch.update({
++      where: { id: batch.id },
++      data: { status: "FAILED", finishedAt: new Date() },
++    });
++    throw err;
++  }
+ }
+-- 
+2.43.0
+

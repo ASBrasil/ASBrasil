@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Field, Input, Card } from "@/components/ui/primitives";
+import { Button, Field, Card } from "@/components/ui/primitives";
 
 type Mapping = { name: string; email: string; orderNumber?: string; phone?: string; cpf?: string };
 
@@ -24,6 +24,7 @@ export function ParticipantsStep({
   const [headers, setHeaders] = useState<string[] | null>(null);
   const [mapping, setMapping] = useState<Mapping>({ name: "", email: "" });
   const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const [result, setResult] = useState<{
     validRows: number;
     errorRows: number;
@@ -71,9 +72,18 @@ export function ParticipantsStep({
     setHeaders(data.headers ?? []);
   }
 
+  function resetFile() {
+    setFile(null);
+    setHeaders(null);
+    setMapping({ name: "", email: "" });
+    setResult(null);
+    setImportError(null);
+  }
+
   async function commitImport() {
     if (!file) return;
     setImporting(true);
+    setImportError(null);
     const form = new FormData();
     form.append("file", file);
     form.append("eventId", eventId);
@@ -82,6 +92,10 @@ export function ParticipantsStep({
     const res = await fetch("/api/admin/participants/import", { method: "POST", body: form });
     const data = await res.json();
     setImporting(false);
+    if (!res.ok) {
+      setImportError(data.error ?? "Não foi possível importar. Tente novamente.");
+      return;
+    }
     setResult(data.result);
   }
 
@@ -212,6 +226,12 @@ export function ParticipantsStep({
 
       {headers && !result && (
         <>
+          <div className="file-chip">
+            <span>📄 {file?.name}</span>
+            <button type="button" className="swap" onClick={resetFile}>
+              Trocar arquivo
+            </button>
+          </div>
           <div className="mapping-grid">
             <Field label="Nome" required>
               <select value={mapping.name} onChange={(e) => setMapping({ ...mapping, name: e.target.value })}>
@@ -258,6 +278,7 @@ export function ParticipantsStep({
               {importing ? "Importando…" : "Importar e continuar →"}
             </Button>
           </div>
+          {importError && <p className="error">{importError}</p>}
         </>
       )}
 
@@ -275,6 +296,9 @@ export function ParticipantsStep({
             </ul>
           )}
           <div className="actions">
+            <Button variant="ghost" onClick={resetFile}>
+              + Importar outra planilha
+            </Button>
             <Button onClick={onDone}>Continuar →</Button>
           </div>
         </div>
@@ -283,6 +307,26 @@ export function ParticipantsStep({
       <style jsx>{`
         h2 { margin: 0 0 0.35rem; }
         .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .file-chip {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          background: var(--bg);
+          border: 1px solid var(--border);
+          border-radius: 0.6rem;
+          padding: 0.6rem 0.9rem;
+          margin-bottom: 1.25rem;
+          font-size: 0.85rem;
+        }
+        .swap {
+          background: none;
+          border: none;
+          color: var(--indigo-600);
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+        }
         .mapping-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem 1rem; }
         select {
           padding: 0.6rem 0.7rem;
@@ -290,6 +334,7 @@ export function ParticipantsStep({
           border: 1px solid var(--border);
         }
         .actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+        .error { color: #c0392b; font-size: 0.85rem; margin-top: 0.75rem; }
         .result .summary { font-size: 0.95rem; }
         .errors { font-size: 0.8rem; color: var(--text-muted); }
       `}</style>

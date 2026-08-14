@@ -3,6 +3,13 @@ import { requireAdmin } from "@/lib/auth";
 import { importParticipants } from "@/lib/import";
 import { parseCsvRows, parseXlsxRows, peekHeaders } from "@/lib/parsers";
 
+// Vercel kills serverless functions at 10s by default (5s on Hobby) - way
+// too short for a few-thousand-row import once you add Neon network
+// latency on top of parsing + chunked inserts. This raises the ceiling;
+// see lib/import.ts for how the actual work stays bounded regardless.
+export const maxDuration = 60;
+export const runtime = "nodejs";
+
 /**
  * Two modes, both multipart/form-data with a `file` and `eventId`:
  *  - mode=peek   -> returns just the column headers, so the admin UI can
@@ -41,6 +48,17 @@ export async function POST(req: NextRequest) {
   const mapping = JSON.parse(mappingRaw);
   const rows = kind === "csv" ? parseCsvRows(buffer) : parseXlsxRows(buffer);
 
-  const result = await importParticipants({ eventId, filename: file.name, mapping, rows });
-  return NextResponse.json({ result });
+  try {
+    const result = await importParticipants({ eventId, filename: file.name, mapping, rows });
+    return NextResponse.json({ result });
+  } catch (err) {
+    // A crash mid-import (bad row shape, DB hiccup, etc.) shouldn't leave
+    // the admin staring at a generic 500 - report what's known and let the
+    // ImportBatch record (marked FAILED in lib/import.ts) carry the rest.
+    console.error("Import failed:", err);
+    return NextResponse.json(
+      { error: "A importação falhou no meio do processo. Tente novamente com o mesmo arquivo." },
+      { status: 500 }
+    );
+  }
 }

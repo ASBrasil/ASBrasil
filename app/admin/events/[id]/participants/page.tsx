@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ParticipantsTable } from "@/components/ParticipantsTable";
+import { ParticipantsPageClient } from "@/components/participant/ParticipantsPageClient";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +20,7 @@ export default async function EventParticipantsPage({ params }: { params: { id: 
         </div>
       </div>
 
-      <ParticipantsTable eventId={event.id} />
+      <ParticipantsPageClient eventId={event.id} />
 
       <style>{`
         .header { margin-bottom: 1.5rem; }

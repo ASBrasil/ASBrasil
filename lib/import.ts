@@ -54,85 +54,97 @@ export async function importParticipants(params: {
     data: { eventId, filename, columnMapping: mapping as any, status: "PROCESSING" },
   });
 
-  const existingEmails = new Set(
-    (
-      await db.participant.findMany({
-        where: { eventId },
-        select: { email: true },
-      })
-    ).map((p) => p.email.toLowerCase())
-  );
+  try {
+    const existingEmails = new Set(
+      (
+        await db.participant.findMany({
+          where: { eventId },
+          select: { email: true },
+        })
+      ).map((p) => p.email.toLowerCase())
+    );
 
-  const seenInFile = new Set<string>();
-  const errors: ImportError[] = [];
-  const valid: { name: string; email: string; phone?: string; cpf?: string; orderNumber?: string }[] = [];
+    const seenInFile = new Set<string>();
+    const errors: ImportError[] = [];
+    const valid: { name: string; email: string; phone?: string; cpf?: string; orderNumber?: string }[] = [];
 
-  let rowIndex = 0;
-  for await (const row of rows) {
-    rowIndex++;
-    const name = String(row[mapping.name] ?? "").trim();
-    const email = String(row[mapping.email] ?? "").trim().toLowerCase();
+    let rowIndex = 0;
+    for await (const row of rows) {
+      rowIndex++;
+      const name = String(row[mapping.name] ?? "").trim();
+      const email = String(row[mapping.email] ?? "").trim().toLowerCase();
 
-    if (!name || !email) {
-      errors.push({ row: rowIndex, reason: "Nome ou e-mail ausente" });
-      continue;
+      if (!name || !email) {
+        errors.push({ row: rowIndex, reason: "Nome ou e-mail ausente" });
+        continue;
+      }
+      if (!isValidEmail(email)) {
+        errors.push({ row: rowIndex, reason: `E-mail inválido: ${email}` });
+        continue;
+      }
+      if (existingEmails.has(email) || seenInFile.has(email)) {
+        errors.push({ row: rowIndex, reason: `E-mail duplicado: ${email}` });
+        continue;
+      }
+
+      seenInFile.add(email);
+      valid.push({
+        name,
+        email,
+        phone: mapping.phone ? String(row[mapping.phone] ?? "").trim() || undefined : undefined,
+        cpf: mapping.cpf ? String(row[mapping.cpf] ?? "").trim() || undefined : undefined,
+        orderNumber: mapping.orderNumber
+          ? String(row[mapping.orderNumber] ?? "").trim() || undefined
+          : undefined,
+      });
     }
-    if (!isValidEmail(email)) {
-      errors.push({ row: rowIndex, reason: `E-mail inválido: ${email}` });
-      continue;
-    }
-    if (existingEmails.has(email) || seenInFile.has(email)) {
-      errors.push({ row: rowIndex, reason: `E-mail duplicado: ${email}` });
-      continue;
+
+    const numbers = valid.length > 0 ? generateNumberPool(valid.length) : [];
+
+    for (let i = 0; i < valid.length; i += CHUNK_SIZE) {
+      const chunk = valid.slice(i, i + CHUNK_SIZE);
+      const chunkNumbers = numbers.slice(i, i + CHUNK_SIZE);
+
+      await db.participant.createMany({
+        data: chunk.map((p, j) => ({
+          eventId,
+          importBatchId: batch.id,
+          source: ParticipantSource.IMPORT,
+          raffleNumber: chunkNumbers[j],
+          ...p,
+        })),
+        skipDuplicates: true, // final safety net against the unique constraints
+      });
     }
 
-    seenInFile.add(email);
-    valid.push({
-      name,
-      email,
-      phone: mapping.phone ? String(row[mapping.phone] ?? "").trim() || undefined : undefined,
-      cpf: mapping.cpf ? String(row[mapping.cpf] ?? "").trim() || undefined : undefined,
-      orderNumber: mapping.orderNumber
-        ? String(row[mapping.orderNumber] ?? "").trim() || undefined
-        : undefined,
+    await db.importBatch.update({
+      where: { id: batch.id },
+      data: {
+        totalRows: rowIndex,
+        validRows: valid.length,
+        errorRows: errors.length,
+        errors: errors.slice(0, MAX_SAMPLE_ERRORS) as any,
+        status: "COMPLETED",
+        finishedAt: new Date(),
+      },
     });
-  }
 
-  const numbers = valid.length > 0 ? generateNumberPool(valid.length) : [];
-
-  for (let i = 0; i < valid.length; i += CHUNK_SIZE) {
-    const chunk = valid.slice(i, i + CHUNK_SIZE);
-    const chunkNumbers = numbers.slice(i, i + CHUNK_SIZE);
-
-    await db.participant.createMany({
-      data: chunk.map((p, j) => ({
-        eventId,
-        importBatchId: batch.id,
-        source: ParticipantSource.IMPORT,
-        raffleNumber: chunkNumbers[j],
-        ...p,
-      })),
-      skipDuplicates: true, // final safety net against the unique constraints
-    });
-  }
-
-  await db.importBatch.update({
-    where: { id: batch.id },
-    data: {
+    return {
+      batchId: batch.id,
       totalRows: rowIndex,
       validRows: valid.length,
       errorRows: errors.length,
-      errors: errors.slice(0, MAX_SAMPLE_ERRORS) as any,
-      status: "COMPLETED",
-      finishedAt: new Date(),
-    },
-  });
-
-  return {
-    batchId: batch.id,
-    totalRows: rowIndex,
-    validRows: valid.length,
-    errorRows: errors.length,
-    sampleErrors: errors.slice(0, 20),
-  };
+      sampleErrors: errors.slice(0, 20),
+    };
+  } catch (err) {
+    // Without this, a crash partway through (timeout, bad row, DB blip)
+    // leaves the batch stuck at PROCESSING forever with no explanation -
+    // and since createMany chunks that already committed stay committed,
+    // a retry with the same file is safe (skipDuplicates catches them).
+    await db.importBatch.update({
+      where: { id: batch.id },
+      data: { status: "FAILED", finishedAt: new Date() },
+    });
+    throw err;
+  }
 }
