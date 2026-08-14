@@ -51,6 +51,18 @@ export function EntrarForm() {
         {loading ? "Verificando…" : "Continuar →"}
       </button>
 
+      <div className="support">
+        <p>Não conseguiu acessar?</p>
+        <p>
+          Fale com nosso time via SAC em horário comercial:{" "}
+          <a href="tel:08008801117">0800 880 117</a> ou{" "}
+          <a href="https://wa.me/558008801117" target="_blank" rel="noopener noreferrer">
+            WhatsApp
+          </a>
+          .
+        </p>
+      </div>
+
       <style jsx>{`
         .form {
           width: 22rem;
@@ -104,6 +116,30 @@ export function EntrarForm() {
         button:disabled {
           opacity: 0.6;
           cursor: default;
+        }
+        .support {
+          margin-top: 1.75rem;
+          padding-top: 1.25rem;
+          border-top: 1px solid #e6e8f0;
+        }
+        .support p {
+          margin: 0;
+          font-size: 0.8rem;
+          color: #6b7280;
+          line-height: 1.5;
+        }
+        .support p:first-child {
+          font-weight: 600;
+          color: #374151;
+          margin-bottom: 0.2rem;
+        }
+        .support a {
+          color: #4f5fff;
+          font-weight: 600;
+          text-decoration: none;
+        }
+        .support a:hover {
+          text-decoration: underline;
         }
       `}</style>
     </form>
