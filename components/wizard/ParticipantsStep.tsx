@@ -5,8 +5,19 @@ import { Button, Field, Input, Card } from "@/components/ui/primitives";
 
 type Mapping = { name: string; email: string; orderNumber?: string; phone?: string; cpf?: string };
 
-export function ParticipantsStep({ eventId, onDone }: { eventId: string; onDone: () => void }) {
+export function ParticipantsStep({
+  eventId,
+  onDone,
+  existingCount = 0,
+}: {
+  eventId: string;
+  onDone: () => void;
+  existingCount?: number;
+}) {
   const [method, setMethod] = useState<"import" | "signup" | null>(null);
+  // Edit mode: if the event already has participants, don't force another
+  // import/signup choice on every visit - show a summary first.
+  const [showChoice, setShowChoice] = useState(existingCount === 0);
 
   // --- import sub-flow ---
   const [file, setFile] = useState<File | null>(null);
@@ -21,6 +32,32 @@ export function ParticipantsStep({ eventId, onDone }: { eventId: string; onDone:
 
   // --- signup sub-flow ---
   const [signupSaving, setSignupSaving] = useState(false);
+
+  // All hooks above run unconditionally on every render (Rules of Hooks) -
+  // the conditional branches below only affect what gets returned.
+
+  if (!showChoice && !method) {
+    return (
+      <Card icon="👥">
+        <h2>Participantes já cadastrados</h2>
+        <p className="subtitle">
+          Este evento já tem <strong>{existingCount}</strong> participante(s). Você pode manter
+          como está ou importar/habilitar mais.
+        </p>
+        <div className="actions">
+          <Button variant="ghost" onClick={() => setShowChoice(true)}>
+            + Importar ou habilitar inscrição
+          </Button>
+          <Button onClick={onDone}>Continuar →</Button>
+        </div>
+        <style jsx>{`
+          h2 { margin: 0 0 0.35rem; }
+          .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+          .actions { display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap; }
+        `}</style>
+      </Card>
+    );
+  }
 
   async function handleFile(f: File) {
     setFile(f);
@@ -81,6 +118,13 @@ export function ParticipantsStep({ eventId, onDone }: { eventId: string; onDone:
             <span>O próprio cliente se cadastra pela página do evento.</span>
           </button>
         </div>
+        {existingCount > 0 && (
+          <div className="actions">
+            <Button variant="ghost" onClick={() => setShowChoice(false)}>
+              ← Voltar
+            </Button>
+          </div>
+        )}
         <style jsx>{`
           h2 {
             margin: 0 0 0.35rem;
@@ -113,6 +157,11 @@ export function ParticipantsStep({ eventId, onDone }: { eventId: string; onDone:
             font-size: 0.85rem;
             color: var(--text-muted);
           }
+          .actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1.25rem;
+          }
         `}</style>
       </Card>
     );
@@ -127,7 +176,10 @@ export function ParticipantsStep({ eventId, onDone }: { eventId: string; onDone:
           campos depois no painel.
         </p>
         <div className="actions">
-          <Button variant="ghost" onClick={() => setMethod(null)}>
+          <Button
+            variant="ghost"
+            onClick={() => (existingCount > 0 ? setShowChoice(false) : setMethod(null))}
+          >
             ← Voltar
           </Button>
           <Button onClick={enableSignup} disabled={signupSaving}>

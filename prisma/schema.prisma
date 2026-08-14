@@ -50,6 +50,10 @@ model Event {
   startAt              DateTime?
   endAt                DateTime?
   active               Boolean  @default(true)
+  // Soft delete: hides the event from the default admin list without
+  // touching participants/prizes/results. Excluir (DELETE) is the hard,
+  // irreversible version.
+  archived             Boolean  @default(false)
 
   // Theme is a JSON blob edited through the visual theme editor.
   // { colors: {...}, fonts: {...}, bannerUrl, logoUrl, customCss }
@@ -70,6 +74,7 @@ model Event {
   imports               ImportBatch[]
 
   @@index([active])
+  @@index([archived])
 }
 
 model Participant {

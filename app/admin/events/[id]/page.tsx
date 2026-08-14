@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { PrizeDrawPanel } from "@/components/PrizeDrawPanel";
+import { EventActionsBar } from "@/components/EventActionsBar";
 
 export const dynamic = "force-dynamic";
 
@@ -23,9 +24,12 @@ export default async function EventDashboardPage({ params }: { params: { id: str
           <span className="eyebrow">{event.campaign ?? "Evento"}</span>
           <h1>{event.name}</h1>
         </div>
-        <a href={`/e/${event.slug}`} target="_blank" className="public-link">
-          Ver página pública ↗
-        </a>
+        <div className="header-actions">
+          <a href={`/e/${event.slug}`} target="_blank" className="public-link">
+            Ver página pública ↗
+          </a>
+          <EventActionsBar eventId={event.id} archived={event.archived} />
+        </div>
       </div>
 
       <div className="stats-row">
@@ -74,6 +78,12 @@ export default async function EventDashboardPage({ params }: { params: { id: str
           color: var(--indigo-600);
         }
         h1 { margin: 0.2rem 0 0; font-family: var(--font-display, inherit); }
+        .header-actions {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 0.75rem;
+        }
         .public-link {
           color: var(--indigo-600);
           text-decoration: none;

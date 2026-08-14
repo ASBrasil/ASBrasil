@@ -9,8 +9,17 @@ interface DraftPrize {
   scheduledAt: string;
 }
 
-export function PrizesStep({ eventId, onDone }: { eventId: string; onDone: () => void }) {
+export function PrizesStep({
+  eventId,
+  onDone,
+  existingPrizes = [],
+}: {
+  eventId: string;
+  onDone: () => void;
+  existingPrizes?: { id: string; name: string }[];
+}) {
   const [saved, setSaved] = useState<string[]>([]);
+  const allNames = [...existingPrizes.map((p) => p.name), ...saved];
   const [draft, setDraft] = useState<DraftPrize>({ name: "", description: "", scheduledAt: "" });
   const [saving, setSaving] = useState(false);
 
@@ -24,7 +33,7 @@ export function PrizesStep({ eventId, onDone }: { eventId: string; onDone: () =>
         eventId,
         name: draft.name,
         description: draft.description || undefined,
-        order: saved.length,
+        order: existingPrizes.length + saved.length,
         scheduledAt: draft.scheduledAt || undefined,
       }),
     });
@@ -40,9 +49,9 @@ export function PrizesStep({ eventId, onDone }: { eventId: string; onDone: () =>
       <h2>Cadastre os prêmios</h2>
       <p className="subtitle">Cada prêmio terá seu próprio sorteio, na ordem em que forem criados.</p>
 
-      {saved.length > 0 && (
+      {allNames.length > 0 && (
         <ul className="saved-list">
-          {saved.map((name, i) => (
+          {allNames.map((name, i) => (
             <li key={i}>🎁 {name}</li>
           ))}
         </ul>
@@ -74,7 +83,7 @@ export function PrizesStep({ eventId, onDone }: { eventId: string; onDone: () =>
         <Button variant="ghost" onClick={addPrize} disabled={!draft.name || saving}>
           {saving ? "Adicionando…" : "+ Adicionar outro prêmio"}
         </Button>
-        <Button onClick={onDone} disabled={saved.length === 0}>
+        <Button onClick={onDone} disabled={allNames.length === 0}>
           Continuar →
         </Button>
       </div>

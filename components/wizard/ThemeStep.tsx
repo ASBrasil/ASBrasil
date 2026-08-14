@@ -9,15 +9,27 @@ const PRESETS = [
   { name: "Clean claro", primary: "#2563EB", background: "#FFFFFF", surface: "#F3F4F6", text: "#0F172A" },
 ];
 
+interface ThemeColors {
+  name?: string;
+  primary: string;
+  background: string;
+  surface: string;
+  text: string;
+}
+
 export function ThemeStep({
   eventId,
   onDone,
+  initialTheme,
 }: {
   eventId: string;
   onDone: () => void;
+  initialTheme?: { colors?: ThemeColors; customCss?: string } | null;
 }) {
-  const [colors, setColors] = useState(PRESETS[0]);
-  const [customCss, setCustomCss] = useState("");
+  const [colors, setColors] = useState<ThemeColors>(
+    initialTheme?.colors ?? PRESETS[0]
+  );
+  const [customCss, setCustomCss] = useState(initialTheme?.customCss ?? "");
   const [saving, setSaving] = useState(false);
 
   async function save() {

@@ -1,0 +1,1074 @@
+From f14a7a165bec08186a98dc8e349de152b434da1c Mon Sep 17 00:00:00 2001
+From: "Claude (via Paulo)" <pauloemanuel96@gmail.com>
+Date: Fri, 14 Aug 2026 16:04:55 +0000
+Subject: [PATCH] Adiciona editar (wizard completo), arquivar e excluir eventos
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- Event ganha campo archived (soft delete); migration incluída
+- API: PATCH aceita campaign/slug/datas/archived; nova rota DELETE
+  que apaga DrawResults antes do evento (evita erro de FK) numa
+  transacao unica
+- Wizard de criacao reaproveitado no modo edicao (novo
+  EditEventWizard), com ThemeStep/ParticipantsStep/PrizesStep
+  aceitando dados existentes para pre-preencher
+- Listagem de eventos ganha abas Ativos/Arquivados e acoes
+  (Editar/Arquivar/Excluir) por card
+- Dashboard do evento ganha a mesma barra de acoes
+---
+ app/admin/events/[id]/edit/page.tsx           |  33 +++
+ app/admin/events/[id]/page.tsx                |  16 +-
+ app/admin/events/page.tsx                     | 108 +++++-----
+ app/api/admin/events/[id]/route.ts            |  39 ++++
+ components/EventActionsBar.tsx                | 143 +++++++++++++
+ components/EventCard.tsx                      | 202 ++++++++++++++++++
+ components/wizard/EditEventWizard.tsx         | 171 +++++++++++++++
+ components/wizard/ParticipantsStep.tsx        |  56 ++++-
+ components/wizard/PrizesStep.tsx              |  19 +-
+ components/wizard/ThemeStep.tsx               |  16 +-
+ .../migration.sql                             |   5 +
+ prisma/schema.prisma                          |   5 +
+ 12 files changed, 746 insertions(+), 67 deletions(-)
+ create mode 100644 app/admin/events/[id]/edit/page.tsx
+ create mode 100644 components/EventActionsBar.tsx
+ create mode 100644 components/EventCard.tsx
+ create mode 100644 components/wizard/EditEventWizard.tsx
+ create mode 100644 prisma/migrations/20260814150000_add_event_archived/migration.sql
+
+diff --git a/app/admin/events/[id]/edit/page.tsx b/app/admin/events/[id]/edit/page.tsx
+new file mode 100644
+index 0000000..2b62417
+--- /dev/null
++++ b/app/admin/events/[id]/edit/page.tsx
+@@ -0,0 +1,33 @@
++import { db } from "@/lib/db";
++import { notFound } from "next/navigation";
++import { EditEventWizard } from "@/components/wizard/EditEventWizard";
++
++export const dynamic = "force-dynamic";
++
++export default async function EditEventPage({ params }: { params: { id: string } }) {
++  const event = await db.event.findUnique({
++    where: { id: params.id },
++    include: {
++      prizes: { orderBy: { order: "asc" } },
++      _count: { select: { participants: true } },
++    },
++  });
++  if (!event) notFound();
++
++  return (
++    <EditEventWizard
++      event={{
++        id: event.id,
++        name: event.name,
++        campaign: event.campaign ?? "",
++        slug: event.slug,
++        description: event.description ?? "",
++        active: event.active,
++        archived: event.archived,
++        theme: event.theme as unknown as { colors?: any; customCss?: string } | null,
++        participantsCount: event._count.participants,
++        prizes: event.prizes.map((p) => ({ id: p.id, name: p.name })),
++      }}
++    />
++  );
++}
+diff --git a/app/admin/events/[id]/page.tsx b/app/admin/events/[id]/page.tsx
+index a2ecf15..1f897e4 100644
+--- a/app/admin/events/[id]/page.tsx
++++ b/app/admin/events/[id]/page.tsx
+@@ -1,6 +1,7 @@
+ import { db } from "@/lib/db";
+ import { notFound } from "next/navigation";
+ import { PrizeDrawPanel } from "@/components/PrizeDrawPanel";
++import { EventActionsBar } from "@/components/EventActionsBar";
+ 
+ export const dynamic = "force-dynamic";
+ 
+@@ -23,9 +24,12 @@ export default async function EventDashboardPage({ params }: { params: { id: str
+           <span className="eyebrow">{event.campaign ?? "Evento"}</span>
+           <h1>{event.name}</h1>
+         </div>
+-        <a href={`/e/${event.slug}`} target="_blank" className="public-link">
+-          Ver página pública ↗
+-        </a>
++        <div className="header-actions">
++          <a href={`/e/${event.slug}`} target="_blank" className="public-link">
++            Ver página pública ↗
++          </a>
++          <EventActionsBar eventId={event.id} archived={event.archived} />
++        </div>
+       </div>
+ 
+       <div className="stats-row">
+@@ -74,6 +78,12 @@ export default async function EventDashboardPage({ params }: { params: { id: str
+           color: var(--indigo-600);
+         }
+         h1 { margin: 0.2rem 0 0; font-family: var(--font-display, inherit); }
++        .header-actions {
++          display: flex;
++          flex-direction: column;
++          align-items: flex-end;
++          gap: 0.75rem;
++        }
+         .public-link {
+           color: var(--indigo-600);
+           text-decoration: none;
+diff --git a/app/admin/events/page.tsx b/app/admin/events/page.tsx
+index 1175e01..ff218d7 100644
+--- a/app/admin/events/page.tsx
++++ b/app/admin/events/page.tsx
+@@ -1,10 +1,18 @@
+ import Link from "next/link";
+ import { db } from "@/lib/db";
++import { EventCard } from "@/components/EventCard";
+ 
+ export const dynamic = "force-dynamic";
+ 
+-export default async function EventsListPage() {
++export default async function EventsListPage({
++  searchParams,
++}: {
++  searchParams: { tab?: string };
++}) {
++  const showArchived = searchParams.tab === "archived";
++
+   const events = await db.event.findMany({
++    where: { archived: showArchived },
+     orderBy: { createdAt: "desc" },
+     include: { _count: { select: { participants: true, prizes: true } } },
+   });
+@@ -21,25 +29,38 @@ export default async function EventsListPage() {
+         </Link>
+       </div>
+ 
++      <div className="tabs">
++        <Link href="/admin/events" className={`tab ${!showArchived ? "active" : ""}`}>
++          Ativos
++        </Link>
++        <Link href="/admin/events?tab=archived" className={`tab ${showArchived ? "active" : ""}`}>
++          Arquivados
++        </Link>
++      </div>
++
+       {events.length === 0 ? (
+         <div className="empty">
+-          <p>Nenhum evento ainda. Crie o primeiro para começar a sortear.</p>
++          <p>
++            {showArchived
++              ? "Nenhum evento arquivado."
++              : "Nenhum evento ainda. Crie o primeiro para começar a sortear."}
++          </p>
+         </div>
+       ) : (
+         <div className="grid">
+           {events.map((event) => (
+-            <Link key={event.id} href={`/admin/events/${event.id}`} className="event-card">
+-              <div className="status">
+-                <span className={`dot ${event.active ? "active" : ""}`} />
+-                {event.active ? "Publicado" : "Rascunho"}
+-              </div>
+-              <h3>{event.name}</h3>
+-              {event.campaign && <span className="campaign">{event.campaign}</span>}
+-              <div className="stats">
+-                <span>{event._count.participants} participantes</span>
+-                <span>{event._count.prizes} prêmios</span>
+-              </div>
+-            </Link>
++            <EventCard
++              key={event.id}
++              event={{
++                id: event.id,
++                name: event.name,
++                campaign: event.campaign,
++                active: event.active,
++                archived: event.archived,
++                participantsCount: event._count.participants,
++                prizesCount: event._count.prizes,
++              }}
++            />
+           ))}
+         </div>
+       )}
+@@ -62,6 +83,24 @@ export default async function EventsListPage() {
+           font-weight: 600;
+           font-size: 0.9rem;
+         }
++        .tabs {
++          display: flex;
++          gap: 0.5rem;
++          margin-bottom: 1.5rem;
++          border-bottom: 1px solid var(--border);
++        }
++        .tab {
++          text-decoration: none;
++          color: var(--text-muted);
++          font-size: 0.85rem;
++          font-weight: 600;
++          padding: 0.6rem 0.9rem;
++          border-bottom: 2px solid transparent;
++        }
++        .tab.active {
++          color: var(--indigo-600);
++          border-bottom-color: var(--indigo-600);
++        }
+         .empty {
+           background: var(--surface);
+           border: 1px dashed var(--border);
+@@ -75,47 +114,6 @@ export default async function EventsListPage() {
+           grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+           gap: 1rem;
+         }
+-        .event-card {
+-          background: var(--surface);
+-          border: 1px solid var(--border);
+-          border-radius: 1rem;
+-          padding: 1.5rem;
+-          text-decoration: none;
+-          color: var(--text);
+-          display: block;
+-        }
+-        .event-card:hover {
+-          border-color: var(--indigo-600);
+-        }
+-        .status {
+-          display: flex;
+-          align-items: center;
+-          gap: 0.4rem;
+-          font-size: 0.75rem;
+-          color: var(--text-muted);
+-          margin-bottom: 0.75rem;
+-        }
+-        .dot {
+-          width: 0.5rem;
+-          height: 0.5rem;
+-          border-radius: 50%;
+-          background: var(--step-inactive);
+-        }
+-        .dot.active {
+-          background: #22c55e;
+-        }
+-        h3 { margin: 0 0 0.2rem; }
+-        .campaign {
+-          font-size: 0.8rem;
+-          color: var(--indigo-600);
+-        }
+-        .stats {
+-          display: flex;
+-          gap: 1rem;
+-          margin-top: 1rem;
+-          font-size: 0.8rem;
+-          color: var(--text-muted);
+-        }
+       `}</style>
+     </div>
+   );
+diff --git a/app/api/admin/events/[id]/route.ts b/app/api/admin/events/[id]/route.ts
+index c212e55..ee81032 100644
+--- a/app/api/admin/events/[id]/route.ts
++++ b/app/api/admin/events/[id]/route.ts
+@@ -27,9 +27,48 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
+   if (body.publicSignupEnabled !== undefined) data.publicSignupEnabled = body.publicSignupEnabled;
+   if (body.signupFields !== undefined) data.signupFields = body.signupFields;
+   if (body.active !== undefined) data.active = body.active;
++  if (body.archived !== undefined) data.archived = body.archived;
+   if (body.name !== undefined) data.name = body.name;
+   if (body.description !== undefined) data.description = body.description;
++  if (body.campaign !== undefined) data.campaign = body.campaign;
++  if (body.startAt !== undefined) data.startAt = body.startAt ? new Date(body.startAt) : null;
++  if (body.endAt !== undefined) data.endAt = body.endAt ? new Date(body.endAt) : null;
++
++  // Slug changes break already-shared public links, so this gets its own
++  // uniqueness check instead of just falling through to a DB constraint error.
++  if (body.slug !== undefined) {
++    const slugTaken = await db.event.findFirst({
++      where: { slug: body.slug, NOT: { id: params.id } },
++    });
++    if (slugTaken) {
++      return NextResponse.json({ error: "Esse slug já está em uso" }, { status: 409 });
++    }
++    data.slug = body.slug;
++  }
+ 
+   const event = await db.event.update({ where: { id: params.id }, data });
+   return NextResponse.json({ event });
+ }
++
++/**
++ * Hard delete. Participant, Prize and ImportBatch cascade automatically from
++ * Event (see schema.prisma), but DrawResult intentionally does NOT cascade
++ * from Prize - it's the audit trail, and letting it silently disappear
++ * defeats the point. So on event deletion we explicitly wipe the
++ * DrawResults first (there's no event left to audit against once the event
++ * itself is gone), then let the cascade take care of the rest, all inside
++ * one transaction so it's never half-deleted.
++ */
++export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
++  await requireAdmin();
++
++  const event = await db.event.findUnique({ where: { id: params.id }, select: { id: true } });
++  if (!event) return NextResponse.json({ error: "Evento não encontrado" }, { status: 404 });
++
++  await db.$transaction([
++    db.drawResult.deleteMany({ where: { prize: { eventId: params.id } } }),
++    db.event.delete({ where: { id: params.id } }),
++  ]);
++
++  return NextResponse.json({ ok: true });
++}
+diff --git a/components/EventActionsBar.tsx b/components/EventActionsBar.tsx
+new file mode 100644
+index 0000000..a7cc978
+--- /dev/null
++++ b/components/EventActionsBar.tsx
+@@ -0,0 +1,143 @@
++"use client";
++
++import Link from "next/link";
++import { useRouter } from "next/navigation";
++import { useState } from "react";
++
++export function EventActionsBar({ eventId, archived }: { eventId: string; archived: boolean }) {
++  const router = useRouter();
++  const [busy, setBusy] = useState(false);
++  const [confirmingDelete, setConfirmingDelete] = useState(false);
++  const [error, setError] = useState<string | null>(null);
++
++  async function toggleArchive() {
++    setBusy(true);
++    setError(null);
++    const res = await fetch(`/api/admin/events/${eventId}`, {
++      method: "PATCH",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify({ archived: !archived }),
++    });
++    setBusy(false);
++    if (!res.ok) {
++      setError("Não foi possível atualizar.");
++      return;
++    }
++    router.refresh();
++  }
++
++  async function confirmDelete() {
++    setBusy(true);
++    setError(null);
++    const res = await fetch(`/api/admin/events/${eventId}`, { method: "DELETE" });
++    if (!res.ok) {
++      const data = await res.json().catch(() => ({}));
++      setError(data.error ?? "Não foi possível excluir.");
++      setBusy(false);
++      setConfirmingDelete(false);
++      return;
++    }
++    router.push("/admin/events");
++    router.refresh();
++  }
++
++  return (
++    <div className="actions-bar">
++      <Link href={`/admin/events/${eventId}/edit`} className="edit-link">
++        ✏️ Editar
++      </Link>
++      <button type="button" className="ghost-btn" onClick={toggleArchive} disabled={busy}>
++        {archived ? "Desarquivar" : "Arquivar"}
++      </button>
++      {!confirmingDelete ? (
++        <button type="button" className="danger-btn" onClick={() => setConfirmingDelete(true)} disabled={busy}>
++          Excluir evento
++        </button>
++      ) : (
++        <span className="confirm">
++          Excluir definitivamente, com participantes e resultados de sorteio?
++          <button type="button" className="danger-btn" onClick={confirmDelete} disabled={busy}>
++            {busy ? "Excluindo…" : "Sim, excluir"}
++          </button>
++          <button type="button" className="cancel-btn" onClick={() => setConfirmingDelete(false)} disabled={busy}>
++            Cancelar
++          </button>
++        </span>
++      )}
++      {error && <p className="error">{error}</p>}
++
++      <style jsx>{`
++        .actions-bar {
++          display: flex;
++          align-items: center;
++          gap: 0.6rem;
++          flex-wrap: wrap;
++        }
++        .edit-link {
++          font-size: 0.85rem;
++          font-weight: 600;
++          color: var(--indigo-600);
++          text-decoration: none;
++          padding: 0.55rem 1rem;
++          border-radius: 999px;
++          border: 1px solid var(--border);
++        }
++        .edit-link:hover {
++          border-color: var(--indigo-600);
++        }
++        .ghost-btn {
++          font-size: 0.85rem;
++          font-weight: 600;
++          color: var(--text-muted);
++          background: transparent;
++          border: 1px solid var(--border);
++          padding: 0.55rem 1rem;
++          border-radius: 999px;
++          cursor: pointer;
++        }
++        .ghost-btn:hover:not(:disabled) {
++          border-color: var(--indigo-600);
++          color: var(--text);
++        }
++        .danger-btn {
++          font-size: 0.85rem;
++          font-weight: 600;
++          color: #c0392b;
++          background: transparent;
++          border: 1px solid transparent;
++          padding: 0.55rem 1rem;
++          border-radius: 999px;
++          cursor: pointer;
++        }
++        .danger-btn:hover:not(:disabled) {
++          border-color: #c0392b;
++        }
++        button:disabled {
++          opacity: 0.55;
++          cursor: default;
++        }
++        .cancel-btn {
++          font-size: 0.85rem;
++          color: var(--text-muted);
++          background: transparent;
++          border: none;
++          cursor: pointer;
++        }
++        .confirm {
++          display: flex;
++          align-items: center;
++          gap: 0.5rem;
++          font-size: 0.82rem;
++          color: var(--text-muted);
++          flex-wrap: wrap;
++        }
++        .error {
++          width: 100%;
++          font-size: 0.8rem;
++          color: #c0392b;
++          margin: 0;
++        }
++      `}</style>
++    </div>
++  );
++}
+diff --git a/components/EventCard.tsx b/components/EventCard.tsx
+new file mode 100644
+index 0000000..41f8624
+--- /dev/null
++++ b/components/EventCard.tsx
+@@ -0,0 +1,202 @@
++"use client";
++
++import Link from "next/link";
++import { useRouter } from "next/navigation";
++import { useState } from "react";
++
++interface EventCardData {
++  id: string;
++  name: string;
++  campaign: string | null;
++  active: boolean;
++  archived: boolean;
++  participantsCount: number;
++  prizesCount: number;
++}
++
++export function EventCard({ event }: { event: EventCardData }) {
++  const router = useRouter();
++  const [busy, setBusy] = useState(false);
++  const [confirmingDelete, setConfirmingDelete] = useState(false);
++  const [error, setError] = useState<string | null>(null);
++
++  async function toggleArchive() {
++    setBusy(true);
++    setError(null);
++    const res = await fetch(`/api/admin/events/${event.id}`, {
++      method: "PATCH",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify({ archived: !event.archived }),
++    });
++    setBusy(false);
++    if (!res.ok) {
++      setError("Não foi possível atualizar.");
++      return;
++    }
++    router.refresh();
++  }
++
++  async function confirmDelete() {
++    setBusy(true);
++    setError(null);
++    const res = await fetch(`/api/admin/events/${event.id}`, { method: "DELETE" });
++    if (!res.ok) {
++      const data = await res.json().catch(() => ({}));
++      setError(data.error ?? "Não foi possível excluir.");
++      setBusy(false);
++      setConfirmingDelete(false);
++      return;
++    }
++    router.refresh();
++  }
++
++  return (
++    <div className="event-card">
++      <Link href={`/admin/events/${event.id}`} className="card-link">
++        <div className="status">
++          <span className={`dot ${event.active ? "active" : ""}`} />
++          {event.archived ? "Arquivado" : event.active ? "Publicado" : "Rascunho"}
++        </div>
++        <h3>{event.name}</h3>
++        {event.campaign && <span className="campaign">{event.campaign}</span>}
++        <div className="stats">
++          <span>{event.participantsCount} participantes</span>
++          <span>{event.prizesCount} prêmios</span>
++        </div>
++      </Link>
++
++      <div className="actions">
++        <Link href={`/admin/events/${event.id}/edit`} className="action-link">
++          Editar
++        </Link>
++        <button type="button" className="action-btn" onClick={toggleArchive} disabled={busy}>
++          {event.archived ? "Desarquivar" : "Arquivar"}
++        </button>
++        {!confirmingDelete ? (
++          <button
++            type="button"
++            className="action-btn danger"
++            onClick={() => setConfirmingDelete(true)}
++            disabled={busy}
++          >
++            Excluir
++          </button>
++        ) : (
++          <span className="confirm">
++            Excluir tudo?
++            <button type="button" className="action-btn danger" onClick={confirmDelete} disabled={busy}>
++              {busy ? "Excluindo…" : "Sim"}
++            </button>
++            <button
++              type="button"
++              className="action-btn"
++              onClick={() => setConfirmingDelete(false)}
++              disabled={busy}
++            >
++              Não
++            </button>
++          </span>
++        )}
++      </div>
++      {error && <p className="card-error">{error}</p>}
++
++      <style jsx>{`
++        .event-card {
++          background: var(--surface);
++          border: 1px solid var(--border);
++          border-radius: 1rem;
++          padding: 1.5rem;
++          display: flex;
++          flex-direction: column;
++          gap: 1rem;
++        }
++        .event-card:hover {
++          border-color: var(--indigo-600);
++        }
++        .card-link {
++          text-decoration: none;
++          color: var(--text);
++          display: block;
++        }
++        .status {
++          display: flex;
++          align-items: center;
++          gap: 0.4rem;
++          font-size: 0.75rem;
++          color: var(--text-muted);
++          margin-bottom: 0.75rem;
++        }
++        .dot {
++          width: 0.5rem;
++          height: 0.5rem;
++          border-radius: 50%;
++          background: var(--step-inactive);
++        }
++        .dot.active {
++          background: #22c55e;
++        }
++        h3 {
++          margin: 0 0 0.2rem;
++        }
++        .campaign {
++          font-size: 0.8rem;
++          color: var(--indigo-600);
++        }
++        .stats {
++          display: flex;
++          gap: 1rem;
++          margin-top: 1rem;
++          font-size: 0.8rem;
++          color: var(--text-muted);
++        }
++        .actions {
++          display: flex;
++          align-items: center;
++          gap: 0.5rem;
++          flex-wrap: wrap;
++          border-top: 1px solid var(--border);
++          padding-top: 0.85rem;
++        }
++        .action-link,
++        .action-btn {
++          font-size: 0.78rem;
++          font-weight: 600;
++          padding: 0.35rem 0.7rem;
++          border-radius: 999px;
++          border: 1px solid var(--border);
++          background: transparent;
++          color: var(--text-muted);
++          cursor: pointer;
++          text-decoration: none;
++        }
++        .action-link:hover,
++        .action-btn:hover:not(:disabled) {
++          border-color: var(--indigo-600);
++          color: var(--text);
++        }
++        .action-btn.danger {
++          color: #c0392b;
++        }
++        .action-btn.danger:hover:not(:disabled) {
++          border-color: #c0392b;
++        }
++        .action-btn:disabled {
++          opacity: 0.55;
++          cursor: default;
++        }
++        .confirm {
++          display: flex;
++          align-items: center;
++          gap: 0.4rem;
++          font-size: 0.78rem;
++          color: var(--text-muted);
++        }
++        .card-error {
++          font-size: 0.78rem;
++          color: #c0392b;
++          margin: 0;
++        }
++      `}</style>
++    </div>
++  );
++}
+diff --git a/components/wizard/EditEventWizard.tsx b/components/wizard/EditEventWizard.tsx
+new file mode 100644
+index 0000000..9065579
+--- /dev/null
++++ b/components/wizard/EditEventWizard.tsx
+@@ -0,0 +1,171 @@
++"use client";
++
++import { useState } from "react";
++import { useRouter } from "next/navigation";
++import { Stepper } from "@/components/ui/Stepper";
++import { Button, Field, Input, Card } from "@/components/ui/primitives";
++import { ThemeStep } from "@/components/wizard/ThemeStep";
++import { ParticipantsStep } from "@/components/wizard/ParticipantsStep";
++import { PrizesStep } from "@/components/wizard/PrizesStep";
++
++const STEPS = ["Detalhes", "Tema", "Participantes", "Prêmios", "Concluir"];
++
++interface EditableEvent {
++  id: string;
++  name: string;
++  campaign: string;
++  slug: string;
++  description: string;
++  active: boolean;
++  archived: boolean;
++  theme: { colors?: any; customCss?: string } | null;
++  participantsCount: number;
++  prizes: { id: string; name: string }[];
++}
++
++export function EditEventWizard({ event }: { event: EditableEvent }) {
++  const router = useRouter();
++  const [step, setStep] = useState(0);
++  const [saving, setSaving] = useState(false);
++  const [error, setError] = useState<string | null>(null);
++  const [finishing, setFinishing] = useState(false);
++  const [published, setPublished] = useState(event.active);
++
++  const [form, setForm] = useState({
++    name: event.name,
++    campaign: event.campaign,
++    slug: event.slug,
++    description: event.description,
++  });
++
++  function update(key: keyof typeof form, value: string) {
++    setForm((f) => ({ ...f, [key]: value }));
++  }
++
++  async function saveDetails() {
++    setSaving(true);
++    setError(null);
++    const res = await fetch(`/api/admin/events/${event.id}`, {
++      method: "PATCH",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify(form),
++    });
++    setSaving(false);
++    if (!res.ok) {
++      const data = await res.json().catch(() => ({}));
++      setError(data.error ?? "Não foi possível salvar.");
++      return;
++    }
++    setStep(1);
++  }
++
++  async function finish() {
++    setFinishing(true);
++    await fetch(`/api/admin/events/${event.id}`, {
++      method: "PATCH",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify({ active: published }),
++    });
++    setFinishing(false);
++    router.push(`/admin/events/${event.id}`);
++  }
++
++  const publicUrl =
++    typeof window !== "undefined" ? `${window.location.origin}/e/${form.slug}` : `/e/${form.slug}`;
++
++  return (
++    <div className="wizard">
++      <div className="wizard-top">
++        <Stepper steps={STEPS} current={step} />
++      </div>
++
++      {step === 0 && (
++        <Card icon="🎟️">
++          <h2>Editar detalhes do evento</h2>
++          <p className="subtitle">Esses dados aparecem para os participantes.</p>
++
++          <Field label="Nome do evento" required>
++            <Input value={form.name} onChange={(e) => update("name", e.target.value)} />
++          </Field>
++          <Field label="Campanha" hint="Agrupa eventos relacionados, opcional.">
++            <Input value={form.campaign} onChange={(e) => update("campaign", e.target.value)} />
++          </Field>
++          <Field label="Endereço público" required hint="Mudar o slug quebra links já compartilhados.">
++            <Input value={form.slug} onChange={(e) => update("slug", e.target.value)} />
++          </Field>
++          <Field label="Descrição">
++            <Input value={form.description} onChange={(e) => update("description", e.target.value)} />
++          </Field>
++
++          {error && <p className="error">{error}</p>}
++
++          <div className="actions">
++            <Button onClick={saveDetails} disabled={!form.name || !form.slug || saving}>
++              {saving ? "Salvando…" : "Continuar →"}
++            </Button>
++          </div>
++        </Card>
++      )}
++
++      {step === 1 && (
++        <ThemeStep eventId={event.id} initialTheme={event.theme ?? undefined} onDone={() => setStep(2)} />
++      )}
++      {step === 2 && (
++        <ParticipantsStep eventId={event.id} existingCount={event.participantsCount} onDone={() => setStep(3)} />
++      )}
++      {step === 3 && (
++        <PrizesStep eventId={event.id} existingPrizes={event.prizes} onDone={() => setStep(4)} />
++      )}
++      {step === 4 && (
++        <Card icon="✅">
++          <h2>Alterações salvas</h2>
++          <p className="subtitle">
++            A página pública é <strong>{publicUrl}</strong>.
++          </p>
++          <Field label="Status do evento">
++            <select value={published ? "1" : "0"} onChange={(e) => setPublished(e.target.value === "1")}>
++              <option value="1">Publicado</option>
++              <option value="0">Rascunho (não visível ao público)</option>
++            </select>
++          </Field>
++          <div className="actions">
++            <Button onClick={finish} disabled={finishing}>
++              {finishing ? "Salvando…" : "Concluir edição"}
++            </Button>
++          </div>
++        </Card>
++      )}
++
++      <style>{`
++        .wizard {
++          max-width: 34rem;
++        }
++        .wizard-top {
++          margin-bottom: 2.5rem;
++        }
++        h2 {
++          margin: 0 0 0.35rem;
++          font-family: var(--font-display, inherit);
++        }
++        .subtitle {
++          color: var(--text-muted);
++          font-size: 0.9rem;
++          margin-bottom: 1.75rem;
++        }
++        .actions {
++          margin-top: 1.5rem;
++        }
++        .error {
++          color: #c0392b;
++          font-size: 0.85rem;
++        }
++        select {
++          padding: 0.6rem 0.7rem;
++          border-radius: 0.5rem;
++          border: 1px solid var(--border);
++          width: 100%;
++        }
++      `}</style>
++    </div>
++  );
++}
+diff --git a/components/wizard/ParticipantsStep.tsx b/components/wizard/ParticipantsStep.tsx
+index 329fe3f..8a0e7ec 100644
+--- a/components/wizard/ParticipantsStep.tsx
++++ b/components/wizard/ParticipantsStep.tsx
+@@ -5,8 +5,19 @@ import { Button, Field, Input, Card } from "@/components/ui/primitives";
+ 
+ type Mapping = { name: string; email: string; orderNumber?: string; phone?: string; cpf?: string };
+ 
+-export function ParticipantsStep({ eventId, onDone }: { eventId: string; onDone: () => void }) {
++export function ParticipantsStep({
++  eventId,
++  onDone,
++  existingCount = 0,
++}: {
++  eventId: string;
++  onDone: () => void;
++  existingCount?: number;
++}) {
+   const [method, setMethod] = useState<"import" | "signup" | null>(null);
++  // Edit mode: if the event already has participants, don't force another
++  // import/signup choice on every visit - show a summary first.
++  const [showChoice, setShowChoice] = useState(existingCount === 0);
+ 
+   // --- import sub-flow ---
+   const [file, setFile] = useState<File | null>(null);
+@@ -22,6 +33,32 @@ export function ParticipantsStep({ eventId, onDone }: { eventId: string; onDone:
+   // --- signup sub-flow ---
+   const [signupSaving, setSignupSaving] = useState(false);
+ 
++  // All hooks above run unconditionally on every render (Rules of Hooks) -
++  // the conditional branches below only affect what gets returned.
++
++  if (!showChoice && !method) {
++    return (
++      <Card icon="👥">
++        <h2>Participantes já cadastrados</h2>
++        <p className="subtitle">
++          Este evento já tem <strong>{existingCount}</strong> participante(s). Você pode manter
++          como está ou importar/habilitar mais.
++        </p>
++        <div className="actions">
++          <Button variant="ghost" onClick={() => setShowChoice(true)}>
++            + Importar ou habilitar inscrição
++          </Button>
++          <Button onClick={onDone}>Continuar →</Button>
++        </div>
++        <style jsx>{`
++          h2 { margin: 0 0 0.35rem; }
++          .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
++          .actions { display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap; }
++        `}</style>
++      </Card>
++    );
++  }
++
+   async function handleFile(f: File) {
+     setFile(f);
+     setResult(null);
+@@ -81,6 +118,13 @@ export function ParticipantsStep({ eventId, onDone }: { eventId: string; onDone:
+             <span>O próprio cliente se cadastra pela página do evento.</span>
+           </button>
+         </div>
++        {existingCount > 0 && (
++          <div className="actions">
++            <Button variant="ghost" onClick={() => setShowChoice(false)}>
++              ← Voltar
++            </Button>
++          </div>
++        )}
+         <style jsx>{`
+           h2 {
+             margin: 0 0 0.35rem;
+@@ -113,6 +157,11 @@ export function ParticipantsStep({ eventId, onDone }: { eventId: string; onDone:
+             font-size: 0.85rem;
+             color: var(--text-muted);
+           }
++          .actions {
++            display: flex;
++            gap: 0.75rem;
++            margin-top: 1.25rem;
++          }
+         `}</style>
+       </Card>
+     );
+@@ -127,7 +176,10 @@ export function ParticipantsStep({ eventId, onDone }: { eventId: string; onDone:
+           campos depois no painel.
+         </p>
+         <div className="actions">
+-          <Button variant="ghost" onClick={() => setMethod(null)}>
++          <Button
++            variant="ghost"
++            onClick={() => (existingCount > 0 ? setShowChoice(false) : setMethod(null))}
++          >
+             ← Voltar
+           </Button>
+           <Button onClick={enableSignup} disabled={signupSaving}>
+diff --git a/components/wizard/PrizesStep.tsx b/components/wizard/PrizesStep.tsx
+index ca52201..c878182 100644
+--- a/components/wizard/PrizesStep.tsx
++++ b/components/wizard/PrizesStep.tsx
+@@ -9,8 +9,17 @@ interface DraftPrize {
+   scheduledAt: string;
+ }
+ 
+-export function PrizesStep({ eventId, onDone }: { eventId: string; onDone: () => void }) {
++export function PrizesStep({
++  eventId,
++  onDone,
++  existingPrizes = [],
++}: {
++  eventId: string;
++  onDone: () => void;
++  existingPrizes?: { id: string; name: string }[];
++}) {
+   const [saved, setSaved] = useState<string[]>([]);
++  const allNames = [...existingPrizes.map((p) => p.name), ...saved];
+   const [draft, setDraft] = useState<DraftPrize>({ name: "", description: "", scheduledAt: "" });
+   const [saving, setSaving] = useState(false);
+ 
+@@ -24,7 +33,7 @@ export function PrizesStep({ eventId, onDone }: { eventId: string; onDone: () =>
+         eventId,
+         name: draft.name,
+         description: draft.description || undefined,
+-        order: saved.length,
++        order: existingPrizes.length + saved.length,
+         scheduledAt: draft.scheduledAt || undefined,
+       }),
+     });
+@@ -40,9 +49,9 @@ export function PrizesStep({ eventId, onDone }: { eventId: string; onDone: () =>
+       <h2>Cadastre os prêmios</h2>
+       <p className="subtitle">Cada prêmio terá seu próprio sorteio, na ordem em que forem criados.</p>
+ 
+-      {saved.length > 0 && (
++      {allNames.length > 0 && (
+         <ul className="saved-list">
+-          {saved.map((name, i) => (
++          {allNames.map((name, i) => (
+             <li key={i}>🎁 {name}</li>
+           ))}
+         </ul>
+@@ -74,7 +83,7 @@ export function PrizesStep({ eventId, onDone }: { eventId: string; onDone: () =>
+         <Button variant="ghost" onClick={addPrize} disabled={!draft.name || saving}>
+           {saving ? "Adicionando…" : "+ Adicionar outro prêmio"}
+         </Button>
+-        <Button onClick={onDone} disabled={saved.length === 0}>
++        <Button onClick={onDone} disabled={allNames.length === 0}>
+           Continuar →
+         </Button>
+       </div>
+diff --git a/components/wizard/ThemeStep.tsx b/components/wizard/ThemeStep.tsx
+index efdeb0b..26a2ccf 100644
+--- a/components/wizard/ThemeStep.tsx
++++ b/components/wizard/ThemeStep.tsx
+@@ -9,15 +9,27 @@ const PRESETS = [
+   { name: "Clean claro", primary: "#2563EB", background: "#FFFFFF", surface: "#F3F4F6", text: "#0F172A" },
+ ];
+ 
++interface ThemeColors {
++  name?: string;
++  primary: string;
++  background: string;
++  surface: string;
++  text: string;
++}
++
+ export function ThemeStep({
+   eventId,
+   onDone,
++  initialTheme,
+ }: {
+   eventId: string;
+   onDone: () => void;
++  initialTheme?: { colors?: ThemeColors; customCss?: string } | null;
+ }) {
+-  const [colors, setColors] = useState(PRESETS[0]);
+-  const [customCss, setCustomCss] = useState("");
++  const [colors, setColors] = useState<ThemeColors>(
++    initialTheme?.colors ?? PRESETS[0]
++  );
++  const [customCss, setCustomCss] = useState(initialTheme?.customCss ?? "");
+   const [saving, setSaving] = useState(false);
+ 
+   async function save() {
+diff --git a/prisma/migrations/20260814150000_add_event_archived/migration.sql b/prisma/migrations/20260814150000_add_event_archived/migration.sql
+new file mode 100644
+index 0000000..b5e6dfa
+--- /dev/null
++++ b/prisma/migrations/20260814150000_add_event_archived/migration.sql
+@@ -0,0 +1,5 @@
++-- AlterTable
++ALTER TABLE "Event" ADD COLUMN "archived" BOOLEAN NOT NULL DEFAULT false;
++
++-- CreateIndex
++CREATE INDEX "Event_archived_idx" ON "Event"("archived");
+diff --git a/prisma/schema.prisma b/prisma/schema.prisma
+index f258bdf..8f02135 100644
+--- a/prisma/schema.prisma
++++ b/prisma/schema.prisma
+@@ -50,6 +50,10 @@ model Event {
+   startAt              DateTime?
+   endAt                DateTime?
+   active               Boolean  @default(true)
++  // Soft delete: hides the event from the default admin list without
++  // touching participants/prizes/results. Excluir (DELETE) is the hard,
++  // irreversible version.
++  archived             Boolean  @default(false)
+ 
+   // Theme is a JSON blob edited through the visual theme editor.
+   // { colors: {...}, fonts: {...}, bannerUrl, logoUrl, customCss }
+@@ -70,6 +74,7 @@ model Event {
+   imports               ImportBatch[]
+ 
+   @@index([active])
++  @@index([archived])
+ }
+ 
+ model Participant {
+-- 
+2.43.0
+
