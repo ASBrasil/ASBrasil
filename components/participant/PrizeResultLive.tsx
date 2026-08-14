@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Countdown } from "./Countdown";
+import { DrawReveal } from "@/components/DrawReveal";
 
 interface Result {
   winningNumber: number;
@@ -21,11 +22,17 @@ export function PrizeResultLive({
   raffleNumber: number;
   won: boolean;
 }) {
+  // "waiting"  -> ainda não saiu resultado nenhum, mostra contagem/número
+  // "drawing"  -> resultado já saiu no servidor, mas ainda estamos girando os dígitos
+  // "revealed" -> girou e travou, mostra o vencedor de verdade
+  const [phase, setPhase] = useState<"waiting" | "drawing" | "revealed">(
+    initialResult ? "revealed" : "waiting"
+  );
   const [result, setResult] = useState<Result | null>(initialResult);
   const [won, setWon] = useState(initialWon);
 
   useEffect(() => {
-    if (result) return; // já temos resultado, não precisa perguntar de novo
+    if (phase !== "waiting") return; // já sabemos o resultado, não precisa mais perguntar
 
     const interval = setInterval(async () => {
       try {
@@ -34,16 +41,55 @@ export function PrizeResultLive({
         if (data.result) {
           setResult(data.result);
           setWon(data.result.winningNumber === raffleNumber);
+          setPhase("drawing"); // começa a girar em vez de revelar na hora
         }
       } catch {
         // silenciosamente tenta de novo no próximo intervalo
       }
-    }, 4000); // pergunta a cada 4 segundos
+    }, 4000);
 
     return () => clearInterval(interval);
-  }, [result, prizeId, raffleNumber]);
+  }, [phase, prizeId, raffleNumber]);
 
-  if (result) {
+  if (phase === "drawing" && result) {
+    return (
+      <div className="drawing">
+        <span className="tag pulse">Sorteando…</span>
+        <DrawReveal
+          winningNumber={result.winningNumber}
+          onSettled={() => setPhase("revealed")}
+        />
+        <style jsx>{`
+          .drawing {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+          }
+          .tag {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--primary, #4f5fff);
+          }
+          .pulse {
+            animation: pulse 1s ease-in-out infinite;
+          }
+          @keyframes pulse {
+            0%,
+            100% {
+              opacity: 0.5;
+            }
+            50% {
+              opacity: 1;
+            }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  if (phase === "revealed" && result) {
     return (
       <div className="result">
         <span className="tag">Resultado</span>
@@ -60,6 +106,24 @@ export function PrizeResultLive({
             </p>
           </>
         )}
+        <style jsx>{`
+          .tag {
+            display: inline-block;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--primary, #4f5fff);
+            margin-bottom: 1rem;
+          }
+          .big {
+            font-size: 1.3rem;
+            margin: 0.3rem 0;
+          }
+          .detail {
+            opacity: 0.7;
+            font-size: 0.9rem;
+          }
+        `}</style>
       </div>
     );
   }
@@ -75,6 +139,34 @@ export function PrizeResultLive({
       <div className="number-pill">
         Seu número é: <strong>{raffleNumber}</strong>
       </div>
+      <style jsx>{`
+        .tag {
+          display: inline-block;
+          font-size: 0.7rem;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: var(--primary, #4f5fff);
+          margin-bottom: 1rem;
+        }
+        .detail {
+          opacity: 0.7;
+          font-size: 0.9rem;
+        }
+        .number-pill {
+          display: inline-block;
+          background: rgba(255, 255, 255, 0.08);
+          border-radius: 999px;
+          padding: 0.6rem 1.4rem;
+          font-size: 0.9rem;
+          margin-top: 0.5rem;
+        }
+        .number-pill strong {
+          font-family: monospace;
+          color: var(--primary, #4f5fff);
+          font-size: 1.1rem;
+          margin-left: 0.3rem;
+        }
+      `}</style>
     </div>
   );
 }
