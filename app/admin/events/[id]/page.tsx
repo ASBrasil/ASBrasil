@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { PrizeDrawPanel } from "@/components/PrizeDrawPanel";
 
+export const dynamic = "force-dynamic";
+
 export default async function EventDashboardPage({ params }: { params: { id: string } }) {
   const event = await db.event.findUnique({
     where: { id: params.id },

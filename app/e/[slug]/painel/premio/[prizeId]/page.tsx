@@ -3,7 +3,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { getParticipantEmail } from "@/lib/participant-session";
 import { ParticipantTopNav } from "@/components/participant/ParticipantTopNav";
-import { Countdown } from "@/components/participant/Countdown";
+import { PrizeResultLive } from "@/components/participant/PrizeResultLive";
 
 export default async function ParticipantPrizePage({
   params,
@@ -57,36 +57,17 @@ export default async function ParticipantPrizePage({
         <h1>{prize.name}</h1>
         {prize.description && <p className="description">{prize.description}</p>}
 
-        {result ? (
-          <div className="result">
-            <span className="tag">Resultado</span>
-            {won ? (
-              <>
-                <p className="big">🎉 Parabéns, você ganhou!</p>
-                <p className="detail">Número sorteado: {result.winningNumber}</p>
-              </>
-            ) : (
-              <>
-                <p className="big">Dessa vez não foi você.</p>
-                <p className="detail">
-                  Vencedor(a): {result.participant.name} · Número {result.winningNumber}
-                </p>
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="pending">
-            <span className="tag">Ainda não sorteado</span>
-            {prize.scheduledAt ? (
-              <Countdown target={prize.scheduledAt.toISOString()} />
-            ) : (
-              <p className="detail">Data do sorteio ainda não definida.</p>
-            )}
-            <div className="number-pill">
-              Seu número é: <strong>{participant.raffleNumber}</strong>
-            </div>
-          </div>
-        )}
+        <PrizeResultLive
+          prizeId={prize.id}
+          initialResult={
+            result
+              ? { winningNumber: result.winningNumber, winnerName: result.participant.name }
+              : null
+          }
+          scheduledAt={prize.scheduledAt ? prize.scheduledAt.toISOString() : null}
+          raffleNumber={participant.raffleNumber}
+          won={won}
+        />
       </section>
 
       <style>{`
@@ -121,40 +102,6 @@ export default async function ParticipantPrizePage({
         .description {
           opacity: 0.75;
           margin-bottom: 2rem;
-        }
-        .tag {
-          display: inline-block;
-          font-size: 0.7rem;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          color: var(--primary);
-          margin-bottom: 1rem;
-        }
-        .big {
-          font-size: 1.3rem;
-          margin: 0.3rem 0;
-        }
-        .detail {
-          opacity: 0.7;
-          font-size: 0.9rem;
-        }
-        .pending .countdown {
-          justify-content: center;
-          margin: 0.5rem 0 1.5rem;
-        }
-        .number-pill {
-          display: inline-block;
-          background: rgba(255, 255, 255, 0.08);
-          border-radius: 999px;
-          padding: 0.6rem 1.4rem;
-          font-size: 0.9rem;
-          margin-top: 0.5rem;
-        }
-        .number-pill strong {
-          font-family: monospace;
-          color: var(--primary);
-          font-size: 1.1rem;
-          margin-left: 0.3rem;
         }
       `}</style>
     </main>

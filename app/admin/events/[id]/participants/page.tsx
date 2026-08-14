@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ParticipantsTable } from "@/components/ParticipantsTable";
 
+export const dynamic = "force-dynamic";
+
 export default async function EventParticipantsPage({ params }: { params: { id: string } }) {
   const event = await db.event.findUnique({ where: { id: params.id }, select: { id: true, name: true } });
   if (!event) notFound();
