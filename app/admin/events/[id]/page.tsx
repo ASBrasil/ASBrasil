@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PrizeDrawPanel } from "@/components/PrizeDrawPanel";
 import { EventActionsBar } from "@/components/EventActionsBar";
 import { PrizeEditPanel } from "@/components/admin/PrizeEditPanel";
+import { PrizeReorderButtons } from "@/components/admin/PrizeReorderButtons";
 
 export const dynamic = "force-dynamic";
 
@@ -53,9 +54,15 @@ export default async function EventDashboardPage({ params }: { params: { id: str
       </div>
 
       <h2>Prêmios</h2>
+      <p className="hint">A ordem aqui é a mesma que o participante vê em "Seus sorteios".</p>
       <div className="prizes">
-        {event.prizes.map((prize) => (
+        {event.prizes.map((prize, i) => (
           <div key={prize.id} className="prize-row">
+            <PrizeReorderButtons
+              prizeId={prize.id}
+              isFirst={i === 0}
+              isLast={i === event.prizes.length - 1}
+            />
             <div className="prize-main">
               {prize.imageUrl ? (
                 <img src={prize.imageUrl} alt="" className="prize-thumb" />
@@ -149,7 +156,12 @@ export default async function EventDashboardPage({ params }: { params: { id: str
         .stat-link:hover {
           border-color: var(--indigo-600);
         }
-        h2 { font-family: var(--font-display, inherit); margin-bottom: 1rem; }
+        h2 { font-family: var(--font-display, inherit); margin-bottom: 0.35rem; }
+        .hint {
+          font-size: 0.82rem;
+          color: var(--text-muted);
+          margin: 0 0 1rem;
+        }
         .prizes {
           display: flex;
           flex-direction: column;
@@ -162,8 +174,8 @@ export default async function EventDashboardPage({ params }: { params: { id: str
           padding: 1.25rem 1.5rem;
           display: flex;
           justify-content: space-between;
-          align-items: flex-start;
-          gap: 1.5rem;
+          align-items: center;
+          gap: 1.25rem;
           flex-wrap: wrap;
         }
         .prize-main {
