@@ -28,7 +28,13 @@ export async function* parseCsvRows(buffer: Buffer): AsyncGenerator<RawRow> {
  */
 export async function* parseXlsxRows(buffer: Buffer): AsyncGenerator<RawRow> {
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(buffer);
+  // ExcelJS's own type declarations expect a Buffer shape that predates the
+  // newer, generic Buffer<ArrayBufferLike> from current @types/node -
+  // `as unknown as Buffer` doesn't help here since that still resolves to
+  // the same ambient (generic) Buffer type; `any` is the correct escape
+  // hatch for a third-party typing gap like this, not a type across our
+  // own code.
+  await workbook.xlsx.load(buffer as any);
   const worksheet = workbook.worksheets[0];
   if (!worksheet) return;
 
