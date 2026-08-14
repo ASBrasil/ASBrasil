@@ -9,11 +9,13 @@ export default async function MeusEventosPage() {
 
   // A single e-mail can now own several Participant rows per event (one per
   // ticket), so this is grouped by event below instead of assuming one row
-  // per event like it used to.
+  // per event like it used to. Ordered by the event's own manual order
+  // (set in the admin) so this matches whatever sequence was configured
+  // there, not just "whichever ticket was created first".
   const rows = await db.participant.findMany({
     where: { email, event: { active: true } },
     include: { event: true },
-    orderBy: { createdAt: "desc" },
+    orderBy: { event: { order: "asc" } },
   });
 
   const byEvent = new Map<string, { event: (typeof rows)[number]["event"]; numbers: number[] }>();
