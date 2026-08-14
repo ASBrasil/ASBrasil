@@ -10,9 +10,20 @@ interface EditablePrize {
   name: string;
   description: string | null;
   imageUrl: string | null;
+  scheduledAt: string | null; // ISO string, already serialized by the server component
   winMessage: string | null;
   loseMessage: string | null;
   couponCode: string | null;
+}
+
+/** ISO string (UTC) -> "YYYY-MM-DDTHH:mm" in local time, what <input type="datetime-local"> expects. */
+function toDatetimeLocalValue(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(
+    d.getMinutes()
+  )}`;
 }
 
 export function PrizeEditPanel({ prize }: { prize: EditablePrize }) {
@@ -22,6 +33,7 @@ export function PrizeEditPanel({ prize }: { prize: EditablePrize }) {
     name: prize.name,
     description: prize.description ?? "",
     imageUrl: prize.imageUrl,
+    scheduledAt: toDatetimeLocalValue(prize.scheduledAt),
     winMessage: prize.winMessage ?? "",
     loseMessage: prize.loseMessage ?? "",
     couponCode: prize.couponCode ?? "",
@@ -39,6 +51,7 @@ export function PrizeEditPanel({ prize }: { prize: EditablePrize }) {
         name: form.name,
         description: form.description || null,
         imageUrl: form.imageUrl,
+        scheduledAt: form.scheduledAt || null,
         winMessage: form.winMessage || null,
         loseMessage: form.loseMessage || null,
         couponCode: form.couponCode || null,
@@ -77,6 +90,14 @@ export function PrizeEditPanel({ prize }: { prize: EditablePrize }) {
             <Input
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
+            />
+          </Field>
+
+          <Field label="Data e hora do sorteio" hint="Aparece como contagem regressiva para o participante.">
+            <Input
+              type="datetime-local"
+              value={form.scheduledAt}
+              onChange={(e) => setForm({ ...form, scheduledAt: e.target.value })}
             />
           </Field>
 

@@ -4,7 +4,15 @@ import { requireAdmin } from "@/lib/auth";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   await requireAdmin();
-  const prize = await db.prize.findUnique({ where: { id: params.id } });
+  const prize = await db.prize.findUnique({
+    where: { id: params.id },
+    include: {
+      drawResults: {
+        where: { voided: false },
+        include: { participant: { select: { name: true } } },
+      },
+    },
+  });
   if (!prize) return NextResponse.json({ error: "Prêmio não encontrado" }, { status: 404 });
   return NextResponse.json({ prize });
 }

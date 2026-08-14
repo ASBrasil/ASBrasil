@@ -32,6 +32,11 @@ export default async function EventPage({ params }: { params: { slug: string } }
     >
       {theme?.customCss && <style dangerouslySetInnerHTML={{ __html: theme.customCss }} />}
 
+      <div className="topbar">
+        <span>{event.campaign || event.name}</span>
+        <a href={`/e/${event.slug}/vencedores`}>🏆 Vencedores</a>
+      </div>
+
       <section className={`hero ${bannerUrl ? "has-banner" : ""}`}>
         {bannerUrl && (
           <>
@@ -40,12 +45,8 @@ export default async function EventPage({ params }: { params: { slug: string } }
           </>
         )}
         <div className="hero-content">
-          {event.campaign && <span className="eyebrow">{event.campaign}</span>}
           <h1>{event.name}</h1>
           {event.description && <p className="description">{event.description}</p>}
-          <a href={`/e/${event.slug}/vencedores`} className="winners-link">
-            🏆 Ver vencedores
-          </a>
         </div>
       </section>
 
@@ -91,14 +92,43 @@ export default async function EventPage({ params }: { params: { slug: string } }
       </section>
 
       <style>{`
+        .topbar {
+          position: sticky;
+          top: 0;
+          z-index: 40;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          padding: 0.65rem 1.25rem;
+          background: rgba(0, 0, 0, 0.35);
+          backdrop-filter: blur(10px);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          font-size: 0.78rem;
+        }
+        .topbar span {
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+          font-weight: 600;
+          opacity: 0.8;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .topbar a {
+          flex-shrink: 0;
+          color: var(--primary);
+          text-decoration: none;
+          font-weight: 600;
+        }
         .hero {
           position: relative;
-          padding: 5rem 1.5rem 3rem;
+          padding: 4rem 1.5rem 3rem;
           text-align: center;
         }
         .hero.has-banner {
           padding: 0;
-          min-height: min(32rem, 80vh);
+          min-height: min(28rem, 70vh);
           display: flex;
           align-items: flex-end;
           overflow: hidden;
@@ -125,12 +155,6 @@ export default async function EventPage({ params }: { params: { slug: string } }
         .has-banner .hero-content {
           padding: 3rem 1.5rem 2.5rem;
         }
-        .eyebrow {
-          text-transform: uppercase;
-          letter-spacing: 0.2em;
-          font-size: 0.75rem;
-          color: var(--primary);
-        }
         h1 {
           font-family: var(--font-display, serif);
           font-size: clamp(2.2rem, 5vw, 3.5rem);
@@ -140,14 +164,6 @@ export default async function EventPage({ params }: { params: { slug: string } }
           max-width: 40rem;
           margin: 0 auto;
           opacity: 0.8;
-        }
-        .winners-link {
-          display: inline-block;
-          margin-top: 1.25rem;
-          color: var(--primary);
-          text-decoration: none;
-          font-size: 0.9rem;
-          font-weight: 600;
         }
         .prizes {
           padding: 2rem 1.5rem 4rem;

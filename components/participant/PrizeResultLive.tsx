@@ -166,12 +166,19 @@ export function PrizeResultLive({
 
   return (
     <div className="pending">
-      <span className="tag">Ainda não sorteado</span>
-      {scheduledAt ? (
-        <Countdown target={scheduledAt} />
-      ) : (
-        <p className="detail">Data do sorteio ainda não definida.</p>
-      )}
+      <span className="status-badge">🕐 Ainda não sorteado</span>
+
+      <div className="countdown-card">
+        {scheduledAt ? (
+          <>
+            <span className="countdown-label">Sorteio em</span>
+            <Countdown target={scheduledAt} />
+          </>
+        ) : (
+          <p className="detail">Data do sorteio ainda não definida.</p>
+        )}
+      </div>
+
       <div className="number-pill">
         {raffleNumbers.length === 1 ? (
           <>
@@ -184,17 +191,45 @@ export function PrizeResultLive({
         )}
       </div>
       <style jsx>{`
-        .tag {
-          display: inline-block;
+        .pending {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+        .status-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--primary, #4f5fff);
+          background: color-mix(in srgb, var(--primary, #4f5fff) 14%, transparent);
+          border-radius: 999px;
+          padding: 0.35rem 0.85rem;
+          margin-bottom: 1.25rem;
+        }
+        .countdown-card {
+          width: 100%;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 1rem;
+          padding: 1.25rem 1rem;
+          margin-bottom: 1rem;
+        }
+        .countdown-label {
+          display: block;
+          text-align: center;
           font-size: 0.7rem;
           text-transform: uppercase;
-          letter-spacing: 0.08em;
-          color: var(--primary, #4f5fff);
-          margin-bottom: 1rem;
+          letter-spacing: 0.06em;
+          opacity: 0.55;
+          margin-bottom: 0.75rem;
         }
         .detail {
           opacity: 0.7;
           font-size: 0.9rem;
+          margin: 0;
+          text-align: center;
         }
         .number-pill {
           display: inline-block;
@@ -204,7 +239,7 @@ export function PrizeResultLive({
           padding: 0.6rem 1.4rem;
           font-size: 0.9rem;
           line-height: 1.6;
-          margin-top: 0.5rem;
+          margin-top: 0.25rem;
         }
         .number-pill strong {
           font-family: monospace;

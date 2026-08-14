@@ -65,12 +65,24 @@ export default async function EventDashboardPage({ params }: { params: { id: str
               <div>
                 <strong>{prize.name}</strong>
                 {prize.description && <p>{prize.description}</p>}
+                {prize.scheduledAt && (
+                  <p className="scheduled">
+                    🗓️{" "}
+                    {prize.scheduledAt.toLocaleString("pt-BR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                )}
                 <PrizeEditPanel
                   prize={{
                     id: prize.id,
                     name: prize.name,
                     description: prize.description,
                     imageUrl: prize.imageUrl,
+                    scheduledAt: prize.scheduledAt ? prize.scheduledAt.toISOString() : null,
                     winMessage: prize.winMessage,
                     loseMessage: prize.loseMessage,
                     couponCode: prize.couponCode,
@@ -178,6 +190,10 @@ export default async function EventDashboardPage({ params }: { params: { id: str
           margin: 0.2rem 0 0;
           font-size: 0.85rem;
           color: var(--text-muted);
+        }
+        .prize-row p.scheduled {
+          font-size: 0.78rem;
+          margin-top: 0.35rem;
         }
       `}</style>
     </div>

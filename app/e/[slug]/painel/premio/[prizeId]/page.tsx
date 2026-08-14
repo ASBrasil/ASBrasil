@@ -53,16 +53,18 @@ export default async function ParticipantPrizePage({
 
       <section className="content">
         <Link href={`/e/${event.slug}/painel`} className="back">
-          ← {event.name}
+          ← Voltar
         </Link>
 
-        {prize.imageUrl ? (
-          <img src={prize.imageUrl} alt="" className="prize-photo" />
-        ) : (
-          <div className="prize-icon">🎁</div>
-        )}
-        <h1>{prize.name}</h1>
-        {prize.description && <p className="description">{prize.description}</p>}
+        <div className="prize-card">
+          {prize.imageUrl ? (
+            <img src={prize.imageUrl} alt="" className="prize-photo" />
+          ) : (
+            <div className="prize-icon">🎁</div>
+          )}
+          <h1>{prize.name}</h1>
+          {prize.description && <p className="description">{prize.description}</p>}
+        </div>
 
         <PrizeResultLive
           prizeId={prize.id}
@@ -82,17 +84,30 @@ export default async function ParticipantPrizePage({
 
       <style>{`
         .content {
-          max-width: 30rem;
+          max-width: 26rem;
           margin: 0 auto;
-          padding: 2.5rem 1.5rem 4rem;
+          padding: 1.25rem 1.25rem 4rem;
           text-align: center;
         }
         .back {
-          display: inline-block;
-          margin-bottom: 2rem;
-          color: var(--primary);
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+          margin-bottom: 1.5rem;
+          background: rgba(255, 255, 255, 0.07);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          color: inherit;
           text-decoration: none;
-          font-size: 0.85rem;
+          font-size: 0.78rem;
+          font-weight: 600;
+          padding: 0.35rem 0.8rem 0.35rem 0.65rem;
+          border-radius: 999px;
+        }
+        .back:hover {
+          border-color: rgba(255, 255, 255, 0.3);
+        }
+        .prize-card {
+          margin-bottom: 1.75rem;
         }
         .prize-icon {
           width: 4.5rem;
@@ -107,7 +122,7 @@ export default async function ParticipantPrizePage({
         }
         .prize-photo {
           width: 100%;
-          max-width: 20rem;
+          max-width: 18rem;
           aspect-ratio: 4 / 3;
           object-fit: cover;
           margin: 0 auto 1.5rem;
@@ -117,11 +132,13 @@ export default async function ParticipantPrizePage({
         }
         h1 {
           font-family: "Sora", system-ui, sans-serif;
-          margin: 0 0 0.5rem;
+          margin: 0 0 0.4rem;
+          font-size: 1.4rem;
         }
         .description {
-          opacity: 0.75;
-          margin-bottom: 2rem;
+          opacity: 0.7;
+          font-size: 0.9rem;
+          margin: 0;
         }
       `}</style>
     </main>

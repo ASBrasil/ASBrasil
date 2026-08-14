@@ -28,6 +28,7 @@ export function Countdown({ target }: { target: string }) {
       <style jsx>{`
         .countdown {
           display: flex;
+          justify-content: center;
           gap: 0.75rem;
         }
         .soon {
