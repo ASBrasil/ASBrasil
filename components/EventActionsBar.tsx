@@ -26,6 +26,19 @@ export function EventActionsBar({ eventId, archived }: { eventId: string; archiv
     router.refresh();
   }
 
+  async function duplicate() {
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/admin/events/${eventId}/duplicate`, { method: "POST" });
+    const data = await res.json();
+    setBusy(false);
+    if (!res.ok) {
+      setError(data.error ?? "Não foi possível duplicar.");
+      return;
+    }
+    router.push(`/admin/events/${data.event.id}`);
+  }
+
   async function confirmDelete() {
     setBusy(true);
     setError(null);
@@ -48,6 +61,9 @@ export function EventActionsBar({ eventId, archived }: { eventId: string; archiv
       </Link>
       <button type="button" className="ghost-btn" onClick={toggleArchive} disabled={busy}>
         {archived ? "Desarquivar" : "Arquivar"}
+      </button>
+      <button type="button" className="ghost-btn" onClick={duplicate} disabled={busy}>
+        {busy ? "…" : "📋 Duplicar"}
       </button>
       {!confirmingDelete ? (
         <button type="button" className="danger-btn" onClick={() => setConfirmingDelete(true)} disabled={busy}>

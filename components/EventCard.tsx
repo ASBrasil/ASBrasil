@@ -36,6 +36,19 @@ export function EventCard({ event }: { event: EventCardData }) {
     router.refresh();
   }
 
+  async function duplicate() {
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/admin/events/${event.id}/duplicate`, { method: "POST" });
+    const data = await res.json();
+    setBusy(false);
+    if (!res.ok) {
+      setError(data.error ?? "Não foi possível duplicar.");
+      return;
+    }
+    router.push(`/admin/events/${data.event.id}`);
+  }
+
   async function confirmDelete() {
     setBusy(true);
     setError(null);
@@ -71,6 +84,9 @@ export function EventCard({ event }: { event: EventCardData }) {
         </Link>
         <button type="button" className="action-btn" onClick={toggleArchive} disabled={busy}>
           {event.archived ? "Desarquivar" : "Arquivar"}
+        </button>
+        <button type="button" className="action-btn" onClick={duplicate} disabled={busy}>
+          {busy ? "…" : "Duplicar"}
         </button>
         {!confirmingDelete ? (
           <button
