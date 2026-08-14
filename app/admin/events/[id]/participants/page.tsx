@@ -18,18 +18,42 @@ export default async function EventParticipantsPage({ params }: { params: { id: 
           </Link>
           <h1>Participantes</h1>
         </div>
+        <Link href={`/admin/events/${event.id}/imports`} className="history-link">
+          🕓 Histórico de importações
+        </Link>
       </div>
 
       <ParticipantsPageClient eventId={event.id} />
 
       <style>{`
-        .header { margin-bottom: 1.5rem; }
+        .header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 1rem;
+          flex-wrap: wrap;
+          margin-bottom: 1.5rem;
+        }
         .back {
           color: var(--indigo-600);
           text-decoration: none;
           font-size: 0.85rem;
         }
         h1 { margin: 0.3rem 0 0; font-family: var(--font-display, inherit); }
+        .history-link {
+          color: var(--text-muted);
+          text-decoration: none;
+          font-size: 0.82rem;
+          font-weight: 600;
+          border: 1px solid var(--border);
+          border-radius: 999px;
+          padding: 0.5rem 0.9rem;
+          white-space: nowrap;
+        }
+        .history-link:hover {
+          border-color: var(--indigo-600);
+          color: var(--text);
+        }
       `}</style>
     </div>
   );
