@@ -27,10 +27,12 @@ const EMPTY_DRAFT: DraftPrize = {
 export function PrizesStep({
   eventId,
   onDone,
+  onBack,
   existingPrizes = [],
 }: {
   eventId: string;
   onDone: () => void;
+  onBack?: () => void;
   existingPrizes?: { id: string; name: string; imageUrl?: string | null }[];
 }) {
   const [saved, setSaved] = useState<{ name: string; imageUrl: string | null }[]>([]);
@@ -155,12 +157,15 @@ export function PrizesStep({
       </Field>
 
       <div className="actions">
+        {onBack && (
+          <Button variant="ghost" onClick={onBack}>
+            ← Voltar
+          </Button>
+        )}
         <Button variant="ghost" onClick={addPrize} disabled={!draft.name || saving}>
           {saving ? "Adicionando…" : "+ Adicionar outro prêmio"}
         </Button>
-        <Button onClick={onDone} disabled={allPrizes.length === 0}>
-          Continuar →
-        </Button>
+        <Button onClick={onDone}>{allPrizes.length === 0 ? "Pular por agora →" : "Continuar →"}</Button>
       </div>
 
       <style jsx>{`

@@ -15,10 +15,12 @@ type Mapping = {
 export function ParticipantsStep({
   eventId,
   onDone,
+  onBack,
   existingCount = 0,
 }: {
   eventId: string;
   onDone: () => void;
+  onBack?: () => void;
   existingCount?: number;
 }) {
   const [method, setMethod] = useState<"import" | "signup" | null>(null);
@@ -53,6 +55,11 @@ export function ParticipantsStep({
           como está ou importar/habilitar mais.
         </p>
         <div className="actions">
+          {onBack && (
+            <Button variant="ghost" onClick={onBack}>
+              ← Voltar
+            </Button>
+          )}
           <Button variant="ghost" onClick={() => setShowChoice(true)}>
             + Importar ou habilitar inscrição
           </Button>
@@ -139,10 +146,21 @@ export function ParticipantsStep({
             <span>O próprio cliente se cadastra pela página do evento.</span>
           </button>
         </div>
-        {existingCount > 0 && (
+        {existingCount > 0 ? (
           <div className="actions">
             <Button variant="ghost" onClick={() => setShowChoice(false)}>
               ← Voltar
+            </Button>
+          </div>
+        ) : (
+          <div className="actions">
+            {onBack && (
+              <Button variant="ghost" onClick={onBack}>
+                ← Voltar
+              </Button>
+            )}
+            <Button variant="ghost" onClick={onDone}>
+              Pular por agora →
             </Button>
           </div>
         )}

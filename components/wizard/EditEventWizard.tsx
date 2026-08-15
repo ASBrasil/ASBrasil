@@ -103,18 +103,36 @@ export function EditEventWizard({ event }: { event: EditableEvent }) {
             <Button onClick={saveDetails} disabled={!form.name || !form.slug || saving}>
               {saving ? "Salvando…" : "Continuar →"}
             </Button>
+            <Button variant="ghost" onClick={() => setStep(1)}>
+              Pular →
+            </Button>
           </div>
         </Card>
       )}
 
       {step === 1 && (
-        <ThemeStep eventId={event.id} initialTheme={event.theme ?? undefined} onDone={() => setStep(2)} />
+        <ThemeStep
+          eventId={event.id}
+          initialTheme={event.theme ?? undefined}
+          onDone={() => setStep(2)}
+          onBack={() => setStep(0)}
+        />
       )}
       {step === 2 && (
-        <ParticipantsStep eventId={event.id} existingCount={event.participantsCount} onDone={() => setStep(3)} />
+        <ParticipantsStep
+          eventId={event.id}
+          existingCount={event.participantsCount}
+          onDone={() => setStep(3)}
+          onBack={() => setStep(1)}
+        />
       )}
       {step === 3 && (
-        <PrizesStep eventId={event.id} existingPrizes={event.prizes} onDone={() => setStep(4)} />
+        <PrizesStep
+          eventId={event.id}
+          existingPrizes={event.prizes}
+          onDone={() => setStep(4)}
+          onBack={() => setStep(2)}
+        />
       )}
       {step === 4 && (
         <Card icon="✅">
@@ -129,6 +147,9 @@ export function EditEventWizard({ event }: { event: EditableEvent }) {
             </select>
           </Field>
           <div className="actions">
+            <Button variant="ghost" onClick={() => setStep(3)}>
+              ← Voltar
+            </Button>
             <Button onClick={finish} disabled={finishing}>
               {finishing ? "Salvando…" : "Concluir edição"}
             </Button>
@@ -154,6 +175,9 @@ export function EditEventWizard({ event }: { event: EditableEvent }) {
         }
         .actions {
           margin-top: 1.5rem;
+          display: flex;
+          gap: 0.75rem;
+          flex-wrap: wrap;
         }
         .error {
           color: #c0392b;

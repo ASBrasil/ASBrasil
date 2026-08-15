@@ -21,10 +21,12 @@ interface ThemeColors {
 export function ThemeStep({
   eventId,
   onDone,
+  onBack,
   initialTheme,
 }: {
   eventId: string;
   onDone: () => void;
+  onBack?: () => void;
   initialTheme?: { colors?: ThemeColors; customCss?: string; bannerUrl?: string | null } | null;
 }) {
   const [colors, setColors] = useState<ThemeColors>(
@@ -120,6 +122,14 @@ export function ThemeStep({
       </Field>
 
       <div className="actions">
+        {onBack && (
+          <Button variant="ghost" onClick={onBack}>
+            ← Voltar
+          </Button>
+        )}
+        <Button variant="ghost" onClick={onDone}>
+          Pular →
+        </Button>
         <Button onClick={save} disabled={saving}>
           {saving ? "Salvando…" : "Continuar →"}
         </Button>
@@ -172,6 +182,9 @@ export function ThemeStep({
         }
         .actions {
           margin-top: 1.5rem;
+          display: flex;
+          gap: 0.75rem;
+          flex-wrap: wrap;
         }
       `}</style>
     </Card>

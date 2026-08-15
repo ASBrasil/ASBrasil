@@ -102,10 +102,18 @@ export default function NewEventWizard() {
         </Card>
       )}
 
-      {step === 1 && eventId && <ThemeStep eventId={eventId} onDone={() => setStep(2)} />}
-      {step === 2 && eventId && <ParticipantsStep eventId={eventId} onDone={() => setStep(3)} />}
-      {step === 3 && eventId && <PrizesStep eventId={eventId} onDone={() => setStep(4)} />}
-      {step === 4 && eventId && <PublishStep eventId={eventId} slug={form.slug} />}
+      {step === 1 && eventId && (
+        <ThemeStep eventId={eventId} onDone={() => setStep(2)} onBack={() => setStep(0)} />
+      )}
+      {step === 2 && eventId && (
+        <ParticipantsStep eventId={eventId} onDone={() => setStep(3)} onBack={() => setStep(1)} />
+      )}
+      {step === 3 && eventId && (
+        <PrizesStep eventId={eventId} onDone={() => setStep(4)} onBack={() => setStep(2)} />
+      )}
+      {step === 4 && eventId && (
+        <PublishStep eventId={eventId} slug={form.slug} onBack={() => setStep(3)} />
+      )}
 
       <style>{`
         .wizard {
@@ -125,6 +133,9 @@ export default function NewEventWizard() {
         }
         .actions {
           margin-top: 1.5rem;
+          display: flex;
+          gap: 0.75rem;
+          flex-wrap: wrap;
         }
         .error {
           color: #c0392b;

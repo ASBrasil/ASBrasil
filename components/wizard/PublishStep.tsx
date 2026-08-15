@@ -4,7 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card } from "@/components/ui/primitives";
 
-export function PublishStep({ eventId, slug }: { eventId: string; slug: string }) {
+export function PublishStep({
+  eventId,
+  slug,
+  onBack,
+}: {
+  eventId: string;
+  slug: string;
+  onBack?: () => void;
+}) {
   const router = useRouter();
   const [publishing, setPublishing] = useState(false);
   const publicUrl = typeof window !== "undefined" ? `${window.location.origin}/e/${slug}` : `/e/${slug}`;
@@ -28,6 +36,14 @@ export function PublishStep({ eventId, slug }: { eventId: string; slug: string }
         depois pelo painel.
       </p>
       <div className="actions">
+        {onBack && (
+          <Button variant="ghost" onClick={onBack}>
+            ← Voltar
+          </Button>
+        )}
+        <Button variant="ghost" onClick={() => router.push(`/admin/events/${eventId}`)}>
+          Deixar como rascunho
+        </Button>
         <Button onClick={publish} disabled={publishing}>
           {publishing ? "Publicando…" : "Publicar evento →"}
         </Button>
@@ -35,7 +51,7 @@ export function PublishStep({ eventId, slug }: { eventId: string; slug: string }
       <style jsx>{`
         h2 { margin: 0 0 0.35rem; }
         .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
-        .actions { margin-top: 1rem; }
+        .actions { margin-top: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap; }
       `}</style>
     </Card>
   );
