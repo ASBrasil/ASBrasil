@@ -22,6 +22,8 @@ export function ParticipantsTable({ eventId }: { eventId: string }) {
     totalPages: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   // Debounce so typing doesn't fire a request per keystroke against a
   // 10k+ row table.
@@ -43,12 +45,87 @@ export function ParticipantsTable({ eventId }: { eventId: string }) {
       .finally(() => setLoading(false));
   }, [eventId, debouncedSearch, page]);
 
+  // A busca ou a troca de página muda quem está visível, então a seleção
+  // (que é só desta página) não faz mais sentido carregar adiante.
+  useEffect(() => {
+    setSelected(new Set());
+  }, [debouncedSearch, page]);
+
   async function handleDelete(id: string) {
     if (!confirm("Remover este participante? Essa ação não pode ser desfeita.")) return;
     await fetch(`/api/admin/participants/${id}`, { method: "DELETE" });
     setData((d) =>
       d ? { ...d, participants: d.participants.filter((p) => p.id !== id), total: d.total - 1 } : d
     );
+    setSelected((s) => {
+      const next = new Set(s);
+      next.delete(id);
+      return next;
+    });
+  }
+
+  function toggleOne(id: string) {
+    setSelected((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (!data) return;
+    setSelected((s) =>
+      s.size === data.participants.length ? new Set() : new Set(data.participants.map((p) => p.id))
+    );
+  }
+
+  async function handleBulkDelete() {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    if (
+      !confirm(
+        `Excluir ${ids.length} participante${ids.length !== 1 ? "s" : ""} selecionado${
+          ids.length !== 1 ? "s" : ""
+        }? Essa ação não pode ser desfeita.`
+      )
+    )
+      return;
+
+    setBulkDeleting(true);
+    const res = await fetch("/api/admin/participants/bulk-delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    });
+    const result = await res.json();
+    setBulkDeleting(false);
+
+    if (!res.ok) {
+      alert(result.error ?? "Não foi possível excluir os participantes selecionados.");
+      return;
+    }
+
+    setData((d) =>
+      d
+        ? {
+            ...d,
+            participants: d.participants.filter((p) => !selected.has(p.id)),
+            total: d.total - result.deletedCount,
+          }
+        : d
+    );
+    setSelected(new Set());
+
+    if (result.blockedCount > 0) {
+      alert(
+        `${result.deletedCount} excluído${result.deletedCount !== 1 ? "s" : ""}. ${
+          result.blockedCount
+        } não ${result.blockedCount !== 1 ? "foram excluídos" : "foi excluído"} porque já ${
+          result.blockedCount !== 1 ? "ganharam" : "ganhou"
+        } algum prêmio (o resultado do sorteio precisa manter o registro).`
+      );
+    }
   }
 
   const exportUrl = useMemo(
@@ -56,10 +133,13 @@ export function ParticipantsTable({ eventId }: { eventId: string }) {
     [eventId]
   );
 
+  const allSelected = !!data && data.participants.length > 0 && selected.size === data.participants.length;
+
   return (
     <div className="wrap">
       <div className="toolbar">
         <input
+          className="search"
           placeholder="Buscar por nome, e-mail ou pedido…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -69,10 +149,29 @@ export function ParticipantsTable({ eventId }: { eventId: string }) {
         </a>
       </div>
 
+      {selected.size > 0 && (
+        <div className="bulk-bar">
+          <span>
+            {selected.size} selecionado{selected.size !== 1 ? "s" : ""}
+          </span>
+          <button className="bulk-delete" onClick={handleBulkDelete} disabled={bulkDeleting}>
+            {bulkDeleting ? "Excluindo…" : "Excluir selecionados"}
+          </button>
+        </div>
+      )}
+
       <div className="table-shell">
         <table>
           <thead>
             <tr>
+              <th className="checkbox-col">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleAll}
+                  aria-label="Selecionar todos"
+                />
+              </th>
               <th>Número</th>
               <th>Nome</th>
               <th>E-mail</th>
@@ -84,7 +183,15 @@ export function ParticipantsTable({ eventId }: { eventId: string }) {
           </thead>
           <tbody>
             {data?.participants.map((p) => (
-              <tr key={p.id}>
+              <tr key={p.id} className={selected.has(p.id) ? "row-selected" : ""}>
+                <td className="checkbox-col">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(p.id)}
+                    onChange={() => toggleOne(p.id)}
+                    aria-label={`Selecionar ${p.name}`}
+                  />
+                </td>
                 <td className="number">{p.raffleNumber}</td>
                 <td>{p.name}</td>
                 <td className="muted">{p.email}</td>
@@ -106,7 +213,7 @@ export function ParticipantsTable({ eventId }: { eventId: string }) {
             ))}
             {!loading && data?.participants.length === 0 && (
               <tr>
-                <td colSpan={7} className="empty">
+                <td colSpan={8} className="empty">
                   Nenhum participante encontrado.
                 </td>
               </tr>
@@ -138,7 +245,7 @@ export function ParticipantsTable({ eventId }: { eventId: string }) {
           gap: 1rem;
           margin-bottom: 1rem;
         }
-        input {
+        .search {
           flex: 1;
           max-width: 24rem;
           padding: 0.6rem 0.9rem;
@@ -153,6 +260,33 @@ export function ParticipantsTable({ eventId }: { eventId: string }) {
           text-decoration: none;
           color: var(--text);
           white-space: nowrap;
+        }
+        .bulk-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          background: color-mix(in srgb, var(--indigo-600) 10%, transparent);
+          border: 1px solid var(--indigo-600);
+          border-radius: 0.6rem;
+          padding: 0.65rem 1rem;
+          margin-bottom: 0.75rem;
+          font-size: 0.85rem;
+          font-weight: 600;
+        }
+        .bulk-delete {
+          background: #b91c1c;
+          color: white;
+          border: none;
+          border-radius: 0.5rem;
+          padding: 0.45rem 0.9rem;
+          font-size: 0.82rem;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        .bulk-delete:disabled {
+          opacity: 0.6;
+          cursor: default;
         }
         .table-shell {
           background: var(--surface);
@@ -177,6 +311,16 @@ export function ParticipantsTable({ eventId }: { eventId: string }) {
         td {
           padding: 0.65rem 1rem;
           border-top: 1px solid var(--border);
+        }
+        .checkbox-col {
+          width: 2.5rem;
+          padding-right: 0;
+        }
+        .checkbox-col input {
+          cursor: pointer;
+        }
+        tr.row-selected {
+          background: color-mix(in srgb, var(--indigo-600) 6%, transparent);
         }
         .number {
           font-family: var(--font-mono, monospace);
