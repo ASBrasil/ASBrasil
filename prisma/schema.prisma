@@ -201,3 +201,30 @@ model ImportBatch {
   createdAt     DateTime     @default(now())
   finishedAt    DateTime?
 }
+
+enum PopupType {
+  TEXT
+  IMAGE
+  HTML
+}
+
+// A single announcement shown to participants right when they land on
+// /meus-eventos - not tied to a specific event, since that page is where
+// people go before picking one. Only ever one `active` at a time (enforced
+// in the API, not the schema): activating one deactivates the rest, so
+// there's never ambiguity about which popup a visitor should see.
+model Popup {
+  id        String    @id @default(cuid())
+  active    Boolean   @default(false)
+  type      PopupType @default(TEXT)
+
+  title     String?   // opcional nos 3 tipos - vira o cabecalho do popup
+  body      String?   // texto simples (TEXT) ou HTML bruto confiavel (HTML)
+  imageUrl  String?   // usado no tipo IMAGE
+  linkUrl   String?   // opcional - se preenchido, o popup inteiro vira um link
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([active])
+}

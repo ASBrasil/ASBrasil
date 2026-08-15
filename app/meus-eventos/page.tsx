@@ -2,10 +2,13 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { getParticipantEmail } from "@/lib/participant-session";
+import { AnnouncementPopup } from "@/components/participant/AnnouncementPopup";
 
 export default async function MeusEventosPage() {
   const email = await getParticipantEmail();
   if (!email) redirect("/entrar");
+
+  const activePopup = await db.popup.findFirst({ where: { active: true } });
 
   // A single e-mail can now own several Participant rows per event (one per
   // ticket), so this is grouped by event below instead of assuming one row
@@ -31,6 +34,8 @@ export default async function MeusEventosPage() {
 
   return (
     <main className="page">
+      <AnnouncementPopup popup={activePopup} />
+
       <header className="topbar">
         <span>Meus sorteios</span>
         <form action="/api/public/session" method="post">
