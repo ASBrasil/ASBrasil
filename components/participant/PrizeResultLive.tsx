@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Countdown } from "./Countdown";
 import { DrawReveal } from "@/components/DrawReveal";
+import { Fireworks } from "./Fireworks";
 
 interface Result {
   winningNumber: number;
@@ -36,6 +37,10 @@ export function PrizeResultLive({
   );
   const [result, setResult] = useState<Result | null>(initialResult);
   const [won, setWon] = useState(initialWon);
+  // Só dispara na virada ao vivo (drawing -> revealed), nunca em quem só
+  // chega na página já sabendo o resultado - senão os fogos "explodiriam"
+  // de novo a cada F5, o que enjoa rápido.
+  const [showFireworks, setShowFireworks] = useState(false);
 
   useEffect(() => {
     if (phase !== "waiting") return; // já sabemos o resultado, não precisa mais perguntar
@@ -63,7 +68,13 @@ export function PrizeResultLive({
         <span className="tag pulse">Sorteando…</span>
         <DrawReveal
           winningNumber={result.winningNumber}
-          onSettled={() => setPhase("revealed")}
+          onSettled={() => {
+            setPhase("revealed");
+            if (won) {
+              setShowFireworks(true);
+              setTimeout(() => setShowFireworks(false), 2500);
+            }
+          }}
         />
         <style jsx>{`
           .drawing {
@@ -98,6 +109,7 @@ export function PrizeResultLive({
   if (phase === "revealed" && result) {
     return (
       <div className="result">
+        {showFireworks && <Fireworks />}
         <span className="tag">Resultado</span>
         {won ? (
           <>
