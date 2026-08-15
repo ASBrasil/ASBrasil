@@ -4,6 +4,7 @@ import { PrizeDrawPanel } from "@/components/PrizeDrawPanel";
 import { EventActionsBar } from "@/components/EventActionsBar";
 import { PrizeEditPanel } from "@/components/admin/PrizeEditPanel";
 import { PrizeReorderButtons } from "@/components/admin/PrizeReorderButtons";
+import { PrizeDuplicateButton } from "@/components/admin/PrizeDuplicateButton";
 
 export const dynamic = "force-dynamic";
 
@@ -83,18 +84,21 @@ export default async function EventDashboardPage({ params }: { params: { id: str
                     })}
                   </p>
                 )}
-                <PrizeEditPanel
-                  prize={{
-                    id: prize.id,
-                    name: prize.name,
-                    description: prize.description,
-                    imageUrl: prize.imageUrl,
-                    scheduledAt: prize.scheduledAt ? prize.scheduledAt.toISOString() : null,
-                    winMessage: prize.winMessage,
-                    loseMessage: prize.loseMessage,
-                    couponCode: prize.couponCode,
-                  }}
-                />
+                <div className="prize-actions">
+                  <PrizeEditPanel
+                    prize={{
+                      id: prize.id,
+                      name: prize.name,
+                      description: prize.description,
+                      imageUrl: prize.imageUrl,
+                      scheduledAt: prize.scheduledAt ? prize.scheduledAt.toISOString() : null,
+                      winMessage: prize.winMessage,
+                      loseMessage: prize.loseMessage,
+                      couponCode: prize.couponCode,
+                    }}
+                  />
+                  <PrizeDuplicateButton prizeId={prize.id} />
+                </div>
               </div>
             </div>
             <PrizeDrawPanel prize={{ id: prize.id, name: prize.name, status: prize.status }} />
@@ -206,6 +210,13 @@ export default async function EventDashboardPage({ params }: { params: { id: str
         .prize-row p.scheduled {
           font-size: 0.78rem;
           margin-top: 0.35rem;
+        }
+        .prize-actions {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: flex-start;
+          gap: 0.5rem;
+          margin-top: 0.6rem;
         }
       `}</style>
     </div>

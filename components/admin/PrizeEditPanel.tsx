@@ -142,6 +142,9 @@ export function PrizeEditPanel({ prize }: { prize: EditablePrize }) {
       )}
 
       <style jsx>{`
+        .wrap:has(.edit-panel) {
+          flex-basis: 100%;
+        }
         .edit-toggle {
           background: none;
           border: 1px solid var(--border);
