@@ -7,6 +7,7 @@ interface FeaturedEvent {
   name: string;
   campaign: string | null;
   slug: string;
+  loginBannerText: string | null;
 }
 
 export function LoginEventsBanner({ events }: { events: FeaturedEvent[] }) {
@@ -32,8 +33,7 @@ export function LoginEventsBanner({ events }: { events: FeaturedEvent[] }) {
           rel="noopener noreferrer"
           className="event-name"
         >
-          {current.campaign ? `${current.campaign} — ` : ""}
-          {current.name}
+          {current.loginBannerText || (current.campaign ? `${current.campaign} — ${current.name}` : current.name)}
         </a>
       </div>
       {events.length > 1 && (

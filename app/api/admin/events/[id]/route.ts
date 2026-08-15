@@ -29,6 +29,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.active !== undefined) data.active = body.active;
   if (body.archived !== undefined) data.archived = body.archived;
   if (body.featuredOnLogin !== undefined) data.featuredOnLogin = body.featuredOnLogin;
+  if (body.loginBannerText !== undefined) data.loginBannerText = body.loginBannerText;
   if (body.name !== undefined) data.name = body.name;
   if (body.description !== undefined) data.description = body.description;
   if (body.campaign !== undefined) data.campaign = body.campaign;

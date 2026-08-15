@@ -75,6 +75,10 @@ model Event {
   // Admin-curated on purpose, not automatic from `active` - not every
   // running event necessarily wants to be advertised there.
   featuredOnLogin      Boolean  @default(false)
+  // Free-text override for what the banner actually says. Falls back to
+  // "{campaign} — {name}" when empty, so turning featuredOnLogin on works
+  // immediately without forcing the admin to write custom copy first.
+  loginBannerText      String?
 
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt

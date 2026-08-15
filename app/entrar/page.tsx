@@ -8,7 +8,7 @@ export default async function EntrarPage() {
   const featured = await db.event.findMany({
     where: { featuredOnLogin: true, active: true, archived: false },
     orderBy: [{ order: "asc" }, { createdAt: "desc" }],
-    select: { id: true, name: true, campaign: true, slug: true },
+    select: { id: true, name: true, campaign: true, slug: true, loginBannerText: true },
   });
 
   return (
