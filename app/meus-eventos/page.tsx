@@ -164,43 +164,12 @@ export default async function MeusEventosPage() {
           grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
           gap: 1.1rem;
         }
-      `}</style>
-    </main>
-  );
-}
 
-function EventCard({
-  event,
-  numbers,
-  muted,
-}: {
-  event: { id: string; slug: string; name: string; campaign: string | null; theme: unknown };
-  numbers: number[];
-  muted?: boolean;
-}) {
-  const theme = event.theme as any;
-  const primary = theme?.colors?.primary ?? "#4F5FFF";
-  const bannerUrl = theme?.bannerUrl as string | undefined;
-
-  return (
-    <Link href={`/e/${event.slug}/painel`} className={`card ${muted ? "muted" : ""}`}>
-      {bannerUrl ? (
-        <img src={bannerUrl} alt="" className="banner-img" />
-      ) : (
-        <div className="banner" style={{ background: primary }} />
-      )}
-      <div className="info">
-        {event.campaign && <span className="campaign">{event.campaign}</span>}
-        <h3>{event.name}</h3>
-        <span className="number">
-          {numbers.length === 1
-            ? `Seu número: ${numbers[0]}`
-            : `Seus números (${numbers.length}): ${numbers.join(", ")}`}
-        </span>
-      </div>
-
-      <style jsx>{`
+        /* Cartões de evento (EventCard e DiscoverCard) - num bloco só, já
+           que 'style jsx' exige Client Component e essa página inteira é
+           Server Component (busca dados direto do banco). */
         .card {
+          position: relative;
           text-decoration: none;
           color: #12172b;
           background: white;
@@ -214,74 +183,6 @@ function EventCard({
         }
         .card.muted {
           opacity: 0.75;
-        }
-        .banner {
-          height: 5rem;
-        }
-        .banner-img {
-          width: 100%;
-          height: 5rem;
-          object-fit: cover;
-          display: block;
-        }
-        .info {
-          padding: 1rem 1.25rem 1.25rem;
-        }
-        .campaign {
-          font-size: 0.75rem;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: #4f5fff;
-        }
-        .info h3 {
-          margin: 0.25rem 0 0.5rem;
-        }
-        .number {
-          font-size: 0.8rem;
-          color: #6b7280;
-          font-family: monospace;
-        }
-      `}</style>
-    </Link>
-  );
-}
-
-function DiscoverCard({
-  event,
-}: {
-  event: { id: string; slug: string; name: string; campaign: string | null; theme: unknown; vip: boolean };
-}) {
-  const theme = event.theme as any;
-  const primary = theme?.colors?.primary ?? "#4F5FFF";
-  const bannerUrl = theme?.bannerUrl as string | undefined;
-
-  return (
-    <Link href={`/e/${event.slug}/painel`} className={`card ${event.vip ? "vip" : ""}`}>
-      {event.vip && <span className="vip-badge">💎 VIP</span>}
-      {bannerUrl ? (
-        <img src={bannerUrl} alt="" className="banner-img" />
-      ) : (
-        <div className="banner" style={{ background: primary }} />
-      )}
-      <div className="info">
-        {event.campaign && <span className="campaign">{event.campaign}</span>}
-        <h3>{event.name}</h3>
-        <span className="cta">Ver como participar →</span>
-      </div>
-
-      <style jsx>{`
-        .card {
-          position: relative;
-          text-decoration: none;
-          color: #12172b;
-          background: white;
-          border: 1px solid #e6e8f0;
-          border-radius: 1rem;
-          overflow: hidden;
-          display: block;
-        }
-        .card:hover {
-          border-color: #4f5fff;
         }
         .card.vip {
           border: 1.5px solid transparent;
@@ -324,12 +225,76 @@ function DiscoverCard({
         .info h3 {
           margin: 0.25rem 0 0.5rem;
         }
+        .number {
+          font-size: 0.8rem;
+          color: #6b7280;
+          font-family: monospace;
+        }
         .cta {
           font-size: 0.8rem;
           color: #4f5fff;
           font-weight: 600;
         }
       `}</style>
+    </main>
+  );
+}
+
+function EventCard({
+  event,
+  numbers,
+  muted,
+}: {
+  event: { id: string; slug: string; name: string; campaign: string | null; theme: unknown };
+  numbers: number[];
+  muted?: boolean;
+}) {
+  const theme = event.theme as any;
+  const primary = theme?.colors?.primary ?? "#4F5FFF";
+  const bannerUrl = theme?.bannerUrl as string | undefined;
+
+  return (
+    <Link href={`/e/${event.slug}/painel`} className={`card ${muted ? "muted" : ""}`}>
+      {bannerUrl ? (
+        <img src={bannerUrl} alt="" className="banner-img" />
+      ) : (
+        <div className="banner" style={{ background: primary }} />
+      )}
+      <div className="info">
+        {event.campaign && <span className="campaign">{event.campaign}</span>}
+        <h3>{event.name}</h3>
+        <span className="number">
+          {numbers.length === 1
+            ? `Seu número: ${numbers[0]}`
+            : `Seus números (${numbers.length}): ${numbers.join(", ")}`}
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+function DiscoverCard({
+  event,
+}: {
+  event: { id: string; slug: string; name: string; campaign: string | null; theme: unknown; vip: boolean };
+}) {
+  const theme = event.theme as any;
+  const primary = theme?.colors?.primary ?? "#4F5FFF";
+  const bannerUrl = theme?.bannerUrl as string | undefined;
+
+  return (
+    <Link href={`/e/${event.slug}/painel`} className={`card ${event.vip ? "vip" : ""}`}>
+      {event.vip && <span className="vip-badge">💎 VIP</span>}
+      {bannerUrl ? (
+        <img src={bannerUrl} alt="" className="banner-img" />
+      ) : (
+        <div className="banner" style={{ background: primary }} />
+      )}
+      <div className="info">
+        {event.campaign && <span className="campaign">{event.campaign}</span>}
+        <h3>{event.name}</h3>
+        <span className="cta">Ver como participar →</span>
+      </div>
     </Link>
   );
 }
