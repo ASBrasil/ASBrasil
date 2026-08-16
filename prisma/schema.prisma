@@ -80,6 +80,21 @@ model Event {
   // immediately without forcing the admin to write custom copy first.
   loginBannerText      String?
 
+  // "Global": discoverable by ANY participant known to the system (any
+  // email that has ever been imported/signed up anywhere), not just people
+  // with a ticket in this specific event - shown as a "Mais sorteios" card
+  // in /meus-eventos. Independent of `featuredOnLogin`, which is about the
+  // pre-login banner instead.
+  global               Boolean  @default(false)
+  // Premium visual treatment (diamond badge) within the global discovery
+  // list - only meaningful when `global` is also true.
+  vip                  Boolean  @default(false)
+  // Free text shown to someone who clicks into a global event they don't
+  // have a ticket for yet, explaining what they need to do to join
+  // (e.g. "Compre o produto X para participar"). Optional even on global
+  // events - if empty, the prerequisite screen just won't show a specific ask.
+  prerequisiteText     String?
+
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 

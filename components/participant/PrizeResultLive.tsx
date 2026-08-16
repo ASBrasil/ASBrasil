@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Countdown } from "./Countdown";
 import { DrawReveal } from "@/components/DrawReveal";
 import { Fireworks } from "./Fireworks";
+import { playRevealWin, playRevealLose } from "@/lib/drawSound";
 
 interface Result {
   winningNumber: number;
@@ -71,8 +72,11 @@ export function PrizeResultLive({
           onSettled={() => {
             setPhase("revealed");
             if (won) {
+              playRevealWin();
               setShowFireworks(true);
               setTimeout(() => setShowFireworks(false), 2500);
+            } else {
+              playRevealLose();
             }
           }}
         />

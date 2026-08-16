@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { playTick, playLockThunk } from "@/lib/drawSound";
 
 /**
  * The signature visual for the app: each digit of the winning number spins
@@ -24,10 +25,22 @@ export function DrawReveal({
       const t = setTimeout(() => onSettled?.(), 400);
       return () => clearTimeout(t);
     }
-    const t = setTimeout(() => setLocked((l) => l + 1), 700);
+    const t = setTimeout(() => {
+      setLocked((l) => l + 1);
+      playLockThunk(); // um "clunk" mais grave a cada dígito que trava
+    }, 700);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locked]);
+
+  // Catraca contínua enquanto ainda tem dígito girando - dá o clima de
+  // "roleta de verdade" entre um travamento e outro, não só nos cliques
+  // de lock. Some sozinho assim que o último dígito trava.
+  useEffect(() => {
+    if (locked >= digits.length) return;
+    const t = setInterval(() => playTick(), 130);
+    return () => clearInterval(t);
+  }, [locked, digits.length]);
 
   return (
     <div className="draw-reveal" role="status" aria-live="polite">

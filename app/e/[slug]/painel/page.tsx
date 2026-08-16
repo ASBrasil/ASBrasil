@@ -21,7 +21,148 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
     where: { eventId: event.id, email },
     orderBy: { raffleNumber: "asc" },
   });
-  if (myParticipants.length === 0) redirect("/meus-eventos");
+
+  const theme = event.theme as any;
+  const colors = theme?.colors ?? {};
+  const bannerUrl = theme?.bannerUrl as string | undefined;
+
+  // Sem ingresso: se o evento é global, mostra a tela de pré-requisito em
+  // vez de simplesmente devolver a pessoa pra "Meus eventos" sem explicação
+  // - é assim que ela descobre o que precisa fazer pra participar. Eventos
+  // privados continuam se comportando como antes (não expõem nada a quem
+  // não tem ingresso).
+  if (myParticipants.length === 0) {
+    if (!event.global) redirect("/meus-eventos");
+
+    return (
+      <main
+        style={
+          {
+            "--primary": colors.primary ?? "#4F5FFF",
+            "--background": colors.background ?? "#0A1330",
+            background: colors.background ?? "#0A1330",
+            color: colors.text ?? "#F5F6FA",
+            minHeight: "100vh",
+            fontFamily: "system-ui, sans-serif",
+          } as React.CSSProperties
+        }
+      >
+        <ParticipantTopNav eventName={event.name} />
+
+        <section className={`hero ${bannerUrl ? "has-banner" : ""}`}>
+          {bannerUrl && (
+            <>
+              <img src={bannerUrl} alt="" className="hero-bg" />
+              <div className="hero-scrim" />
+            </>
+          )}
+          <div className="hero-content">
+            <h1>{event.name}</h1>
+            {event.campaign && <span className="eyebrow">{event.campaign}</span>}
+          </div>
+        </section>
+
+        <section className="prerequisite-section">
+          {event.vip && <span className="vip-tag">💎 Sorteio VIP</span>}
+          <h2>Você ainda não está participando</h2>
+          <p className="prerequisite-text">
+            {event.prerequisiteText ||
+              "Esse sorteio tem um pré-requisito específico para participar. Fale com nosso time para saber como entrar."}
+          </p>
+          <a href="https://app.asbrasil.tur.br/" target="_blank" rel="noopener noreferrer" className="cta-btn">
+            Minhas reservas ↗
+          </a>
+        </section>
+
+        <style>{`
+          .hero {
+            position: relative;
+            padding: 3rem 1.5rem 1.5rem;
+            text-align: center;
+          }
+          .hero.has-banner {
+            padding: 0;
+            min-height: min(24rem, 60vh);
+            display: flex;
+            align-items: flex-end;
+            overflow: hidden;
+          }
+          .hero-bg {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 0;
+          }
+          .hero-scrim {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.55) 55%, var(--background, #0a1330) 92%);
+            z-index: 1;
+          }
+          .hero-content {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+          }
+          .has-banner .hero-content {
+            padding: 3rem 1.5rem 2rem;
+          }
+          .eyebrow {
+            display: block;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            font-size: 0.7rem;
+            color: var(--primary);
+            margin-top: 0.4rem;
+          }
+          .hero h1 {
+            font-family: "Sora", system-ui, sans-serif;
+            font-size: clamp(1.8rem, 4vw, 2.6rem);
+            margin: 0;
+          }
+          .prerequisite-section {
+            max-width: 30rem;
+            margin: 0 auto;
+            padding: 2.5rem 1.5rem 5rem;
+            text-align: center;
+          }
+          .vip-tag {
+            display: inline-block;
+            background: linear-gradient(135deg, #e8b646, #c9962f);
+            color: #12121a;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.3rem 0.8rem;
+            border-radius: 999px;
+            margin-bottom: 1rem;
+          }
+          .prerequisite-section h2 {
+            font-family: "Sora", system-ui, sans-serif;
+            font-size: 1.3rem;
+            margin: 0 0 0.75rem;
+          }
+          .prerequisite-text {
+            opacity: 0.8;
+            line-height: 1.6;
+            margin: 0 0 1.75rem;
+            white-space: pre-wrap;
+          }
+          .cta-btn {
+            display: inline-block;
+            background: var(--primary);
+            color: #12121a;
+            font-weight: 700;
+            text-decoration: none;
+            padding: 0.7rem 1.5rem;
+            border-radius: 999px;
+            font-size: 0.9rem;
+          }
+        `}</style>
+      </main>
+    );
+  }
 
   const myParticipantIds = new Set(myParticipants.map((p) => p.id));
   const myNumbers = myParticipants.map((p) => p.raffleNumber);
@@ -63,10 +204,6 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
       won: false,
     };
   });
-
-  const theme = event.theme as any;
-  const colors = theme?.colors ?? {};
-  const bannerUrl = theme?.bannerUrl as string | undefined;
 
   return (
     <main

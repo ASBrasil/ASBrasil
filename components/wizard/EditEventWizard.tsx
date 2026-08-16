@@ -18,6 +18,9 @@ interface EditableEvent {
   description: string;
   active: boolean;
   archived: boolean;
+  global: boolean;
+  vip: boolean;
+  prerequisiteText: string;
   theme: { colors?: any; customCss?: string; bannerUrl?: string | null } | null;
   participantsCount: number;
   prizes: { id: string; name: string; imageUrl?: string | null }[];
@@ -36,6 +39,9 @@ export function EditEventWizard({ event }: { event: EditableEvent }) {
     campaign: event.campaign,
     slug: event.slug,
     description: event.description,
+    global: event.global,
+    vip: event.vip,
+    prerequisiteText: event.prerequisiteText,
   });
 
   function update(key: keyof typeof form, value: string) {
@@ -96,6 +102,50 @@ export function EditEventWizard({ event }: { event: EditableEvent }) {
           <Field label="Descrição">
             <Input value={form.description} onChange={(e) => update("description", e.target.value)} />
           </Field>
+
+          <div className="divider">
+            <span>Visibilidade global</span>
+          </div>
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={form.global}
+              onChange={(e) => setForm({ ...form, global: e.target.checked })}
+            />
+            <span>
+              <strong>Visível globalmente</strong>
+              <small>
+                Aparece em "Mais sorteios" para qualquer pessoa com e-mail no nosso banco, mesmo
+                sem ela ter ingresso neste evento.
+              </small>
+            </span>
+          </label>
+          {form.global && (
+            <>
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={form.vip}
+                  onChange={(e) => setForm({ ...form, vip: e.target.checked })}
+                />
+                <span>
+                  <strong>💎 VIP</strong>
+                  <small>Destaque visual premium na listagem (ex: clientes de camarote).</small>
+                </span>
+              </label>
+              <Field
+                label="Pré-requisito para participar"
+                hint='Mostrado a quem clicar sem ter ingresso ainda. Ex: "Compre o produto X para participar".'
+              >
+                <textarea
+                  className="textarea"
+                  rows={3}
+                  value={form.prerequisiteText}
+                  onChange={(e) => update("prerequisiteText", e.target.value)}
+                />
+              </Field>
+            </>
+          )}
 
           {error && <p className="error">{error}</p>}
 
@@ -188,6 +238,56 @@ export function EditEventWizard({ event }: { event: EditableEvent }) {
           border-radius: 0.5rem;
           border: 1px solid var(--border);
           width: 100%;
+        }
+        .divider {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          margin: 1.75rem 0 1.1rem;
+          font-size: 0.75rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--text-muted);
+        }
+        .divider::before,
+        .divider::after {
+          content: "";
+          flex: 1;
+          height: 1px;
+          background: var(--border);
+        }
+        .checkbox-row {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.65rem;
+          margin-bottom: 1rem;
+          cursor: pointer;
+        }
+        .checkbox-row input {
+          margin-top: 0.2rem;
+          flex-shrink: 0;
+        }
+        .checkbox-row span {
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+        }
+        .checkbox-row small {
+          color: var(--text-muted);
+          font-size: 0.8rem;
+        }
+        .textarea {
+          width: 100%;
+          box-sizing: border-box;
+          padding: 0.7rem 0.9rem;
+          border-radius: 0.6rem;
+          border: 1px solid var(--border);
+          font-size: 0.9rem;
+          font-family: inherit;
+          resize: vertical;
+          background: var(--surface);
+          color: var(--text);
         }
       `}</style>
     </div>

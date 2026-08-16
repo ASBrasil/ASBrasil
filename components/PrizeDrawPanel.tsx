@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { DrawReveal } from "@/components/DrawReveal";
 import { Button } from "@/components/ui/primitives";
 import { ImageUpload } from "@/components/admin/ImageUpload";
+import { playRevealNeutral } from "@/lib/drawSound";
 
 interface Prize {
   id: string;
@@ -115,7 +116,8 @@ export function PrizeDrawPanel({ prize }: { prize: Prize }) {
         <div className="reveal">
           <DrawReveal
             winningNumber={state.winningNumber}
-            onSettled={() =>
+            onSettled={() => {
+              playRevealNeutral();
               setState({
                 phase: "revealed",
                 result: {
@@ -125,8 +127,8 @@ export function PrizeDrawPanel({ prize }: { prize: Prize }) {
                   published: false,
                   winnerPhotoUrl: null,
                 },
-              })
-            }
+              });
+            }}
           />
         </div>
       )}
