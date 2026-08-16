@@ -33,11 +33,11 @@ export function EntrarForm() {
 
   return (
     <form onSubmit={handleSubmit} className="form">
-      <div className="icon">✉️</div>
-      <h2>Digite o seu e-mail e acompanhe</h2>
-      <p className="hint">Sem senha — é só o e-mail usado na inscrição.</p>
-
+      <label className="field-label" htmlFor="entrar-email">
+        E-mail
+      </label>
       <input
+        id="entrar-email"
         type="email"
         required
         placeholder="seu@email.com"
@@ -65,53 +65,50 @@ export function EntrarForm() {
 
       <style jsx>{`
         .form {
-          width: 22rem;
-          max-width: 100%;
+          margin-top: 1.5rem;
           display: flex;
           flex-direction: column;
         }
-        .icon {
-          width: 2.5rem;
-          height: 2.5rem;
-          border-radius: 0.75rem;
-          background: rgba(79, 95, 255, 0.12);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-bottom: 1rem;
-          font-size: 1.1rem;
-        }
-        h2 {
-          margin: 0 0 0.25rem;
-          font-size: 1.2rem;
-        }
-        .hint {
-          color: #6b7280;
-          font-size: 0.85rem;
-          margin-bottom: 1.5rem;
+        .field-label {
+          color: rgba(255, 255, 255, 0.85);
+          font-size: 0.82rem;
+          font-weight: 600;
+          margin-bottom: 0.5rem;
         }
         input {
           width: 100%;
           box-sizing: border-box;
-          padding: 0.7rem 0.9rem;
-          border-radius: 0.6rem;
-          border: 1px solid #e6e8f0;
-          margin-bottom: 1rem;
+          padding: 0.8rem 1rem;
+          border-radius: 0.75rem;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          background: rgba(255, 255, 255, 0.96);
+          margin-bottom: 1.1rem;
           font-size: 16px; /* abaixo disso, Safari no iPhone dá zoom automático ao focar o campo */
+          color: #12121a;
+        }
+        input::placeholder {
+          color: #9ca3af;
         }
         .message {
           font-size: 0.85rem;
-          color: #6b7280;
-          margin: -0.4rem 0 1rem;
+          color: #fca5a5;
+          margin: -0.5rem 0 1rem;
         }
         button {
-          padding: 0.75rem;
+          padding: 0.85rem;
           border-radius: 999px;
           border: none;
-          background: #4f5fff;
+          background: linear-gradient(135deg, #4f5fff, #7c5cff);
           color: white;
-          font-weight: 600;
+          font-weight: 700;
+          letter-spacing: 0.02em;
           cursor: pointer;
+          font-size: 0.95rem;
+          box-shadow: 0 0.5rem 1.5rem rgba(79, 95, 255, 0.35);
+          transition: filter 0.15s;
+        }
+        button:hover:not(:disabled) {
+          filter: brightness(1.08);
         }
         button:disabled {
           opacity: 0.6;
@@ -120,21 +117,21 @@ export function EntrarForm() {
         .support {
           margin-top: 1.75rem;
           padding-top: 1.25rem;
-          border-top: 1px solid #e6e8f0;
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
         .support p {
           margin: 0;
           font-size: 0.8rem;
-          color: #6b7280;
+          color: rgba(255, 255, 255, 0.55);
           line-height: 1.5;
         }
         .support p:first-child {
           font-weight: 600;
-          color: #374151;
+          color: rgba(255, 255, 255, 0.85);
           margin-bottom: 0.2rem;
         }
         .support a {
-          color: #4f5fff;
+          color: #a5b4ff;
           font-weight: 600;
           text-decoration: none;
         }

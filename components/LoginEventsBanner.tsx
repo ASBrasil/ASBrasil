@@ -46,7 +46,7 @@ export function LoginEventsBanner({ events }: { events: FeaturedEvent[] }) {
 
       <style jsx>{`
         .banner {
-          margin-top: 2rem;
+          margin-top: 0;
         }
         .label {
           display: block;
