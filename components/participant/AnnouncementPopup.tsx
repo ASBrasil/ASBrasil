@@ -56,7 +56,7 @@ export function AnnouncementPopup({ popup }: { popup: PopupData | null }) {
 
   return (
     <div className="overlay" onClick={close}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className={`modal ${popup.type === "IMAGE" ? "image-modal" : ""}`} onClick={(e) => e.stopPropagation()}>
         <button className="close" onClick={close} aria-label="Fechar">
           ✕
         </button>
@@ -90,6 +90,9 @@ export function AnnouncementPopup({ popup }: { popup: PopupData | null }) {
           max-height: 85vh;
           overflow: auto;
           box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.35);
+        }
+        .modal.image-modal {
+          max-width: min(92vw, 34rem);
         }
         .close {
           position: absolute;
@@ -125,9 +128,17 @@ export function AnnouncementPopup({ popup }: { popup: PopupData | null }) {
           line-height: 1.6;
           white-space: pre-wrap;
         }
+        .image-content {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #f3f4f6;
+        }
         .image-content img {
-          width: 100%;
           display: block;
+          width: 100%;
+          max-height: 78vh;
+          object-fit: contain;
         }
         .image-caption {
           padding: 1rem 1.25rem;
