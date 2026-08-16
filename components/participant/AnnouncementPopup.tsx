@@ -11,26 +11,19 @@ interface PopupData {
   linkUrl: string | null;
 }
 
-const DISMISS_KEY_PREFIX = "popup-dismissed:";
-
 export function AnnouncementPopup({ popup }: { popup: PopupData | null }) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!popup) return;
-    // Uma vez por sessão do navegador (fecha a aba, mostra de novo na
-    // próxima visita) - evita irritar quem entra e sai várias vezes no
-    // mesmo dia, mas ainda garante que todo mundo vê o aviso pelo menos
-    // uma vez por sessão.
-    const key = DISMISS_KEY_PREFIX + popup.id;
-    if (sessionStorage.getItem(key)) return;
-    setOpen(true);
+    // Aparece sempre que a pessoa entra na página, sem controle de "já vi
+    // antes" - o admin decide quando desligar o aviso (desativando o
+    // pop-up), não o navegador de cada participante.
+    if (popup) setOpen(true);
   }, [popup]);
 
   if (!popup || !open) return null;
 
   function close() {
-    if (popup) sessionStorage.setItem(DISMISS_KEY_PREFIX + popup.id, "1");
     setOpen(false);
   }
 
