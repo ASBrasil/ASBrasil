@@ -122,14 +122,13 @@ export function AnnouncementPopup({ popup }: { popup: PopupData | null }) {
           white-space: pre-wrap;
         }
         .image-content {
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          text-align: center;
           background: #f3f4f6;
+          line-height: 0; /* remove o espacinho fantasma que "inline" deixa embaixo da imagem */
         }
         .image-content img {
-          display: block;
-          width: 100%;
+          display: inline-block;
+          max-width: 100%;
           max-height: 78vh;
           object-fit: contain;
         }
@@ -138,6 +137,7 @@ export function AnnouncementPopup({ popup }: { popup: PopupData | null }) {
           margin: 0;
           text-align: center;
           font-weight: 600;
+          line-height: 1.4; /* .image-content zera o line-height pra colar a imagem; a legenda precisa do próprio de volta */
         }
         .html-content {
           padding: 1.5rem;
