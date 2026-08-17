@@ -30,9 +30,24 @@ export function AnnouncementPopup({ popup }: { popup: PopupData | null }) {
   const content = (
     <>
       {popup.type === "TEXT" && (
-        <div className="text-content">
-          {popup.title && <h2>{popup.title}</h2>}
-          {popup.body && <p>{popup.body}</p>}
+        <div style={{ padding: "2.25rem 1.75rem 1.75rem", textAlign: "center" }}>
+          {popup.title && (
+            <h2
+              style={{
+                margin: "0 0 0.6rem",
+                fontFamily: "Sora, system-ui, sans-serif",
+                fontSize: "1.3rem",
+                color: "#12121a",
+              }}
+            >
+              {popup.title}
+            </h2>
+          )}
+          {popup.body && (
+            <p style={{ margin: 0, color: "#4b5563", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+              {popup.body}
+            </p>
+          )}
         </div>
       )}
       {popup.type === "IMAGE" && popup.imageUrl && (
@@ -51,9 +66,50 @@ export function AnnouncementPopup({ popup }: { popup: PopupData | null }) {
             }}
           />
           {(popup.title || popup.body) && (
-            <div className="image-caption">
-              {popup.title && <h2>{popup.title}</h2>}
-              {popup.body && <p>{popup.body}</p>}
+            <div
+              style={{
+                padding: "1.5rem 1.5rem 1.75rem",
+                textAlign: "center",
+                background: "linear-gradient(180deg, #171c3a, #0a0e1f)",
+              }}
+            >
+              <span
+                aria-hidden
+                style={{
+                  display: "block",
+                  width: "2.75rem",
+                  height: "3px",
+                  margin: "0 auto 1rem",
+                  borderRadius: "999px",
+                  background: "linear-gradient(90deg, #4f5fff, #a855f7, #ec4899)",
+                }}
+              />
+              {popup.title && (
+                <h2
+                  style={{
+                    margin: "0 0 0.5rem",
+                    color: "#ffffff",
+                    fontFamily: "Sora, system-ui, sans-serif",
+                    fontSize: "1.3rem",
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {popup.title}
+                </h2>
+              )}
+              {popup.body && (
+                <p
+                  style={{
+                    margin: 0,
+                    color: "rgba(255, 255, 255, 0.72)",
+                    fontSize: "0.92rem",
+                    lineHeight: 1.6,
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {popup.body}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -123,49 +179,6 @@ export function AnnouncementPopup({ popup }: { popup: PopupData | null }) {
           display: block;
           color: inherit;
           text-decoration: none;
-        }
-        .text-content {
-          padding: 2.25rem 1.75rem 1.75rem;
-          text-align: center;
-        }
-        .text-content h2 {
-          margin: 0 0 0.6rem;
-          font-family: "Sora", system-ui, sans-serif;
-          font-size: 1.3rem;
-        }
-        .text-content p {
-          margin: 0;
-          color: #4b5563;
-          line-height: 1.6;
-          white-space: pre-wrap;
-        }
-        .image-caption {
-          padding: 1.5rem 1.5rem 1.75rem;
-          text-align: center;
-          background: linear-gradient(180deg, #171c3a, #0a0e1f);
-        }
-        .image-caption::before {
-          content: "";
-          display: block;
-          width: 2.75rem;
-          height: 3px;
-          margin: 0 auto 1rem;
-          border-radius: 999px;
-          background: linear-gradient(90deg, #4f5fff, #a855f7, #ec4899);
-        }
-        .image-caption h2 {
-          margin: 0 0 0.5rem;
-          color: white;
-          font-family: "Sora", system-ui, sans-serif;
-          font-size: 1.3rem;
-          line-height: 1.3;
-        }
-        .image-caption p {
-          margin: 0;
-          color: rgba(255, 255, 255, 0.68);
-          font-size: 0.92rem;
-          line-height: 1.6;
-          white-space: pre-wrap;
         }
         .html-content {
           padding: 1.5rem;
