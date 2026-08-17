@@ -243,3 +243,19 @@ model Popup {
 
   @@index([active])
 }
+
+// One row per successful login (a known e-mail entering via /entrar) - an
+// append-only log, deliberately not deduplicated by day at write time.
+// Powers two things today: total entry count and "active in last 48h"
+// (both computed at read time), and is shaped to support a future
+// day-streak feature (e.g. "log in 5 days running, spin a wheel") without
+// needing a schema change - that just becomes a query grouping these rows
+// by calendar day per e-mail.
+model LoginEvent {
+  id        String   @id @default(cuid())
+  email     String
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([createdAt])
+}

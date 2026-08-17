@@ -39,5 +39,15 @@ export async function POST(req: NextRequest) {
   }
 
   await createParticipantSession(normalized);
+  // Registro de acesso: um por login bem-sucedido, sem deduplicar por dia
+  // aqui - o admin decide como agregar isso depois (total, únicos em 48h,
+  // e futuramente sequência de dias consecutivos). Em try/catch de
+  // propósito: a sessão já foi criada com sucesso acima, então uma falha
+  // aqui não pode virar um erro pra quem só queria entrar.
+  try {
+    await db.loginEvent.create({ data: { email: normalized } });
+  } catch (err) {
+    console.error("Falha ao registrar acesso:", err);
+  }
   return NextResponse.json({ found: true });
 }
