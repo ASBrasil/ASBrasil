@@ -1,0 +1,1014 @@
+From eac9567fab443385d038837624de93fe63bd599e Mon Sep 17 00:00:00 2001
+From: Paulo Emanuel <pauloemanuel96@gmail.com>
+Date: Mon, 17 Aug 2026 19:12:49 +0000
+Subject: [PATCH] Adiciona busca aproximada de clientes, adicionar cliente
+ manualmente, e sorteio automatico
+
+BUSCA APROXIMADA (Clientes): novo campo de busca por nome ou e-mail,
+tolerando ate 2 letras erradas (distancia de Levenshtein por palavra,
+nao na string inteira - assim 'joao' acha 'Joao Pedro Silva' mesmo o
+nome completo sendo bem maior que a busca). lib/fuzzySearch.ts,
+testado manualmente com varios casos.
+
+ADICIONAR CLIENTE: novo botao em Clientes -> formulario simples
+(nome, e-mail, telefone/cpf/pedido opcionais) com lista de eventos
+marcaveis - marca quantos quiser, e a pessoa ganha um numero de
+sorteio novo em cada evento selecionado (POST /api/admin/clients).
+Pula (nao duplica) qualquer evento onde aquele e-mail ja estava
+cadastrado. Novo valor MANUAL no enum ParticipantSource pra
+diferenciar de importado/inscricao publica.
+
+SORTEIO AUTOMATICO: novo campo Prize.autoDraw - quando ligado (so
+aparece a opcao se a data do sorteio estiver preenchida), um cron
+job do Vercel (vercel.json, roda a cada minuto) sorteia sozinho
+assim que o horario chega, sem precisar clicar em 'Sortear agora'.
+Logica de sorteio extraida pra lib/drawEngine.ts (performDraw),
+reaproveitada tanto pelo botao manual quanto pelo cron - mesmo
+registro de auditoria nos dois casos (drawnAutomatically diferencia
+um do outro). Cron protegido pelo CRON_SECRET que o Vercel ja
+provisiona sozinho.
+
+3 migrations: heroFeatured ja tinha ido numa leva anterior; essa leva
+adiciona autoDraw+drawnAutomatically, e MANUAL no enum de origem.
+---
+ app/admin/(protected)/clientes/novo/page.tsx  |  32 +++
+ app/admin/(protected)/clientes/page.tsx       |  86 +++++--
+ app/admin/(protected)/events/[id]/page.tsx    |   6 +
+ app/api/admin/clients/route.ts                |  61 +++++
+ app/api/admin/prizes/[id]/draw/route.ts       |  56 +----
+ app/api/admin/prizes/[id]/route.ts            |   1 +
+ app/api/cron/auto-draw/route.ts               |  46 ++++
+ components/admin/NewClientForm.tsx            | 233 ++++++++++++++++++
+ components/admin/PrizeEditPanel.tsx           |  44 ++++
+ lib/drawEngine.ts                             |  61 +++++
+ lib/fuzzySearch.ts                            |  58 +++++
+ .../migration.sql                             |   5 +
+ .../migration.sql                             |   2 +
+ prisma/schema.prisma                          |   8 +
+ vercel.json                                   |   8 +
+ 15 files changed, 642 insertions(+), 65 deletions(-)
+ create mode 100644 app/admin/(protected)/clientes/novo/page.tsx
+ create mode 100644 app/api/admin/clients/route.ts
+ create mode 100644 app/api/cron/auto-draw/route.ts
+ create mode 100644 components/admin/NewClientForm.tsx
+ create mode 100644 lib/drawEngine.ts
+ create mode 100644 lib/fuzzySearch.ts
+ create mode 100644 prisma/migrations/20260818090000_prize_auto_draw/migration.sql
+ create mode 100644 prisma/migrations/20260818093000_participant_source_manual/migration.sql
+ create mode 100644 vercel.json
+
+diff --git a/app/admin/(protected)/clientes/novo/page.tsx b/app/admin/(protected)/clientes/novo/page.tsx
+new file mode 100644
+index 0000000..2e572fa
+--- /dev/null
++++ b/app/admin/(protected)/clientes/novo/page.tsx
+@@ -0,0 +1,32 @@
++import { db } from "@/lib/db";
++import { NewClientForm } from "@/components/admin/NewClientForm";
++
++export const dynamic = "force-dynamic";
++
++export default async function NovoClientePage() {
++  const events = await db.event.findMany({
++    where: { archived: false },
++    orderBy: [{ order: "asc" }, { createdAt: "desc" }],
++    select: { id: true, name: true, campaign: true },
++  });
++
++  return (
++    <div>
++      <div className="header">
++        <h1>Adicionar cliente</h1>
++        <p className="subtitle">
++          Cadastra a pessoa direto, sem precisar de planilha. Marca em quais eventos ela participa
++          — se marcar mais de um, ela ganha um número novo em cada um.
++        </p>
++      </div>
++
++      <NewClientForm events={events} />
++
++      <style>{`
++        .header { margin-bottom: 1.75rem; max-width: 36rem; }
++        h1 { margin: 0 0 0.4rem; font-family: var(--font-display, inherit); }
++        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin: 0; }
++      `}</style>
++    </div>
++  );
++}
+diff --git a/app/admin/(protected)/clientes/page.tsx b/app/admin/(protected)/clientes/page.tsx
+index 386258a..8cdbf2a 100644
+--- a/app/admin/(protected)/clientes/page.tsx
++++ b/app/admin/(protected)/clientes/page.tsx
+@@ -1,5 +1,6 @@
+ import { db } from "@/lib/db";
+ import Link from "next/link";
++import { fuzzyMatch } from "@/lib/fuzzySearch";
+ 
+ export const dynamic = "force-dynamic";
+ 
+@@ -8,10 +9,11 @@ const PAGE_SIZE = 50;
+ export default async function ClientesPage({
+   searchParams,
+ }: {
+-  searchParams: { page?: string; eventId?: string };
++  searchParams: { page?: string; eventId?: string; q?: string };
+ }) {
+   const page = Math.max(1, Number(searchParams.page) || 1);
+   const eventId = searchParams.eventId || undefined;
++  const q = searchParams.q?.trim() || "";
+ 
+   const [events, groups] = await Promise.all([
+     db.event.findMany({
+@@ -35,30 +37,50 @@ export default async function ClientesPage({
+     }),
+   ]);
+ 
+-  const total = groups.length;
++  // Busca aproximada em memória (nome ou e-mail), tolerando até 2 letras
++  // erradas - a lista de clientes já estava toda carregada pra paginação,
++  // então filtrar aqui não custa uma consulta extra ao banco.
++  const filtered = q
++    ? groups.filter((g) => fuzzyMatch(q, g._max.name ?? "") || fuzzyMatch(q, g.email))
++    : groups;
++
++  const total = filtered.length;
+   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+-  const pageGroups = groups.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
++  const pageGroups = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+ 
+   function pageHref(p: number) {
+     const params = new URLSearchParams();
+     params.set("page", String(p));
+     if (eventId) params.set("eventId", eventId);
++    if (q) params.set("q", q);
+     return `/admin/clientes?${params.toString()}`;
+   }
+ 
+   return (
+     <div>
+       <div className="header">
+-        <h1>Clientes</h1>
+-        <p className="subtitle">
+-          Todo mundo que já se cadastrou em algum evento, cruzando todos os sorteios ({total}{" "}
+-          {total === 1 ? "cliente" : "clientes"}
+-          {eventId ? " neste evento" : " no total"}). Clica no nome pra ver o histórico completo
+-          dessa pessoa com a gente.
+-        </p>
++        <div>
++          <h1>Clientes</h1>
++          <p className="subtitle">
++            Todo mundo que já se cadastrou em algum evento, cruzando todos os sorteios ({total}{" "}
++            {total === 1 ? "cliente" : "clientes"}
++            {eventId || q ? " encontrados" : " no total"}). Clica no nome pra ver o histórico
++            completo dessa pessoa com a gente.
++          </p>
++        </div>
++        <Link href="/admin/clientes/novo" className="new-btn">
++          + Adicionar cliente
++        </Link>
+       </div>
+ 
+       <form className="filter" method="get">
++        <input
++          type="text"
++          name="q"
++          defaultValue={q}
++          placeholder="Buscar por nome ou e-mail…"
++          className="search"
++        />
+         <select name="eventId" defaultValue={eventId ?? ""}>
+           <option value="">Todos os eventos</option>
+           {events.map((e) => (
+@@ -68,12 +90,13 @@ export default async function ClientesPage({
+           ))}
+         </select>
+         <button type="submit">Filtrar</button>
+-        {eventId && (
++        {(eventId || q) && (
+           <a href="/admin/clientes" className="clear">
+             Limpar filtro
+           </a>
+         )}
+       </form>
++      {q && <p className="search-hint">Busca aproximada: mostra nomes/e-mails parecidos com "{q}", mesmo com pequenos erros de digitação.</p>}
+ 
+       <div className="table-shell">
+         <table>
+@@ -124,14 +147,41 @@ export default async function ClientesPage({
+       )}
+ 
+       <style>{`
+-        .header { margin-bottom: 1.5rem; max-width: 42rem; }
+-        h1 { margin: 0 0 0.4rem; font-family: var(--font-display, inherit); }
+-        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin: 0; }
++        .header {
++          display: flex;
++          justify-content: space-between;
++          align-items: flex-start;
++          gap: 1rem;
++          margin-bottom: 1.5rem;
++        }
++        .header h1 { margin: 0 0 0.4rem; font-family: var(--font-display, inherit); }
++        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin: 0; max-width: 38rem; }
++        .new-btn {
++          background: var(--indigo-600);
++          color: white;
++          text-decoration: none;
++          padding: 0.6rem 1.1rem;
++          border-radius: 999px;
++          font-weight: 600;
++          font-size: 0.85rem;
++          white-space: nowrap;
++          flex-shrink: 0;
++        }
+         .filter {
+           display: flex;
+           align-items: center;
+           gap: 0.6rem;
+-          margin-bottom: 1.25rem;
++          margin-bottom: 0.5rem;
++          flex-wrap: wrap;
++        }
++        .filter .search {
++          padding: 0.55rem 0.8rem;
++          border-radius: 0.5rem;
++          border: 1px solid var(--border);
++          background: var(--surface);
++          color: var(--text);
++          font-size: 0.85rem;
++          min-width: 16rem;
+         }
+         .filter select {
+           padding: 0.55rem 0.8rem;
+@@ -160,12 +210,18 @@ export default async function ClientesPage({
+         .filter .clear:hover {
+           text-decoration: underline;
+         }
++        .search-hint {
++          color: var(--text-muted);
++          font-size: 0.8rem;
++          margin: 0 0 1.25rem;
++        }
+         .table-shell {
+           background: var(--surface);
+           border: 1px solid var(--border);
+           border-radius: 0.75rem;
+           overflow: hidden;
+           max-width: 50rem;
++          margin-top: 1.25rem;
+         }
+         table {
+           width: 100%;
+diff --git a/app/admin/(protected)/events/[id]/page.tsx b/app/admin/(protected)/events/[id]/page.tsx
+index 4c389ca..9432a7e 100644
+--- a/app/admin/(protected)/events/[id]/page.tsx
++++ b/app/admin/(protected)/events/[id]/page.tsx
+@@ -83,6 +83,7 @@ export default async function EventDashboardPage({ params }: { params: { id: str
+                       minute: "2-digit",
+                       timeZone: "America/Sao_Paulo",
+                     })}
++                    {prize.autoDraw && <span className="auto-tag"> · 🤖 Automático</span>}
+                   </p>
+                 )}
+                 <div className="prize-actions">
+@@ -93,6 +94,7 @@ export default async function EventDashboardPage({ params }: { params: { id: str
+                       description: prize.description,
+                       imageUrl: prize.imageUrl,
+                       scheduledAt: prize.scheduledAt ? prize.scheduledAt.toISOString() : null,
++                      autoDraw: prize.autoDraw,
+                       winMessage: prize.winMessage,
+                       loseMessage: prize.loseMessage,
+                       couponCode: prize.couponCode,
+@@ -212,6 +214,10 @@ export default async function EventDashboardPage({ params }: { params: { id: str
+           font-size: 0.78rem;
+           margin-top: 0.35rem;
+         }
++        .auto-tag {
++          color: var(--indigo-600);
++          font-weight: 600;
++        }
+         .prize-actions {
+           display: flex;
+           flex-wrap: wrap;
+diff --git a/app/api/admin/clients/route.ts b/app/api/admin/clients/route.ts
+new file mode 100644
+index 0000000..870b989
+--- /dev/null
++++ b/app/api/admin/clients/route.ts
+@@ -0,0 +1,61 @@
++import { NextRequest, NextResponse } from "next/server";
++import { db } from "@/lib/db";
++import { requireAdmin } from "@/lib/auth";
++import { generateNumberPool } from "@/lib/raffle";
++import { ParticipantSource } from "@prisma/client";
++
++/**
++ * Manually registers one person into one or more events at once - the
++ * admin's way of adding someone who isn't in a spreadsheet and didn't
++ * sign up publicly (e.g. a VIP added by hand, or fixing a missed import
++ * row). Skips (not duplicates) any event where that e-mail is already
++ * registered, same safety net as the spreadsheet/import-from-event paths.
++ */
++export async function POST(req: NextRequest) {
++  await requireAdmin();
++  const body = await req.json();
++  const { name, email, phone, cpf, orderNumber, eventIds } = body;
++
++  if (!name || !email) {
++    return NextResponse.json({ error: "Nome e e-mail são obrigatórios" }, { status: 400 });
++  }
++  if (!Array.isArray(eventIds) || eventIds.length === 0) {
++    return NextResponse.json({ error: "Escolha pelo menos um evento" }, { status: 400 });
++  }
++
++  const normalizedEmail = String(email).trim().toLowerCase();
++
++  const existing = await db.participant.findMany({
++    where: { email: normalizedEmail, eventId: { in: eventIds } },
++    select: { eventId: true },
++  });
++  const alreadyIn = new Set(existing.map((p) => p.eventId));
++  const targetEventIds = eventIds.filter((id: string) => !alreadyIn.has(id));
++
++  if (targetEventIds.length === 0) {
++    return NextResponse.json(
++      { error: "Esse e-mail já está cadastrado em todos os eventos selecionados." },
++      { status: 409 }
++    );
++  }
++
++  const numbers = generateNumberPool(targetEventIds.length);
++
++  await db.participant.createMany({
++    data: targetEventIds.map((eventId: string, i: number) => ({
++      eventId,
++      name,
++      email: normalizedEmail,
++      phone: phone || null,
++      cpf: cpf || null,
++      orderNumber: orderNumber || null,
++      raffleNumber: numbers[i],
++      source: ParticipantSource.MANUAL,
++    })),
++  });
++
++  return NextResponse.json({
++    created: targetEventIds.length,
++    skipped: eventIds.length - targetEventIds.length,
++  });
++}
+diff --git a/app/api/admin/prizes/[id]/draw/route.ts b/app/api/admin/prizes/[id]/draw/route.ts
+index cb24b1a..22ab98b 100644
+--- a/app/api/admin/prizes/[id]/draw/route.ts
++++ b/app/api/admin/prizes/[id]/draw/route.ts
+@@ -1,58 +1,14 @@
+ import { NextRequest, NextResponse } from "next/server";
+-import { db } from "@/lib/db";
+ import { requireAdmin } from "@/lib/auth";
+-import { drawWinner } from "@/lib/raffle";
++import { performDraw } from "@/lib/drawEngine";
+ 
+-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
++export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
+   const adminId = await requireAdmin();
+ 
+-  const prize = await db.prize.findUnique({ where: { id: params.id }, include: { event: true } });
+-  if (!prize) return NextResponse.json({ error: "Prêmio não encontrado" }, { status: 404 });
+-  if (prize.status === "DRAWN") {
+-    return NextResponse.json(
+-      { error: "Este prêmio já foi sorteado. Use /redo para invalidar e sortear novamente." },
+-      { status: 409 }
+-    );
++  const outcome = await performDraw(params.id, { adminId, automatic: false });
++  if ("error" in outcome) {
++    return NextResponse.json({ error: outcome.error }, { status: outcome.status });
+   }
+ 
+-  const eligible = await db.participant.findMany({
+-    where: { eventId: prize.eventId, removedFromDraws: false },
+-    select: { id: true, raffleNumber: true },
+-  });
+-
+-  if (eligible.length === 0) {
+-    return NextResponse.json({ error: "Nenhum participante elegível" }, { status: 422 });
+-  }
+-
+-  const outcome = drawWinner(eligible);
+-
+-  // Insert result + flip prize status + (optionally) mark winner ineligible,
+-  // all inside one transaction so a crash mid-draw can never leave the
+-  // prize "PENDING" with a result already recorded, or vice versa.
+-  const result = await db.$transaction(async (tx) => {
+-    const drawResult = await tx.drawResult.create({
+-      data: {
+-        prizeId: prize.id,
+-        participantId: outcome.winner.id,
+-        winningNumber: outcome.winner.raffleNumber,
+-        eligibleCount: outcome.eligibleCount,
+-        rngSeed: outcome.rngSeed,
+-        drawnByAdminId: adminId,
+-      },
+-      include: { participant: true },
+-    });
+-
+-    await tx.prize.update({ where: { id: prize.id }, data: { status: "DRAWN" } });
+-
+-    if (prize.event.winnerPolicy === "REMOVE") {
+-      await tx.participant.update({
+-        where: { id: outcome.winner.id },
+-        data: { removedFromDraws: true },
+-      });
+-    }
+-
+-    return drawResult;
+-  });
+-
+-  return NextResponse.json({ result });
++  return NextResponse.json({ result: outcome.result });
+ }
+diff --git a/app/api/admin/prizes/[id]/route.ts b/app/api/admin/prizes/[id]/route.ts
+index 1a77eaf..444c384 100644
+--- a/app/api/admin/prizes/[id]/route.ts
++++ b/app/api/admin/prizes/[id]/route.ts
+@@ -46,6 +46,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
+   if (body.winMessage !== undefined) data.winMessage = body.winMessage;
+   if (body.loseMessage !== undefined) data.loseMessage = body.loseMessage;
+   if (body.couponCode !== undefined) data.couponCode = body.couponCode;
++  if (body.autoDraw !== undefined) data.autoDraw = body.autoDraw;
+ 
+   try {
+     const prize = await db.prize.update({ where: { id: params.id }, data });
+diff --git a/app/api/cron/auto-draw/route.ts b/app/api/cron/auto-draw/route.ts
+new file mode 100644
+index 0000000..4f938ea
+--- /dev/null
++++ b/app/api/cron/auto-draw/route.ts
+@@ -0,0 +1,46 @@
++import { NextRequest, NextResponse } from "next/server";
++import { db } from "@/lib/db";
++import { performDraw } from "@/lib/drawEngine";
++
++/**
++ * Called by Vercel Cron (see vercel.json) - never by a browser or an admin
++ * action. Verifies the request came from Vercel's scheduler via
++ * CRON_SECRET (auto-provisioned by Vercel, no manual setup needed) before
++ * doing anything, since this route has no session/login of its own to
++ * protect it otherwise.
++ *
++ * Finds every prize that's still PENDING, has autoDraw on, and whose
++ * scheduledAt has already passed, and draws each one - reusing the exact
++ * same performDraw() the manual "Sortear agora" button calls, so the
++ * audit trail and winner-removal policy behave identically either way.
++ */
++export async function GET(req: NextRequest) {
++  const authHeader = req.headers.get("authorization");
++  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
++    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
++  }
++
++  const duePrizes = await db.prize.findMany({
++    where: {
++      autoDraw: true,
++      status: "PENDING",
++      scheduledAt: { lte: new Date() },
++    },
++    select: { id: true, name: true },
++  });
++
++  const results = [];
++  for (const prize of duePrizes) {
++    // Um de cada vez, não em paralelo - evita sobrecarregar o banco se um
++    // dia houver muitos prêmios vencendo no mesmo minuto, e mantém os logs
++    // fáceis de ler.
++    const outcome = await performDraw(prize.id, { automatic: true });
++    results.push({
++      prizeId: prize.id,
++      prizeName: prize.name,
++      ...("error" in outcome ? { error: outcome.error } : { winningNumber: outcome.result.winningNumber }),
++    });
++  }
++
++  return NextResponse.json({ checkedAt: new Date().toISOString(), processed: results.length, results });
++}
+diff --git a/components/admin/NewClientForm.tsx b/components/admin/NewClientForm.tsx
+new file mode 100644
+index 0000000..1b58b6f
+--- /dev/null
++++ b/components/admin/NewClientForm.tsx
+@@ -0,0 +1,233 @@
++"use client";
++
++import { useState } from "react";
++import { useRouter } from "next/navigation";
++import { Button, Field, Input } from "@/components/ui/primitives";
++
++interface EventOption {
++  id: string;
++  name: string;
++  campaign: string | null;
++}
++
++export function NewClientForm({ events }: { events: EventOption[] }) {
++  const router = useRouter();
++  const [form, setForm] = useState({ name: "", email: "", phone: "", cpf: "", orderNumber: "" });
++  const [selectedEvents, setSelectedEvents] = useState<Set<string>>(new Set());
++  const [saving, setSaving] = useState(false);
++  const [error, setError] = useState<string | null>(null);
++  const [result, setResult] = useState<{ created: number; skipped: number } | null>(null);
++
++  function toggleEvent(id: string) {
++    setSelectedEvents((prev) => {
++      const next = new Set(prev);
++      if (next.has(id)) next.delete(id);
++      else next.add(id);
++      return next;
++    });
++  }
++
++  async function save() {
++    setSaving(true);
++    setError(null);
++    const res = await fetch("/api/admin/clients", {
++      method: "POST",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify({ ...form, eventIds: [...selectedEvents] }),
++    });
++    const data = await res.json();
++    setSaving(false);
++    if (!res.ok) {
++      setError(data.error ?? "Não foi possível cadastrar. Tente novamente.");
++      return;
++    }
++    setResult(data);
++  }
++
++  if (result) {
++    return (
++      <div className="result-card">
++        <p className="summary">
++          <strong>{result.created}</strong>{" "}
++          {result.created === 1 ? "número gerado" : "números gerados"}
++          {result.skipped > 0 && (
++            <>
++              {" "}
++              · {result.skipped}{" "}
++              {result.skipped === 1 ? "evento ignorado" : "eventos ignorados"} (já estava
++              cadastrado)
++            </>
++          )}
++        </p>
++        <div className="result-actions">
++          <Button
++            variant="ghost"
++            onClick={() => {
++              setForm({ name: "", email: "", phone: "", cpf: "", orderNumber: "" });
++              setSelectedEvents(new Set());
++              setResult(null);
++            }}
++          >
++            + Adicionar outro cliente
++          </Button>
++          <Button onClick={() => router.push("/admin/clientes")}>Voltar para Clientes</Button>
++        </div>
++        <style jsx>{`
++          .result-card {
++            background: var(--surface);
++            border: 1px solid var(--border);
++            border-radius: 1rem;
++            padding: 1.5rem;
++            max-width: 32rem;
++          }
++          .summary {
++            margin: 0 0 1.25rem;
++            font-size: 0.95rem;
++          }
++          .result-actions {
++            display: flex;
++            gap: 0.75rem;
++          }
++        `}</style>
++      </div>
++    );
++  }
++
++  return (
++    <div className="form-card">
++      <Field label="Nome" required>
++        <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
++      </Field>
++      <Field label="E-mail" required>
++        <Input
++          type="email"
++          value={form.email}
++          onChange={(e) => setForm({ ...form, email: e.target.value })}
++        />
++      </Field>
++      <div className="row">
++        <Field label="Telefone" hint="Opcional">
++          <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
++        </Field>
++        <Field label="CPF" hint="Opcional">
++          <Input value={form.cpf} onChange={(e) => setForm({ ...form, cpf: e.target.value })} />
++        </Field>
++      </div>
++      <Field label="Número do pedido" hint="Opcional">
++        <Input
++          value={form.orderNumber}
++          onChange={(e) => setForm({ ...form, orderNumber: e.target.value })}
++        />
++      </Field>
++
++      <div className="divider">
++        <span>Eventos</span>
++      </div>
++      {events.length === 0 ? (
++        <p className="empty">Nenhum evento ativo no momento.</p>
++      ) : (
++        <div className="event-list">
++          {events.map((e) => (
++            <label key={e.id} className="event-row">
++              <input
++                type="checkbox"
++                checked={selectedEvents.has(e.id)}
++                onChange={() => toggleEvent(e.id)}
++              />
++              <span>
++                {e.campaign && <span className="campaign">{e.campaign}</span>}
++                <span className="name">{e.name}</span>
++              </span>
++            </label>
++          ))}
++        </div>
++      )}
++
++      {error && <p className="error">{error}</p>}
++
++      <div className="actions">
++        <Button
++          onClick={save}
++          disabled={saving || !form.name || !form.email || selectedEvents.size === 0}
++        >
++          {saving ? "Cadastrando…" : "Cadastrar cliente"}
++        </Button>
++      </div>
++
++      <style jsx>{`
++        .form-card {
++          background: var(--surface);
++          border: 1px solid var(--border);
++          border-radius: 1rem;
++          padding: 1.75rem;
++          max-width: 32rem;
++        }
++        .row {
++          display: grid;
++          grid-template-columns: 1fr 1fr;
++          gap: 1rem;
++        }
++        .divider {
++          display: flex;
++          align-items: center;
++          gap: 0.75rem;
++          margin: 1.5rem 0 1rem;
++          font-size: 0.75rem;
++          font-weight: 600;
++          text-transform: uppercase;
++          letter-spacing: 0.04em;
++          color: var(--text-muted);
++        }
++        .divider::before,
++        .divider::after {
++          content: "";
++          flex: 1;
++          height: 1px;
++          background: var(--border);
++        }
++        .empty {
++          color: var(--text-muted);
++          font-size: 0.88rem;
++        }
++        .event-list {
++          display: flex;
++          flex-direction: column;
++          gap: 0.5rem;
++          max-height: 16rem;
++          overflow-y: auto;
++        }
++        .event-row {
++          display: flex;
++          align-items: center;
++          gap: 0.65rem;
++          padding: 0.6rem 0.8rem;
++          border: 1px solid var(--border);
++          border-radius: 0.5rem;
++          cursor: pointer;
++          font-size: 0.88rem;
++        }
++        .event-row:hover {
++          border-color: var(--indigo-600);
++        }
++        .campaign {
++          display: block;
++          font-size: 0.68rem;
++          text-transform: uppercase;
++          letter-spacing: 0.05em;
++          color: var(--indigo-600);
++        }
++        .name {
++          font-weight: 600;
++        }
++        .error {
++          color: #c0392b;
++          font-size: 0.85rem;
++          margin: 1rem 0 0;
++        }
++        .actions {
++          margin-top: 1.5rem;
++        }
++      `}</style>
++    </div>
++  );
++}
+diff --git a/components/admin/PrizeEditPanel.tsx b/components/admin/PrizeEditPanel.tsx
+index b344bc7..7181edb 100644
+--- a/components/admin/PrizeEditPanel.tsx
++++ b/components/admin/PrizeEditPanel.tsx
+@@ -11,6 +11,7 @@ interface EditablePrize {
+   description: string | null;
+   imageUrl: string | null;
+   scheduledAt: string | null; // ISO string, already serialized by the server component
++  autoDraw: boolean;
+   winMessage: string | null;
+   loseMessage: string | null;
+   couponCode: string | null;
+@@ -34,6 +35,7 @@ export function PrizeEditPanel({ prize }: { prize: EditablePrize }) {
+     description: prize.description ?? "",
+     imageUrl: prize.imageUrl,
+     scheduledAt: toDatetimeLocalValue(prize.scheduledAt),
++    autoDraw: prize.autoDraw,
+     winMessage: prize.winMessage ?? "",
+     loseMessage: prize.loseMessage ?? "",
+     couponCode: prize.couponCode ?? "",
+@@ -52,6 +54,7 @@ export function PrizeEditPanel({ prize }: { prize: EditablePrize }) {
+         description: form.description || null,
+         imageUrl: form.imageUrl,
+         scheduledAt: form.scheduledAt || null,
++        autoDraw: form.autoDraw,
+         winMessage: form.winMessage || null,
+         loseMessage: form.loseMessage || null,
+         couponCode: form.couponCode || null,
+@@ -101,6 +104,23 @@ export function PrizeEditPanel({ prize }: { prize: EditablePrize }) {
+             />
+           </Field>
+ 
++          {form.scheduledAt && (
++            <label className="auto-draw-row">
++              <input
++                type="checkbox"
++                checked={form.autoDraw}
++                onChange={(e) => setForm({ ...form, autoDraw: e.target.checked })}
++              />
++              <span>
++                <strong>🤖 Sortear automaticamente</strong>
++                <small>
++                  No horário marcado acima, o sistema sorteia sozinho, sem precisar clicar em
++                  "Sortear agora". Confere a cada minuto.
++                </small>
++              </span>
++            </label>
++          )}
++
+           <div className="divider">
+             <span>Mensagens de resultado</span>
+           </div>
+@@ -175,6 +195,30 @@ export function PrizeEditPanel({ prize }: { prize: EditablePrize }) {
+           letter-spacing: 0.04em;
+           color: var(--text-muted);
+         }
++        .auto-draw-row {
++          display: flex;
++          align-items: flex-start;
++          gap: 0.65rem;
++          margin: 0.75rem 0 0;
++          padding: 0.85rem 1rem;
++          background: var(--bg);
++          border: 1px solid var(--border);
++          border-radius: 0.6rem;
++          cursor: pointer;
++        }
++        .auto-draw-row input {
++          margin-top: 0.2rem;
++          flex-shrink: 0;
++        }
++        .auto-draw-row span {
++          display: flex;
++          flex-direction: column;
++          gap: 0.15rem;
++        }
++        .auto-draw-row small {
++          color: var(--text-muted);
++          font-size: 0.8rem;
++        }
+         .divider::before,
+         .divider::after {
+           content: "";
+diff --git a/lib/drawEngine.ts b/lib/drawEngine.ts
+new file mode 100644
+index 0000000..f056382
+--- /dev/null
++++ b/lib/drawEngine.ts
+@@ -0,0 +1,61 @@
++import { db } from "@/lib/db";
++import { drawWinner } from "@/lib/raffle";
++
++/**
++ * Shared by both the admin's "Sortear agora" button and the automatic-draw
++ * cron job - same logic, same transaction, same audit trail either way.
++ * The only difference is who's calling: a logged-in admin (adminId set,
++ * automatic false) or the cron job (adminId null, automatic true).
++ */
++export async function performDraw(
++  prizeId: string,
++  options: { adminId?: string | null; automatic?: boolean } = {}
++) {
++  const prize = await db.prize.findUnique({ where: { id: prizeId }, include: { event: true } });
++  if (!prize) return { error: "Prêmio não encontrado", status: 404 as const };
++  if (prize.status === "DRAWN") {
++    return {
++      error: "Este prêmio já foi sorteado. Use /redo para invalidar e sortear novamente.",
++      status: 409 as const,
++    };
++  }
++
++  const eligible = await db.participant.findMany({
++    where: { eventId: prize.eventId, removedFromDraws: false },
++    select: { id: true, raffleNumber: true },
++  });
++
++  if (eligible.length === 0) {
++    return { error: "Nenhum participante elegível", status: 422 as const };
++  }
++
++  const outcome = drawWinner(eligible);
++
++  const result = await db.$transaction(async (tx) => {
++    const drawResult = await tx.drawResult.create({
++      data: {
++        prizeId: prize.id,
++        participantId: outcome.winner.id,
++        winningNumber: outcome.winner.raffleNumber,
++        eligibleCount: outcome.eligibleCount,
++        rngSeed: outcome.rngSeed,
++        drawnByAdminId: options.adminId ?? null,
++        drawnAutomatically: options.automatic ?? false,
++      },
++      include: { participant: true },
++    });
++
++    await tx.prize.update({ where: { id: prize.id }, data: { status: "DRAWN" } });
++
++    if (prize.event.winnerPolicy === "REMOVE") {
++      await tx.participant.update({
++        where: { id: outcome.winner.id },
++        data: { removedFromDraws: true },
++      });
++    }
++
++    return drawResult;
++  });
++
++  return { result };
++}
+diff --git a/lib/fuzzySearch.ts b/lib/fuzzySearch.ts
+new file mode 100644
+index 0000000..599ca7f
+--- /dev/null
++++ b/lib/fuzzySearch.ts
+@@ -0,0 +1,58 @@
++/**
++ * Classic Levenshtein edit distance (insertions/deletions/substitutions)
++ * between two strings, computed with a single rolling row instead of a full
++ * matrix to keep memory flat regardless of string length.
++ */
++export function levenshtein(a: string, b: string): number {
++  if (a === b) return 0;
++  if (a.length === 0) return b.length;
++  if (b.length === 0) return a.length;
++
++  let prevRow = Array.from({ length: b.length + 1 }, (_, i) => i);
++
++  for (let i = 1; i <= a.length; i++) {
++    const currRow = [i];
++    for (let j = 1; j <= b.length; j++) {
++      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
++      currRow[j] = Math.min(
++        currRow[j - 1] + 1, // insertion
++        prevRow[j] + 1, // deletion
++        prevRow[j - 1] + cost // substitution
++      );
++    }
++    prevRow = currRow;
++  }
++
++  return prevRow[b.length];
++}
++
++function normalize(s: string): string {
++  return s
++    .toLowerCase()
++    .normalize("NFD")
++    .replace(/[\u0300-\u036f]/g, ""); // remove acentos (á -> a, etc.)
++}
++
++/**
++ * True if `query` reasonably matches `target` - either as a direct
++ * substring, or "close enough" (edit distance <= maxDistance) to some word
++ * within `target`. The word-by-word check is what makes "joao" find
++ * "João Pedro Silva" even though a whole-string edit distance between
++ * "joao" and the full name would be huge - typos happen within a single
++ * name or e-mail local-part, not smeared across the whole string.
++ */
++export function fuzzyMatch(query: string, target: string, maxDistance = 2): boolean {
++  const q = normalize(query.trim());
++  const t = normalize(target);
++  if (!q) return true;
++  if (t.includes(q)) return true;
++
++  const words = t.split(/[\s@._-]+/).filter(Boolean);
++  return words.some((word) => {
++    // Só compara a distância entre palavras de tamanho parecido - evita
++    // "casar" com qualquer palavra de 1-3 letras só porque a distância
++    // numérica fica baixa por coincidência de tamanho.
++    if (Math.abs(word.length - q.length) > maxDistance) return false;
++    return levenshtein(q, word) <= maxDistance;
++  });
++}
+diff --git a/prisma/migrations/20260818090000_prize_auto_draw/migration.sql b/prisma/migrations/20260818090000_prize_auto_draw/migration.sql
+new file mode 100644
+index 0000000..daae483
+--- /dev/null
++++ b/prisma/migrations/20260818090000_prize_auto_draw/migration.sql
+@@ -0,0 +1,5 @@
++-- AlterTable
++ALTER TABLE "Prize" ADD COLUMN "autoDraw" BOOLEAN NOT NULL DEFAULT false;
++
++-- AlterTable
++ALTER TABLE "DrawResult" ADD COLUMN "drawnAutomatically" BOOLEAN NOT NULL DEFAULT false;
+diff --git a/prisma/migrations/20260818093000_participant_source_manual/migration.sql b/prisma/migrations/20260818093000_participant_source_manual/migration.sql
+new file mode 100644
+index 0000000..ea5adc6
+--- /dev/null
++++ b/prisma/migrations/20260818093000_participant_source_manual/migration.sql
+@@ -0,0 +1,2 @@
++-- AlterEnum
++ALTER TYPE "ParticipantSource" ADD VALUE 'MANUAL';
+diff --git a/prisma/schema.prisma b/prisma/schema.prisma
+index 9832ce3..7c3ac70 100644
+--- a/prisma/schema.prisma
++++ b/prisma/schema.prisma
+@@ -13,6 +13,7 @@ datasource db {
+ enum ParticipantSource {
+   IMPORT
+   SIGNUP
++  MANUAL
+ }
+ 
+ enum WinnerPolicy {
+@@ -171,6 +172,12 @@ model Prize {
+   scheduledAt  DateTime?
+   rules        String?
+ 
++  // When true and scheduledAt is set, a Vercel Cron job draws this prize
++  // automatically once its time arrives - no admin click needed. Requires
++  // scheduledAt to actually mean something; toggling this on without a
++  // date set just means "nothing happens automatically" until one is added.
++  autoDraw     Boolean     @default(false)
++
+   // Shown on the participant's result screen for this prize. Falls back to
+   // a generic message in the UI when null, so setting these is optional.
+   winMessage   String?     // shown only to the winner
+@@ -203,6 +210,7 @@ model DrawResult {
+ 
+   drawnAt        DateTime @default(now())
+   drawnByAdminId String?
++  drawnAutomatically Boolean @default(false) // true if the cron job triggered this, not an admin click
+ 
+   @@index([prizeId])
+ }
+diff --git a/vercel.json b/vercel.json
+new file mode 100644
+index 0000000..debc010
+--- /dev/null
++++ b/vercel.json
+@@ -0,0 +1,8 @@
++{
++  "crons": [
++    {
++      "path": "/api/cron/auto-draw",
++      "schedule": "* * * * *"
++    }
++  ]
++}
+-- 
+2.43.0
+
