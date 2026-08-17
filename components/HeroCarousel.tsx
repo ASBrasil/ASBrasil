@@ -30,7 +30,17 @@ export function HeroCarousel({ events }: { events: HeroEvent[] }) {
         <Link
           key={ev.id}
           href={`/e/${ev.slug}/painel`}
-          className={`slide ${i === index ? "active" : ""}`}
+          className="slide"
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "flex-end",
+            textDecoration: "none",
+            opacity: i === index ? 1 : 0,
+            pointerEvents: i === index ? "auto" : "none",
+            transition: "opacity 0.6s ease",
+          }}
           aria-hidden={i !== index}
           tabIndex={i === index ? 0 : -1}
         >
@@ -72,18 +82,7 @@ export function HeroCarousel({ events }: { events: HeroEvent[] }) {
           margin-bottom: 2.5rem;
         }
         .slide {
-          position: absolute;
-          inset: 0;
-          display: flex;
-          align-items: flex-end;
           text-decoration: none;
-          opacity: 0;
-          pointer-events: none;
-          transition: opacity 0.6s ease;
-        }
-        .slide.active {
-          opacity: 1;
-          pointer-events: auto;
         }
         .bg {
           position: absolute;
