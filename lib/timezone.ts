@@ -24,3 +24,21 @@ export function startOfTodayBrasilia(): Date {
 
   return new Date(`${year}-${month}-${day}T03:00:00.000Z`);
 }
+
+/**
+ * The exact same UTC-vs-Brasília mismatch, but for a much more consequential
+ * spot: the date/time an admin types into a <input type="datetime-local">
+ * when scheduling a draw. That input gives back a plain string with no
+ * timezone info (e.g. "2026-08-20T15:00") - the admin means 15:00 in
+ * Brasília, but `new Date("2026-08-20T15:00")` running on the server
+ * (Vercel, UTC) parses it as 15:00 UTC, which is 12:00 in Brasília. The
+ * draw would actually fire 3 hours earlier than the admin intended.
+ *
+ * Appending Brasília's fixed UTC-3 offset before parsing makes the
+ * resulting Date correct regardless of what timezone the server itself
+ * runs in.
+ */
+export function parseBrasiliaDatetimeLocal(value: string): Date {
+  const withSeconds = value.length === 16 ? `${value}:00` : value; // "...T15:00" -> "...T15:00:00"
+  return new Date(`${withSeconds}-03:00`);
+}

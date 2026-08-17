@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
+import { parseBrasiliaDatetimeLocal } from "@/lib/timezone";
 
 export async function GET(req: NextRequest) {
   await requireAdmin();
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
       imageUrl,
       quantity: quantity ?? 1,
       order: order ?? 0,
-      scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
+      scheduledAt: scheduledAt ? parseBrasiliaDatetimeLocal(scheduledAt) : null,
       winMessage,
       loseMessage,
       couponCode,
