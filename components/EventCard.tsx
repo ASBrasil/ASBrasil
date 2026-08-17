@@ -10,6 +10,9 @@ interface EventCardData {
   campaign: string | null;
   active: boolean;
   archived: boolean;
+  heroFeatured: boolean;
+  bannerUrl: string | null;
+  primary: string;
   participantsCount: number;
   prizesCount: number;
 }
@@ -109,15 +112,27 @@ export function EventCard({
       </div>
 
       <Link href={`/admin/events/${event.id}`} className="card-link">
-        <div className="status">
-          <span className={`dot ${event.active ? "active" : ""}`} />
-          {event.archived ? "Arquivado" : event.active ? "Publicado" : "Rascunho"}
-        </div>
-        <h3>{event.name}</h3>
-        {event.campaign && <span className="campaign">{event.campaign}</span>}
-        <div className="stats">
-          <span>{event.participantsCount} participantes</span>
-          <span>{event.prizesCount} prêmios</span>
+        {/* O mesmo banner que o participante vê em "Meus eventos" - assim
+            o admin confere de relance como está, sem precisar abrir a
+            página pública. */}
+        {event.bannerUrl ? (
+          <img src={event.bannerUrl} alt="" className="banner-img" />
+        ) : (
+          <div className="banner-fallback" style={{ background: event.primary }} />
+        )}
+
+        <div className="body">
+          <div className="status">
+            <span className={`dot ${event.active ? "active" : ""}`} />
+            {event.archived ? "Arquivado" : event.active ? "Publicado" : "Rascunho"}
+            {event.heroFeatured && <span className="hero-badge">🎞️ No banner</span>}
+          </div>
+          <h3>{event.name}</h3>
+          {event.campaign && <span className="campaign">{event.campaign}</span>}
+          <div className="stats">
+            <span>{event.participantsCount} participantes</span>
+            <span>{event.prizesCount} prêmios</span>
+          </div>
         </div>
       </Link>
 
@@ -165,21 +180,20 @@ export function EventCard({
           background: var(--surface);
           border: 1px solid var(--border);
           border-radius: 1rem;
-          padding: 1.5rem;
+          overflow: hidden;
           display: flex;
           flex-direction: column;
-          gap: 1rem;
         }
         .event-card:hover {
           border-color: var(--indigo-600);
         }
         .reorder {
           position: absolute;
-          top: 0.85rem;
-          right: 0.85rem;
+          top: 0.6rem;
+          right: 0.6rem;
           display: flex;
           gap: 0.25rem;
-          z-index: 1;
+          z-index: 2;
         }
         .reorder button {
           width: 1.5rem;
@@ -187,44 +201,62 @@ export function EventCard({
           display: flex;
           align-items: center;
           justify-content: center;
-          background: var(--bg);
-          border: 1px solid var(--border);
+          background: rgba(0, 0, 0, 0.55);
+          border: 1px solid rgba(255, 255, 255, 0.25);
           border-radius: 0.35rem;
-          color: var(--text-muted);
+          color: white;
           font-size: 0.6rem;
           cursor: pointer;
           padding: 0;
         }
         .reorder button:hover:not(:disabled) {
-          border-color: var(--indigo-600);
-          color: var(--text);
+          border-color: white;
         }
         .reorder button:disabled {
-          opacity: 0.3;
+          opacity: 0.35;
           cursor: default;
         }
         .card-link {
           text-decoration: none;
           color: var(--text);
           display: block;
-          padding-right: 3.5rem;
+        }
+        .banner-img,
+        .banner-fallback {
+          width: 100%;
+          height: 8rem;
+          object-fit: cover;
+          display: block;
+        }
+        .body {
+          padding: 1.1rem 1.25rem;
         }
         .status {
           display: flex;
           align-items: center;
+          flex-wrap: wrap;
           gap: 0.4rem;
           font-size: 0.75rem;
           color: var(--text-muted);
-          margin-bottom: 0.75rem;
+          margin-bottom: 0.6rem;
         }
         .dot {
           width: 0.5rem;
           height: 0.5rem;
           border-radius: 50%;
           background: var(--step-inactive);
+          flex-shrink: 0;
         }
         .dot.active {
           background: #22c55e;
+        }
+        .hero-badge {
+          background: color-mix(in srgb, var(--indigo-600) 15%, transparent);
+          color: var(--indigo-600);
+          font-size: 0.68rem;
+          font-weight: 700;
+          padding: 0.1rem 0.5rem;
+          border-radius: 999px;
         }
         h3 {
           margin: 0 0 0.2rem;
@@ -236,7 +268,7 @@ export function EventCard({
         .stats {
           display: flex;
           gap: 1rem;
-          margin-top: 1rem;
+          margin-top: 0.85rem;
           font-size: 0.8rem;
           color: var(--text-muted);
         }
@@ -246,7 +278,7 @@ export function EventCard({
           gap: 0.5rem;
           flex-wrap: wrap;
           border-top: 1px solid var(--border);
-          padding-top: 0.85rem;
+          padding: 0.85rem 1.25rem;
         }
         .action-link,
         .action-btn {
@@ -259,6 +291,7 @@ export function EventCard({
           color: var(--text-muted);
           cursor: pointer;
           text-decoration: none;
+          white-space: nowrap;
         }
         .action-link:hover,
         .action-btn:hover:not(:disabled) {
@@ -281,11 +314,12 @@ export function EventCard({
           gap: 0.4rem;
           font-size: 0.78rem;
           color: var(--text-muted);
+          flex-wrap: wrap;
         }
         .card-error {
           font-size: 0.78rem;
           color: #c0392b;
-          margin: 0;
+          margin: 0 1.25rem 0.85rem;
         }
       `}</style>
     </div>
