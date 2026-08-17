@@ -3,6 +3,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { getParticipantEmail } from "@/lib/participant-session";
 import { AnnouncementPopup } from "@/components/participant/AnnouncementPopup";
+import { TicketBreakdown } from "@/components/TicketBreakdown";
 
 export default async function MeusEventosPage() {
   const email = await getParticipantEmail();
@@ -34,14 +35,15 @@ export default async function MeusEventosPage() {
 
   const byEvent = new Map<
     string,
-    { event: (typeof rows)[number]["event"]; numbers: number[] }
+    { event: (typeof rows)[number]["event"]; tickets: { name: string; number: number }[] }
   >();
   for (const row of rows) {
     const entry = byEvent.get(row.event.id);
+    const ticket = { name: row.name, number: row.raffleNumber };
     if (entry) {
-      entry.numbers.push(row.raffleNumber);
+      entry.tickets.push(ticket);
     } else {
-      byEvent.set(row.event.id, { event: row.event, numbers: [row.raffleNumber] });
+      byEvent.set(row.event.id, { event: row.event, tickets: [ticket] });
     }
   }
   const participations = [...byEvent.values()];
@@ -86,8 +88,8 @@ export default async function MeusEventosPage() {
           <p className="empty">Nenhuma campanha encontrada para esse e-mail.</p>
         ) : (
           <div className="grid">
-            {ativos.map(({ event, numbers }) => (
-              <EventCard key={event.id} event={event} numbers={numbers} />
+            {ativos.map(({ event, tickets }) => (
+              <EventCard key={event.id} event={event} tickets={tickets} />
             ))}
           </div>
         )}
@@ -96,8 +98,8 @@ export default async function MeusEventosPage() {
           <>
             <h2>Histórico</h2>
             <div className="grid">
-              {historico.map(({ event, numbers }) => (
-                <EventCard key={event.id} event={event} numbers={numbers} muted />
+              {historico.map(({ event, tickets }) => (
+                <EventCard key={event.id} event={event} tickets={tickets} muted />
               ))}
             </div>
           </>
@@ -242,11 +244,11 @@ export default async function MeusEventosPage() {
 
 function EventCard({
   event,
-  numbers,
+  tickets,
   muted,
 }: {
   event: { id: string; slug: string; name: string; campaign: string | null; theme: unknown };
-  numbers: number[];
+  tickets: { name: string; number: number }[];
   muted?: boolean;
 }) {
   const theme = event.theme as any;
@@ -263,11 +265,11 @@ function EventCard({
       <div className="info">
         {event.campaign && <span className="campaign">{event.campaign}</span>}
         <h3>{event.name}</h3>
-        <span className="number">
-          {numbers.length === 1
-            ? `Seu número: ${numbers[0]}`
-            : `Seus números (${numbers.length}): ${numbers.join(", ")}`}
-        </span>
+        {tickets.length === 1 ? (
+          <span className="number">Seu número: {tickets[0].number}</span>
+        ) : (
+          <TicketBreakdown tickets={tickets} />
+        )}
       </div>
     </Link>
   );

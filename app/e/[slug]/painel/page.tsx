@@ -234,18 +234,25 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
       </section>
 
       <section className="numbers-section">
-        <div className="number-pill">
-          {myNumbers.length === 1 ? (
-            <>
-              Seu número é: <strong>{myNumbers[0]}</strong>
-            </>
-          ) : (
-            <>
-              Seus números ({myNumbers.length}):{" "}
-              <strong>{myNumbers.join(" · ")}</strong>
-            </>
-          )}
-        </div>
+        {myNumbers.length === 1 ? (
+          <div className="number-pill">
+            Seu número é: <strong>{myNumbers[0]}</strong>
+          </div>
+        ) : (
+          <details className="number-pill breakdown">
+            <summary>
+              Seus números ({myNumbers.length}): <strong>{myNumbers.join(" · ")}</strong>
+            </summary>
+            <ul>
+              {myParticipants.map((p) => (
+                <li key={p.id}>
+                  <span className="ticket-name">{p.name}</span>
+                  <span className="ticket-number">{p.raffleNumber}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
         {myNumbers.length > 1 && (
           <p className="odds-note">Quanto mais números, mais chances em cada sorteio.</p>
         )}
@@ -326,6 +333,57 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
           color: var(--primary);
           font-size: 1.1rem;
           margin-left: 0.3rem;
+        }
+        .number-pill.breakdown {
+          border-radius: 1.25rem;
+          text-align: left;
+        }
+        .number-pill.breakdown summary {
+          cursor: pointer;
+          list-style: none;
+          text-align: center;
+        }
+        .number-pill.breakdown summary::-webkit-details-marker {
+          display: none;
+        }
+        .number-pill.breakdown summary::after {
+          content: " ▾ ver nomes";
+          font-family: system-ui, sans-serif;
+          color: var(--primary);
+          font-weight: 600;
+          font-size: 0.8rem;
+        }
+        .number-pill.breakdown[open] summary::after {
+          content: " ▴ ocultar";
+        }
+        .number-pill.breakdown ul {
+          list-style: none;
+          margin: 0.75rem 0 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.3rem;
+        }
+        .number-pill.breakdown li {
+          display: flex;
+          justify-content: space-between;
+          gap: 0.75rem;
+          background: rgba(255, 255, 255, 0.06);
+          border-radius: 0.5rem;
+          padding: 0.4rem 0.7rem;
+          font-size: 0.85rem;
+        }
+        .ticket-name {
+          opacity: 0.85;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .ticket-number {
+          font-family: monospace;
+          color: var(--primary);
+          font-weight: 600;
+          flex-shrink: 0;
         }
         .odds-note {
           margin-top: 0.6rem;
