@@ -42,8 +42,8 @@ export function HeroCarousel({ events }: { events: HeroEvent[] }) {
           <div className="scrim" />
           <div className="content">
             {ev.vip && <span className="vip-badge">💎 VIP</span>}
-            {ev.campaign && <span className="eyebrow">{ev.campaign}</span>}
             <h2>{ev.name}</h2>
+            {ev.campaign && <span className="eyebrow">{ev.campaign}</span>}
             <span className="cta">Ver sorteio →</span>
           </div>
         </Link>
@@ -101,7 +101,7 @@ export function HeroCarousel({ events }: { events: HeroEvent[] }) {
         .scrim {
           position: absolute;
           inset: 0;
-          background: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.55) 55%, rgba(10, 19, 48, 0.95) 95%);
+          background: linear-gradient(180deg, rgba(0, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.6) 45%, rgba(10, 19, 48, 0.95) 92%);
           z-index: 1;
         }
         .content {
@@ -127,10 +127,10 @@ export function HeroCarousel({ events }: { events: HeroEvent[] }) {
           letter-spacing: 0.12em;
           font-size: 0.72rem;
           opacity: 0.75;
-          margin-bottom: 0.3rem;
+          margin: 0.35rem 0 0.9rem;
         }
         .content h2 {
-          margin: 0 0 0.6rem;
+          margin: 0;
           font-family: "Sora", system-ui, sans-serif;
           font-size: clamp(1.4rem, 3vw, 2rem);
           line-height: 1.25;
