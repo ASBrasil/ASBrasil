@@ -111,7 +111,11 @@ export function EventCard({
         </button>
       </div>
 
-      <Link href={`/admin/events/${event.id}`} className="card-link">
+      <Link
+        href={`/admin/events/${event.id}`}
+        className="card-link"
+        style={{ textDecoration: "none", color: "var(--text)", display: "block" }}
+      >
         {/* O mesmo banner que o participante vê em "Meus eventos" - assim
             o admin confere de relance como está, sem precisar abrir a
             página pública. */}
@@ -137,7 +141,21 @@ export function EventCard({
       </Link>
 
       <div className="actions">
-        <Link href={`/admin/events/${event.id}/edit`} className="action-link">
+        <Link
+          href={`/admin/events/${event.id}/edit`}
+          className="action-link"
+          style={{
+            fontSize: "0.78rem",
+            fontWeight: 600,
+            padding: "0.35rem 0.7rem",
+            borderRadius: "999px",
+            border: "1px solid var(--border)",
+            background: "transparent",
+            color: "var(--text-muted)",
+            textDecoration: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
           Editar
         </Link>
         <button type="button" className="action-btn" onClick={toggleArchive} disabled={busy}>
@@ -216,11 +234,6 @@ export function EventCard({
           opacity: 0.35;
           cursor: default;
         }
-        .card-link {
-          text-decoration: none;
-          color: var(--text);
-          display: block;
-        }
         .banner-img,
         .banner-fallback {
           width: 100%;
@@ -280,7 +293,6 @@ export function EventCard({
           border-top: 1px solid var(--border);
           padding: 0.85rem 1.25rem;
         }
-        .action-link,
         .action-btn {
           font-size: 0.78rem;
           font-weight: 600;

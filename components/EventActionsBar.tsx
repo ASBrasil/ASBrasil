@@ -56,7 +56,19 @@ export function EventActionsBar({ eventId, archived }: { eventId: string; archiv
 
   return (
     <div className="actions-bar">
-      <Link href={`/admin/events/${eventId}/edit`} className="edit-link">
+      <Link
+        href={`/admin/events/${eventId}/edit`}
+        className="edit-link"
+        style={{
+          fontSize: "0.85rem",
+          fontWeight: 600,
+          color: "var(--indigo-600)",
+          textDecoration: "none",
+          padding: "0.55rem 1rem",
+          borderRadius: "999px",
+          border: "1px solid var(--border)",
+        }}
+      >
         ✏️ Editar
       </Link>
       <button type="button" className="ghost-btn" onClick={toggleArchive} disabled={busy}>
@@ -88,18 +100,6 @@ export function EventActionsBar({ eventId, archived }: { eventId: string; archiv
           align-items: center;
           gap: 0.6rem;
           flex-wrap: wrap;
-        }
-        .edit-link {
-          font-size: 0.85rem;
-          font-weight: 600;
-          color: var(--indigo-600);
-          text-decoration: none;
-          padding: 0.55rem 1rem;
-          border-radius: 999px;
-          border: 1px solid var(--border);
-        }
-        .edit-link:hover {
-          border-color: var(--indigo-600);
         }
         .ghost-btn {
           font-size: 0.85rem;

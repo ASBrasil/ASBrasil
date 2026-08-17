@@ -6,7 +6,23 @@ export function ParticipantTopNav({ eventName }: { eventName: string }) {
   return (
     <header className="topnav">
       <div className="left">
-        <Link href="/meus-eventos" className="back">
+        <Link
+          href="/meus-eventos"
+          className="back"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.35rem",
+            color: "#12121a",
+            textDecoration: "none",
+            background: "var(--primary, #4f5fff)",
+            borderRadius: "999px",
+            padding: "0.45rem 1rem",
+            fontWeight: 700,
+            fontSize: "0.78rem",
+            flexShrink: 0,
+          }}
+        >
           ← Meus eventos
         </Link>
         <a
@@ -17,7 +33,23 @@ export function ParticipantTopNav({ eventName }: { eventName: string }) {
         >
           Minhas reservas ↗
         </a>
-        <Link href="/vencedores" className="winners">
+        <Link
+          href="/vencedores"
+          className="winners"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            color: "#f5cf87",
+            textDecoration: "none",
+            background: "rgba(232, 182, 70, 0.1)",
+            border: "1px solid rgba(232, 182, 70, 0.35)",
+            borderRadius: "999px",
+            padding: "0.43rem 0.9rem",
+            fontWeight: 700,
+            fontSize: "0.76rem",
+            flexShrink: 0,
+          }}
+        >
           🏆 Vencedores
         </Link>
       </div>
@@ -50,23 +82,6 @@ export function ParticipantTopNav({ eventName }: { eventName: string }) {
           gap: 0.5rem;
           flex-wrap: wrap;
         }
-        .back {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.35rem;
-          color: #12121a;
-          text-decoration: none;
-          background: var(--primary, #4f5fff);
-          border-radius: 999px;
-          padding: 0.45rem 1rem;
-          font-weight: 700;
-          font-size: 0.78rem;
-          flex-shrink: 0;
-          transition: filter 0.15s;
-        }
-        .back:hover {
-          filter: brightness(1.08);
-        }
         .reservas {
           display: inline-flex;
           align-items: center;
@@ -85,23 +100,6 @@ export function ParticipantTopNav({ eventName }: { eventName: string }) {
         .reservas:hover {
           opacity: 1;
           border-color: rgba(255, 255, 255, 0.45);
-        }
-        .winners {
-          display: inline-flex;
-          align-items: center;
-          color: #f5cf87;
-          text-decoration: none;
-          background: rgba(232, 182, 70, 0.1);
-          border: 1px solid rgba(232, 182, 70, 0.35);
-          border-radius: 999px;
-          padding: 0.43rem 0.9rem;
-          font-weight: 700;
-          font-size: 0.76rem;
-          flex-shrink: 0;
-          transition: border-color 0.15s;
-        }
-        .winners:hover {
-          border-color: rgba(232, 182, 70, 0.65);
         }
         .right {
           display: flex;
