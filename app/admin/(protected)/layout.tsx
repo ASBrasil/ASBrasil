@@ -10,6 +10,7 @@ export default function AdminLayout({ children }: PropsWithChildren) {
           <span>Sorteios</span>
         </div>
         <nav>
+          <a href="/admin/clientes">Clientes</a>
           <a href="/admin/events">Eventos</a>
           <a href="/admin/events/new">Novo evento</a>
           <a href="/admin/acessos">Acessos</a>
