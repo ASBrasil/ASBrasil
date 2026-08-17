@@ -50,7 +50,12 @@ export function AnnouncementPopup({ popup }: { popup: PopupData | null }) {
               objectFit: "contain",
             }}
           />
-          {popup.title && <p className="image-caption">{popup.title}</p>}
+          {(popup.title || popup.body) && (
+            <div className="image-caption">
+              {popup.title && <h2>{popup.title}</h2>}
+              {popup.body && <p>{popup.body}</p>}
+            </div>
+          )}
         </div>
       )}
       {popup.type === "HTML" && popup.body && (
@@ -135,10 +140,32 @@ export function AnnouncementPopup({ popup }: { popup: PopupData | null }) {
           white-space: pre-wrap;
         }
         .image-caption {
-          padding: 1rem 1.25rem;
-          margin: 0;
+          padding: 1.5rem 1.5rem 1.75rem;
           text-align: center;
-          font-weight: 600;
+          background: linear-gradient(180deg, #171c3a, #0a0e1f);
+        }
+        .image-caption::before {
+          content: "";
+          display: block;
+          width: 2.75rem;
+          height: 3px;
+          margin: 0 auto 1rem;
+          border-radius: 999px;
+          background: linear-gradient(90deg, #4f5fff, #a855f7, #ec4899);
+        }
+        .image-caption h2 {
+          margin: 0 0 0.5rem;
+          color: white;
+          font-family: "Sora", system-ui, sans-serif;
+          font-size: 1.3rem;
+          line-height: 1.3;
+        }
+        .image-caption p {
+          margin: 0;
+          color: rgba(255, 255, 255, 0.68);
+          font-size: 0.92rem;
+          line-height: 1.6;
+          white-space: pre-wrap;
         }
         .html-content {
           padding: 1.5rem;

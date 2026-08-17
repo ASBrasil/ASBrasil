@@ -332,13 +332,24 @@ function PopupFormFields({
       )}
 
       {form.type === "IMAGE" && (
-        <ImageUpload
-          label="Imagem do pop-up"
-          value={form.imageUrl}
-          onChange={(url) => setForm({ ...form, imageUrl: url })}
-          folder="popup-images"
-          aspectRatio="16 / 9"
-        />
+        <>
+          <ImageUpload
+            label="Imagem do pop-up"
+            value={form.imageUrl}
+            onChange={(url) => setForm({ ...form, imageUrl: url })}
+            folder="popup-images"
+            aspectRatio="16 / 9"
+          />
+          <Field label="Descrição" hint="Opcional. Aparece abaixo do título, com um visual mais elaborado.">
+            <textarea
+              className="textarea"
+              rows={3}
+              value={form.body}
+              onChange={(e) => setForm({ ...form, body: e.target.value })}
+              placeholder="Ex: Sorteio exclusivo para quem já garantiu ingresso. Fique de olho nas próximas horas!"
+            />
+          </Field>
+        </>
       )}
 
       {form.type === "HTML" && (
