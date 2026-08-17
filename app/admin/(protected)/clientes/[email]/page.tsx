@@ -5,7 +5,19 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 export default async function ClienteDetailPage({ params }: { params: { email: string } }) {
-  const email = params.email; // Next já decodifica o segmento dinâmico da URL
+  // O link já manda o e-mail com encodeURIComponent (o "@" vira "%40"), e
+  // supostamente o Next decodifica isso sozinho antes de entregar em
+  // params - mas isso não estava batendo na prática (o e-mail chegava
+  // ainda codificado, a busca no banco não encontrava nada e caía no 404
+  // padrão). Decodificando explicitamente aqui, com um fallback se por
+  // acaso já vier decodificado (decodeURIComponent de um "%" sozinho, sem
+  // ser sequência de escape válida, lança erro em vez de travar a página).
+  let email: string;
+  try {
+    email = decodeURIComponent(params.email).trim().toLowerCase();
+  } catch {
+    email = params.email.trim().toLowerCase();
+  }
 
   const rows = await db.participant.findMany({
     where: { email },
