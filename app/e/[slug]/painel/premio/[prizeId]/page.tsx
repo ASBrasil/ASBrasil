@@ -25,7 +25,10 @@ export default async function ParticipantPrizePage({
   const myParticipantIds = new Set(myParticipants.map((p) => p.id));
   const myNumbers = myParticipants.map((p) => p.raffleNumber);
 
-  const prize = await db.prize.findUnique({ where: { id: params.prizeId } });
+  const prize = await db.prize.findUnique({
+    where: { id: params.prizeId },
+    include: { losePopup: true },
+  });
   if (!prize || prize.eventId !== event.id) notFound();
 
   const [result, allPrizes, drawResults] = await Promise.all([
@@ -82,6 +85,17 @@ export default async function ParticipantPrizePage({
           winMessage={prize.winMessage}
           loseMessage={prize.loseMessage}
           couponCode={prize.couponCode}
+          losePopup={
+            prize.losePopup && prize.losePopup.active
+              ? {
+                  type: prize.losePopup.type,
+                  title: prize.losePopup.title,
+                  body: prize.losePopup.body,
+                  imageUrl: prize.losePopup.imageUrl,
+                  linkUrl: prize.losePopup.linkUrl,
+                }
+              : null
+          }
         />
 
         {allPrizes.length > 1 && (

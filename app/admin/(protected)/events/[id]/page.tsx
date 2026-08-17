@@ -12,7 +12,7 @@ export default async function EventDashboardPage({ params }: { params: { id: str
   const event = await db.event.findUnique({
     where: { id: params.id },
     include: {
-      prizes: { orderBy: { order: "asc" } },
+      prizes: { orderBy: { order: "asc" }, include: { losePopup: true } },
       _count: { select: { participants: true } },
     },
   });
@@ -83,6 +83,7 @@ export default async function EventDashboardPage({ params }: { params: { id: str
                       minute: "2-digit",
                       timeZone: "America/Sao_Paulo",
                     })}
+                    {prize.autoDraw && <span className="auto-tag"> · 🤖 Automático</span>}
                   </p>
                 )}
                 <div className="prize-actions">
@@ -93,9 +94,20 @@ export default async function EventDashboardPage({ params }: { params: { id: str
                       description: prize.description,
                       imageUrl: prize.imageUrl,
                       scheduledAt: prize.scheduledAt ? prize.scheduledAt.toISOString() : null,
+                      autoDraw: prize.autoDraw,
                       winMessage: prize.winMessage,
                       loseMessage: prize.loseMessage,
                       couponCode: prize.couponCode,
+                      losePopup: prize.losePopup
+                        ? {
+                            active: prize.losePopup.active,
+                            type: prize.losePopup.type,
+                            title: prize.losePopup.title,
+                            body: prize.losePopup.body,
+                            imageUrl: prize.losePopup.imageUrl,
+                            linkUrl: prize.losePopup.linkUrl,
+                          }
+                        : null,
                     }}
                   />
                   <PrizeDuplicateButton prizeId={prize.id} />
@@ -211,6 +223,10 @@ export default async function EventDashboardPage({ params }: { params: { id: str
         .prize-row p.scheduled {
           font-size: 0.78rem;
           margin-top: 0.35rem;
+        }
+        .auto-tag {
+          color: var(--indigo-600);
+          font-weight: 600;
         }
         .prize-actions {
           display: flex;

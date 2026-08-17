@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Field, Input } from "@/components/ui/primitives";
 import { ImageUpload } from "@/components/admin/ImageUpload";
+import { PrizeLosePopupEditor, LosePopupData } from "@/components/admin/PrizeLosePopupEditor";
 
 interface EditablePrize {
   id: string;
@@ -11,9 +12,11 @@ interface EditablePrize {
   description: string | null;
   imageUrl: string | null;
   scheduledAt: string | null; // ISO string, already serialized by the server component
+  autoDraw: boolean;
   winMessage: string | null;
   loseMessage: string | null;
   couponCode: string | null;
+  losePopup: LosePopupData | null;
 }
 
 /** ISO string (UTC) -> "YYYY-MM-DDTHH:mm" in local time, what <input type="datetime-local"> expects. */
@@ -34,6 +37,7 @@ export function PrizeEditPanel({ prize }: { prize: EditablePrize }) {
     description: prize.description ?? "",
     imageUrl: prize.imageUrl,
     scheduledAt: toDatetimeLocalValue(prize.scheduledAt),
+    autoDraw: prize.autoDraw,
     winMessage: prize.winMessage ?? "",
     loseMessage: prize.loseMessage ?? "",
     couponCode: prize.couponCode ?? "",
@@ -52,6 +56,7 @@ export function PrizeEditPanel({ prize }: { prize: EditablePrize }) {
         description: form.description || null,
         imageUrl: form.imageUrl,
         scheduledAt: form.scheduledAt || null,
+        autoDraw: form.autoDraw,
         winMessage: form.winMessage || null,
         loseMessage: form.loseMessage || null,
         couponCode: form.couponCode || null,
@@ -101,6 +106,23 @@ export function PrizeEditPanel({ prize }: { prize: EditablePrize }) {
             />
           </Field>
 
+          {form.scheduledAt && (
+            <label className="auto-draw-row">
+              <input
+                type="checkbox"
+                checked={form.autoDraw}
+                onChange={(e) => setForm({ ...form, autoDraw: e.target.checked })}
+              />
+              <span>
+                <strong>🤖 Sortear automaticamente</strong>
+                <small>
+                  No horário marcado acima, o sistema sorteia sozinho, sem precisar clicar em
+                  "Sortear agora". Confere a cada minuto.
+                </small>
+              </span>
+            </label>
+          )}
+
           <div className="divider">
             <span>Mensagens de resultado</span>
           </div>
@@ -127,6 +149,11 @@ export function PrizeEditPanel({ prize }: { prize: EditablePrize }) {
               onChange={(e) => setForm({ ...form, loseMessage: e.target.value })}
             />
           </Field>
+
+          <div className="divider">
+            <span>Pop-up pós-sorteio</span>
+          </div>
+          <PrizeLosePopupEditor prizeId={prize.id} initial={prize.losePopup} />
 
           {error && <p className="error">{error}</p>}
 
@@ -174,6 +201,30 @@ export function PrizeEditPanel({ prize }: { prize: EditablePrize }) {
           text-transform: uppercase;
           letter-spacing: 0.04em;
           color: var(--text-muted);
+        }
+        .auto-draw-row {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.65rem;
+          margin: 0.75rem 0 0;
+          padding: 0.85rem 1rem;
+          background: var(--bg);
+          border: 1px solid var(--border);
+          border-radius: 0.6rem;
+          cursor: pointer;
+        }
+        .auto-draw-row input {
+          margin-top: 0.2rem;
+          flex-shrink: 0;
+        }
+        .auto-draw-row span {
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+        }
+        .auto-draw-row small {
+          color: var(--text-muted);
+          font-size: 0.8rem;
         }
         .divider::before,
         .divider::after {

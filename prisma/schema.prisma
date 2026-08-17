@@ -13,6 +13,7 @@ datasource db {
 enum ParticipantSource {
   IMPORT
   SIGNUP
+  MANUAL
 }
 
 enum WinnerPolicy {
@@ -171,6 +172,12 @@ model Prize {
   scheduledAt  DateTime?
   rules        String?
 
+  // When true and scheduledAt is set, a Vercel Cron job draws this prize
+  // automatically once its time arrives - no admin click needed. Requires
+  // scheduledAt to actually mean something; toggling this on without a
+  // date set just means "nothing happens automatically" until one is added.
+  autoDraw     Boolean     @default(false)
+
   // Shown on the participant's result screen for this prize. Falls back to
   // a generic message in the UI when null, so setting these is optional.
   winMessage   String?     // shown only to the winner
@@ -180,8 +187,32 @@ model Prize {
   createdAt    DateTime    @default(now())
 
   drawResults  DrawResult[]
+  losePopup    PrizeLosePopup?
 
   @@index([eventId, order])
+}
+
+// A pop-up shown to whoever DIDN'T win this specific prize, once the draw
+// reveals - separate from the global Popup (which is one site-wide banner
+// on /meus-eventos, unrelated to any particular draw). Reuses the exact
+// same content shape (type/title/body/imageUrl/linkUrl) so admins already
+// familiar with the global pop-up editor feel right at home here. Typical
+// use: a consolation offer ("didn't win? upgrade to VIP instead") with a
+// link to act on it.
+model PrizeLosePopup {
+  id        String    @id @default(cuid())
+  prizeId   String    @unique
+  prize     Prize     @relation(fields: [prizeId], references: [id], onDelete: Cascade)
+
+  active    Boolean   @default(false)
+  type      PopupType @default(TEXT)
+  title     String?
+  body      String?
+  imageUrl  String?
+  linkUrl   String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
 // Append-only. A draw is never edited in place - redoing a draw VOIDs the
@@ -203,6 +234,7 @@ model DrawResult {
 
   drawnAt        DateTime @default(now())
   drawnByAdminId String?
+  drawnAutomatically Boolean @default(false) // true if the cron job triggered this, not an admin click
 
   @@index([prizeId])
 }

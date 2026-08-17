@@ -5,10 +5,19 @@ import { Countdown } from "./Countdown";
 import { DrawReveal } from "@/components/DrawReveal";
 import { Fireworks } from "./Fireworks";
 import { playRevealWin, playRevealLose } from "@/lib/drawSound";
+import { PrizeLosePopupOverlay } from "./PrizeLosePopupOverlay";
 
 interface Result {
   winningNumber: number;
   winnerName: string;
+}
+
+interface LosePopupContent {
+  type: "TEXT" | "IMAGE" | "HTML";
+  title: string | null;
+  body: string | null;
+  imageUrl: string | null;
+  linkUrl: string | null;
 }
 
 export function PrizeResultLive({
@@ -20,6 +29,7 @@ export function PrizeResultLive({
   winMessage,
   loseMessage,
   couponCode,
+  losePopup,
 }: {
   prizeId: string;
   initialResult: Result | null;
@@ -29,6 +39,7 @@ export function PrizeResultLive({
   winMessage?: string | null;
   loseMessage?: string | null;
   couponCode?: string | null;
+  losePopup?: LosePopupContent | null;
 }) {
   // "waiting"  -> ainda não saiu resultado nenhum, mostra contagem/número
   // "drawing"  -> resultado já saiu no servidor, mas ainda estamos girando os dígitos
@@ -114,6 +125,7 @@ export function PrizeResultLive({
     return (
       <div className="result">
         {showFireworks && <Fireworks />}
+        {!won && losePopup && <PrizeLosePopupOverlay popup={losePopup} />}
         <span className="tag">Resultado</span>
         {won ? (
           <>

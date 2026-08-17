@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import Link from "next/link";
+import { fuzzyMatch } from "@/lib/fuzzySearch";
 
 export const dynamic = "force-dynamic";
 
@@ -8,10 +9,11 @@ const PAGE_SIZE = 50;
 export default async function ClientesPage({
   searchParams,
 }: {
-  searchParams: { page?: string; eventId?: string };
+  searchParams: { page?: string; eventId?: string; q?: string };
 }) {
   const page = Math.max(1, Number(searchParams.page) || 1);
   const eventId = searchParams.eventId || undefined;
+  const q = searchParams.q?.trim() || "";
 
   const [events, groups] = await Promise.all([
     db.event.findMany({
@@ -19,13 +21,6 @@ export default async function ClientesPage({
       orderBy: [{ order: "asc" }, { createdAt: "desc" }],
       select: { id: true, name: true },
     }),
-    // Um "cliente" é um e-mail distinto entre todos os participantes -
-    // agrupa aqui em vez de listar linha a linha, já que uma pessoa pode
-    // ter varios ingressos (varias linhas de Participant) no mesmo evento
-    // e em varios eventos diferentes. _max(name) e uma aproximacao (pega o
-    // maior nome em ordem alfabetica, nao necessariamente o mais recente) -
-    // funciona bem na pratica porque o nome de uma mesma pessoa costuma
-    // vir identico em todo lugar.
     db.participant.groupBy({
       by: ["email"],
       where: eventId ? { eventId } : undefined,
@@ -35,30 +30,47 @@ export default async function ClientesPage({
     }),
   ]);
 
-  const total = groups.length;
+  const filtered = q
+    ? groups.filter((g) => fuzzyMatch(q, g._max.name ?? "") || fuzzyMatch(q, g.email))
+    : groups;
+
+  const total = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const pageGroups = groups.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageGroups = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   function pageHref(p: number) {
     const params = new URLSearchParams();
     params.set("page", String(p));
     if (eventId) params.set("eventId", eventId);
+    if (q) params.set("q", q);
     return `/admin/clientes?${params.toString()}`;
   }
 
   return (
     <div>
       <div className="header">
-        <h1>Clientes</h1>
-        <p className="subtitle">
-          Todo mundo que já se cadastrou em algum evento, cruzando todos os sorteios ({total}{" "}
-          {total === 1 ? "cliente" : "clientes"}
-          {eventId ? " neste evento" : " no total"}). Clica no nome pra ver o histórico completo
-          dessa pessoa com a gente.
-        </p>
+        <div>
+          <h1>Clientes</h1>
+          <p className="subtitle">
+            Todo mundo que já se cadastrou em algum evento, cruzando todos os sorteios ({total}{" "}
+            {total === 1 ? "cliente" : "clientes"}
+            {eventId || q ? " encontrados" : " no total"}). Clica no nome pra ver o histórico
+            completo dessa pessoa com a gente.
+          </p>
+        </div>
+        <Link href="/admin/clientes/novo" className="new-btn">
+          + Adicionar cliente
+        </Link>
       </div>
 
       <form className="filter" method="get">
+        <input
+          type="text"
+          name="q"
+          defaultValue={q}
+          placeholder="Buscar por nome ou e-mail…"
+          className="search"
+        />
         <select name="eventId" defaultValue={eventId ?? ""}>
           <option value="">Todos os eventos</option>
           {events.map((e) => (
@@ -68,12 +80,18 @@ export default async function ClientesPage({
           ))}
         </select>
         <button type="submit">Filtrar</button>
-        {eventId && (
+        {(eventId || q) && (
           <a href="/admin/clientes" className="clear">
             Limpar filtro
           </a>
         )}
       </form>
+      {q && (
+        <p className="search-hint">
+          Busca aproximada: mostra nomes/e-mails parecidos com "{q}", mesmo com pequenos erros de
+          digitação.
+        </p>
+      )}
 
       <div className="table-shell">
         <table>
@@ -124,14 +142,41 @@ export default async function ClientesPage({
       )}
 
       <style>{`
-        .header { margin-bottom: 1.5rem; max-width: 42rem; }
-        h1 { margin: 0 0 0.4rem; font-family: var(--font-display, inherit); }
-        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin: 0; }
+        .header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 1rem;
+          margin-bottom: 1.5rem;
+        }
+        .header h1 { margin: 0 0 0.4rem; font-family: var(--font-display, inherit); }
+        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin: 0; max-width: 38rem; }
+        .new-btn {
+          background: var(--indigo-600);
+          color: white;
+          text-decoration: none;
+          padding: 0.6rem 1.1rem;
+          border-radius: 999px;
+          font-weight: 600;
+          font-size: 0.85rem;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
         .filter {
           display: flex;
           align-items: center;
           gap: 0.6rem;
-          margin-bottom: 1.25rem;
+          margin-bottom: 0.5rem;
+          flex-wrap: wrap;
+        }
+        .filter .search {
+          padding: 0.55rem 0.8rem;
+          border-radius: 0.5rem;
+          border: 1px solid var(--border);
+          background: var(--surface);
+          color: var(--text);
+          font-size: 0.85rem;
+          min-width: 16rem;
         }
         .filter select {
           padding: 0.55rem 0.8rem;
@@ -160,12 +205,18 @@ export default async function ClientesPage({
         .filter .clear:hover {
           text-decoration: underline;
         }
+        .search-hint {
+          color: var(--text-muted);
+          font-size: 0.8rem;
+          margin: 0 0 1.25rem;
+        }
         .table-shell {
           background: var(--surface);
           border: 1px solid var(--border);
           border-radius: 0.75rem;
           overflow: hidden;
           max-width: 50rem;
+          margin-top: 1.25rem;
         }
         table {
           width: 100%;

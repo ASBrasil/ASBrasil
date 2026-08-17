@@ -46,6 +46,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.winMessage !== undefined) data.winMessage = body.winMessage;
   if (body.loseMessage !== undefined) data.loseMessage = body.loseMessage;
   if (body.couponCode !== undefined) data.couponCode = body.couponCode;
+  if (body.autoDraw !== undefined) data.autoDraw = body.autoDraw;
 
   try {
     const prize = await db.prize.update({ where: { id: params.id }, data });
