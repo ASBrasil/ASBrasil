@@ -17,6 +17,9 @@ export function ParticipantTopNav({ eventName }: { eventName: string }) {
         >
           Minhas reservas ↗
         </a>
+        <Link href="/vencedores" className="winners">
+          🏆 Vencedores
+        </Link>
       </div>
       <div className="right">
         <span className="current">{eventName}</span>
@@ -82,6 +85,23 @@ export function ParticipantTopNav({ eventName }: { eventName: string }) {
         .reservas:hover {
           opacity: 1;
           border-color: rgba(255, 255, 255, 0.45);
+        }
+        .winners {
+          display: inline-flex;
+          align-items: center;
+          color: #f5cf87;
+          text-decoration: none;
+          background: rgba(232, 182, 70, 0.1);
+          border: 1px solid rgba(232, 182, 70, 0.35);
+          border-radius: 999px;
+          padding: 0.43rem 0.9rem;
+          font-weight: 700;
+          font-size: 0.76rem;
+          flex-shrink: 0;
+          transition: border-color 0.15s;
+        }
+        .winners:hover {
+          border-color: rgba(232, 182, 70, 0.65);
         }
         .right {
           display: flex;

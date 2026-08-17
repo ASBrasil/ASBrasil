@@ -50,8 +50,8 @@ export function HeroCarousel({ events }: { events: HeroEvent[] }) {
             <div className="bg-fallback" style={{ background: ev.primary }} />
           )}
           <div className="scrim" />
+          {ev.vip && <span className="vip-badge">💎 VIP</span>}
           <div className="content">
-            {ev.vip && <span className="vip-badge">💎 VIP</span>}
             <h2>{ev.name}</h2>
             {ev.campaign && <span className="eyebrow">{ev.campaign}</span>}
             <span className="cta">Ver sorteio →</span>
@@ -111,14 +111,18 @@ export function HeroCarousel({ events }: { events: HeroEvent[] }) {
           color: white;
         }
         .vip-badge {
+          position: absolute;
+          top: 1.1rem;
+          right: 1.25rem;
+          z-index: 3;
           display: inline-block;
           background: linear-gradient(135deg, #e8b646, #c9962f);
           color: #12121a;
           font-size: 0.72rem;
           font-weight: 700;
-          padding: 0.25rem 0.7rem;
+          padding: 0.3rem 0.8rem;
           border-radius: 999px;
-          margin-bottom: 0.6rem;
+          box-shadow: 0 0.2rem 0.6rem rgba(0, 0, 0, 0.3);
         }
         .eyebrow {
           display: block;

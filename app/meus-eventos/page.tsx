@@ -87,6 +87,9 @@ export default async function MeusEventosPage() {
       <header className="topbar">
         <span>Meus sorteios</span>
         <div className="topbar-actions">
+          <Link href="/vencedores" className="winners-link">
+            🏆 Vencedores
+          </Link>
           <a
             href="https://app.asbrasil.tur.br/"
             target="_blank"
@@ -194,6 +197,19 @@ export default async function MeusEventosPage() {
         .reservas:hover {
           opacity: 1;
           border-color: rgba(255, 255, 255, 0.4);
+        }
+        .winners-link {
+          color: #f5cf87;
+          text-decoration: none;
+          border: 1px solid rgba(232, 182, 70, 0.35);
+          background: rgba(232, 182, 70, 0.1);
+          border-radius: 999px;
+          padding: 0.4rem 0.9rem;
+          font-size: 0.78rem;
+          font-weight: 700;
+        }
+        .winners-link:hover {
+          border-color: rgba(232, 182, 70, 0.65);
         }
         .content { max-width: 60rem; margin: 0 auto; padding: 2.5rem 1.75rem 5rem; }
         h1 { margin: 0 0 0.25rem; font-family: "Sora", system-ui, sans-serif; }
