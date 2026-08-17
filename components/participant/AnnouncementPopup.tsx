@@ -36,8 +36,20 @@ export function AnnouncementPopup({ popup }: { popup: PopupData | null }) {
         </div>
       )}
       {popup.type === "IMAGE" && popup.imageUrl && (
-        <div className="image-content">
-          <img src={popup.imageUrl} alt={popup.title ?? ""} />
+        <div style={{ textAlign: "center", background: "#f3f4f6" }}>
+          <img
+            src={popup.imageUrl}
+            alt={popup.title ?? ""}
+            style={{
+              display: "inline-block",
+              verticalAlign: "top",
+              maxWidth: "100%",
+              maxHeight: "78vh",
+              width: "auto",
+              height: "auto",
+              objectFit: "contain",
+            }}
+          />
           {popup.title && <p className="image-caption">{popup.title}</p>}
         </div>
       )}
@@ -49,7 +61,11 @@ export function AnnouncementPopup({ popup }: { popup: PopupData | null }) {
 
   return (
     <div className="overlay" onClick={close}>
-      <div className={`modal ${popup.type === "IMAGE" ? "image-modal" : ""}`} onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal"
+        style={popup.type === "IMAGE" ? { maxWidth: "min(92vw, 34rem)" } : undefined}
+        onClick={(e) => e.stopPropagation()}
+      >
         <button className="close" onClick={close} aria-label="Fechar">
           ✕
         </button>
@@ -83,9 +99,6 @@ export function AnnouncementPopup({ popup }: { popup: PopupData | null }) {
           max-height: 85vh;
           overflow: auto;
           box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.35);
-        }
-        .modal.image-modal {
-          max-width: min(92vw, 34rem);
         }
         .close {
           position: absolute;
@@ -121,23 +134,11 @@ export function AnnouncementPopup({ popup }: { popup: PopupData | null }) {
           line-height: 1.6;
           white-space: pre-wrap;
         }
-        .image-content {
-          text-align: center;
-          background: #f3f4f6;
-          line-height: 0; /* remove o espacinho fantasma que "inline" deixa embaixo da imagem */
-        }
-        .image-content img {
-          display: inline-block;
-          max-width: 100%;
-          max-height: 78vh;
-          object-fit: contain;
-        }
         .image-caption {
           padding: 1rem 1.25rem;
           margin: 0;
           text-align: center;
           font-weight: 600;
-          line-height: 1.4; /* .image-content zera o line-height pra colar a imagem; a legenda precisa do próprio de volta */
         }
         .html-content {
           padding: 1.5rem;
