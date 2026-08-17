@@ -95,6 +95,13 @@ model Event {
   // events - if empty, the prerequisite screen just won't show a specific ask.
   prerequisiteText     String?
 
+  // Rotating hero banner at the top of /meus-eventos (the participant's
+  // event list) - independent of `vip`/`global`, full manual control, so
+  // the admin can spotlight whichever raffle makes sense for that
+  // prominent "wow factor" slot. Reuses theme.bannerUrl for the image
+  // itself - no separate upload needed.
+  heroFeatured         Boolean  @default(false)
+
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 

@@ -33,6 +33,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.global !== undefined) data.global = body.global;
   if (body.vip !== undefined) data.vip = body.vip;
   if (body.prerequisiteText !== undefined) data.prerequisiteText = body.prerequisiteText;
+  if (body.heroFeatured !== undefined) data.heroFeatured = body.heroFeatured;
   if (body.name !== undefined) data.name = body.name;
   if (body.description !== undefined) data.description = body.description;
   if (body.campaign !== undefined) data.campaign = body.campaign;

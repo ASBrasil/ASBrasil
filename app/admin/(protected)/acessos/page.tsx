@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { startOfTodayBrasilia } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export default async function AcessosPage({
 
   const now = new Date();
   const h48 = new Date(now.getTime() - 48 * 60 * 60 * 1000);
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfToday = startOfTodayBrasilia();
   const d7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
   const [
@@ -94,6 +95,7 @@ export default async function AcessosPage({
                     hour: "2-digit",
                     minute: "2-digit",
                     second: "2-digit",
+                    timeZone: "America/Sao_Paulo",
                   })}
                 </td>
               </tr>

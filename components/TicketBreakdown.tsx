@@ -30,7 +30,7 @@ export function TicketBreakdown({ tickets }: { tickets: Ticket[] }) {
       <style jsx>{`
         .breakdown {
           font-size: 0.8rem;
-          color: #6b7280;
+          color: rgba(255, 255, 255, 0.6);
         }
         summary {
           cursor: pointer;
@@ -43,7 +43,7 @@ export function TicketBreakdown({ tickets }: { tickets: Ticket[] }) {
         summary::after {
           content: " ▾ ver nomes";
           font-family: system-ui, sans-serif;
-          color: #4f5fff;
+          color: #8b9aff;
           font-weight: 600;
         }
         .breakdown[open] summary::after {
@@ -61,20 +61,20 @@ export function TicketBreakdown({ tickets }: { tickets: Ticket[] }) {
           display: flex;
           justify-content: space-between;
           gap: 0.5rem;
-          background: #f7f8fb;
+          background: rgba(255, 255, 255, 0.06);
           border-radius: 0.4rem;
           padding: 0.3rem 0.55rem;
           font-family: system-ui, sans-serif;
         }
         .ticket-name {
-          color: #12172b;
+          color: rgba(255, 255, 255, 0.85);
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .ticket-number {
           font-family: monospace;
-          color: #4f5fff;
+          color: #8b9aff;
           font-weight: 600;
           flex-shrink: 0;
         }

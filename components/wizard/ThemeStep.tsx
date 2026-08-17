@@ -23,17 +23,20 @@ export function ThemeStep({
   onDone,
   onBack,
   initialTheme,
+  initialHeroFeatured,
 }: {
   eventId: string;
   onDone: () => void;
   onBack?: () => void;
   initialTheme?: { colors?: ThemeColors; customCss?: string; bannerUrl?: string | null } | null;
+  initialHeroFeatured?: boolean;
 }) {
   const [colors, setColors] = useState<ThemeColors>(
     initialTheme?.colors ?? PRESETS[0]
   );
   const [customCss, setCustomCss] = useState(initialTheme?.customCss ?? "");
   const [bannerUrl, setBannerUrl] = useState<string | null>(initialTheme?.bannerUrl ?? null);
+  const [heroFeatured, setHeroFeatured] = useState(initialHeroFeatured ?? false);
   const [saving, setSaving] = useState(false);
 
   async function save() {
@@ -43,6 +46,7 @@ export function ThemeStep({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         theme: { colors: { ...colors }, customCss: customCss || undefined, bannerUrl: bannerUrl || undefined },
+        heroFeatured,
       }),
     });
     setSaving(false);
@@ -64,6 +68,21 @@ export function ThemeStep({
         folder="event-banners"
         aspectRatio="1200 / 630"
       />
+
+      <label className="hero-checkbox">
+        <input
+          type="checkbox"
+          checked={heroFeatured}
+          onChange={(e) => setHeroFeatured(e.target.checked)}
+        />
+        <span>
+          <strong>✨ Destacar no banner rotativo de "Meus Eventos"</strong>
+          <small>
+            Usa o mesmo banner acima, em tamanho grande, no topo da página onde o participante
+            escolhe qual evento ver. Bom pra VIP e sorteios que você quer dar mais visibilidade.
+          </small>
+        </span>
+      </label>
 
       <div className="presets">
         {PRESETS.map((p) => (
@@ -149,6 +168,30 @@ export function ThemeStep({
           gap: 0.6rem;
           margin-bottom: 1.5rem;
           flex-wrap: wrap;
+        }
+        .hero-checkbox {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.65rem;
+          margin: 1rem 0 1.5rem;
+          padding: 0.85rem 1rem;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 0.6rem;
+          cursor: pointer;
+        }
+        .hero-checkbox input {
+          margin-top: 0.2rem;
+          flex-shrink: 0;
+        }
+        .hero-checkbox span {
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+        }
+        .hero-checkbox small {
+          color: var(--text-muted);
+          font-size: 0.8rem;
         }
         .preset {
           border: 2px solid transparent;

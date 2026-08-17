@@ -71,6 +71,7 @@ export default async function EventPage({ params }: { params: { slug: string } }
                           month: "2-digit",
                           hour: "2-digit",
                           minute: "2-digit",
+                          timeZone: "America/Sao_Paulo",
                         })
                       : "Em breve"}
                   </span>

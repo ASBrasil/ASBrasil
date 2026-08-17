@@ -21,6 +21,7 @@ interface EditableEvent {
   global: boolean;
   vip: boolean;
   prerequisiteText: string;
+  heroFeatured: boolean;
   theme: { colors?: any; customCss?: string; bannerUrl?: string | null } | null;
   participantsCount: number;
   prizes: { id: string; name: string; imageUrl?: string | null }[];
@@ -164,6 +165,7 @@ export function EditEventWizard({ event }: { event: EditableEvent }) {
         <ThemeStep
           eventId={event.id}
           initialTheme={event.theme ?? undefined}
+          initialHeroFeatured={event.heroFeatured}
           onDone={() => setStep(2)}
           onBack={() => setStep(0)}
         />

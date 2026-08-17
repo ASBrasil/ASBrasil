@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getParticipantEmail } from "@/lib/participant-session";
 import { AnnouncementPopup } from "@/components/participant/AnnouncementPopup";
 import { TicketBreakdown } from "@/components/TicketBreakdown";
+import { HeroCarousel } from "@/components/HeroCarousel";
 
 export default async function MeusEventosPage() {
   const email = await getParticipantEmail();
@@ -18,7 +19,7 @@ export default async function MeusEventosPage() {
   // `active` here because concluded events should still show up under
   // "Histórico" - only drafts that never really launched get filtered out
   // below, via the "has at least one draw" check.
-  const [rows, globalEvents] = await Promise.all([
+  const [rows, globalEvents, heroEventsRaw] = await Promise.all([
     db.participant.findMany({
       where: { email, event: { archived: false } },
       include: { event: { include: { prizes: { select: { status: true } } } } },
@@ -31,7 +32,27 @@ export default async function MeusEventosPage() {
       where: { global: true, active: true, archived: false },
       orderBy: [{ vip: "desc" }, { order: "asc" }],
     }),
+    // Rotating hero at the top - admin-curated separately from
+    // vip/global, full manual control over what gets this prime slot.
+    db.event.findMany({
+      where: { heroFeatured: true, active: true, archived: false },
+      orderBy: [{ order: "asc" }, { createdAt: "desc" }],
+      select: { id: true, slug: true, name: true, campaign: true, vip: true, theme: true },
+    }),
   ]);
+
+  const heroEvents = heroEventsRaw.map((e) => {
+    const theme = e.theme as any;
+    return {
+      id: e.id,
+      slug: e.slug,
+      name: e.name,
+      campaign: e.campaign,
+      vip: e.vip,
+      bannerUrl: (theme?.bannerUrl as string | undefined) ?? null,
+      primary: theme?.colors?.primary ?? "#4F5FFF",
+    };
+  });
 
   const byEvent = new Map<
     string,
@@ -81,6 +102,8 @@ export default async function MeusEventosPage() {
       </header>
 
       <section className="content">
+        {heroEvents.length > 0 && <HeroCarousel events={heroEvents} />}
+
         <h1>Seus eventos</h1>
         <p className="subtitle">Escolha uma campanha para ver seus números e os sorteios.</p>
 
@@ -119,24 +142,39 @@ export default async function MeusEventosPage() {
       </section>
 
       <style>{`
-        .page { min-height: 100vh; background: #f7f8fb; font-family: system-ui, sans-serif; }
+        .page {
+          min-height: 100vh;
+          background: radial-gradient(ellipse 80% 50% at 50% -10%, #1b2a5c 0%, #0a1330 55%, #05070f 100%);
+          font-family: system-ui, sans-serif;
+          color: #f5f6fa;
+        }
         .topbar {
+          position: sticky;
+          top: 0;
+          z-index: 40;
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 1rem 1.75rem;
-          background: white;
-          border-bottom: 1px solid #e6e8f0;
+          padding: 0.9rem 1.75rem;
+          background: rgba(0, 0, 0, 0.35);
+          backdrop-filter: blur(10px);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
           font-size: 0.85rem;
-          color: #6b7280;
+          color: rgba(255, 255, 255, 0.7);
         }
         .logout {
           background: none;
-          border: 1px solid #e6e8f0;
-          border-radius: 0.5rem;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          color: white;
+          opacity: 0.85;
+          border-radius: 999px;
           padding: 0.4rem 0.9rem;
           cursor: pointer;
-          font-size: 0.8rem;
+          font-size: 0.78rem;
+        }
+        .logout:hover {
+          opacity: 1;
+          border-color: rgba(255, 255, 255, 0.4);
         }
         .topbar-actions {
           display: flex;
@@ -144,23 +182,25 @@ export default async function MeusEventosPage() {
           gap: 0.6rem;
         }
         .reservas {
-          color: #4f5fff;
+          color: white;
           text-decoration: none;
-          border: 1px solid #e6e8f0;
-          border-radius: 0.5rem;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 999px;
           padding: 0.4rem 0.9rem;
-          font-size: 0.8rem;
+          font-size: 0.78rem;
           font-weight: 600;
+          opacity: 0.9;
         }
         .reservas:hover {
-          border-color: #4f5fff;
+          opacity: 1;
+          border-color: rgba(255, 255, 255, 0.4);
         }
-        .content { max-width: 56rem; margin: 0 auto; padding: 3rem 1.75rem 5rem; }
+        .content { max-width: 60rem; margin: 0 auto; padding: 2.5rem 1.75rem 5rem; }
         h1 { margin: 0 0 0.25rem; font-family: "Sora", system-ui, sans-serif; }
         h2 { margin: 3rem 0 0.25rem; font-family: "Sora", system-ui, sans-serif; font-size: 1.25rem; }
-        .subtitle { color: #6b7280; margin-bottom: 2rem; }
+        .subtitle { color: rgba(255, 255, 255, 0.6); margin-bottom: 2rem; }
         .subtitle.small { margin-bottom: 1.25rem; font-size: 0.9rem; }
-        .empty { color: #6b7280; }
+        .empty { color: rgba(255, 255, 255, 0.6); }
         .grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
@@ -173,25 +213,26 @@ export default async function MeusEventosPage() {
         .card {
           position: relative;
           text-decoration: none;
-          color: #12172b;
-          background: white;
-          border: 1px solid #e6e8f0;
+          color: #f5f6fa;
+          background: #141b3d;
+          border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 1rem;
           overflow: hidden;
           display: block;
+          transition: border-color 0.15s;
         }
         .card:hover {
           border-color: #4f5fff;
         }
         .card.muted {
-          opacity: 0.75;
+          opacity: 0.65;
         }
         .card.vip {
           border: 1.5px solid transparent;
           background:
-            linear-gradient(white, white) padding-box,
+            linear-gradient(#141b3d, #141b3d) padding-box,
             linear-gradient(135deg, #e8b646, #c9962f) border-box;
-          box-shadow: 0 0.4rem 1.2rem rgba(232, 182, 70, 0.25);
+          box-shadow: 0 0.4rem 1.2rem rgba(232, 182, 70, 0.15);
         }
         .vip-badge {
           position: absolute;
@@ -204,7 +245,7 @@ export default async function MeusEventosPage() {
           font-weight: 700;
           padding: 0.25rem 0.6rem;
           border-radius: 999px;
-          box-shadow: 0 0.2rem 0.5rem rgba(0, 0, 0, 0.15);
+          box-shadow: 0 0.2rem 0.5rem rgba(0, 0, 0, 0.25);
         }
         .banner {
           height: 5rem;
@@ -222,19 +263,19 @@ export default async function MeusEventosPage() {
           font-size: 0.75rem;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: #4f5fff;
+          color: #8b9aff;
         }
         .info h3 {
           margin: 0.25rem 0 0.5rem;
         }
         .number {
           font-size: 0.8rem;
-          color: #6b7280;
+          color: rgba(255, 255, 255, 0.6);
           font-family: monospace;
         }
         .cta {
           font-size: 0.8rem;
-          color: #4f5fff;
+          color: #8b9aff;
           font-weight: 600;
         }
       `}</style>
