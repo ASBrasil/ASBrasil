@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, Field, Card } from "@/components/ui/primitives";
 
 type Mapping = {
@@ -11,6 +11,12 @@ type Mapping = {
   cpf?: string;
   ticketCode?: string;
 };
+
+interface EventOption {
+  id: string;
+  name: string;
+  _count: { participants: number };
+}
 
 export function ParticipantsStep({
   eventId,
@@ -23,7 +29,7 @@ export function ParticipantsStep({
   onBack?: () => void;
   existingCount?: number;
 }) {
-  const [method, setMethod] = useState<"import" | "signup" | null>(null);
+  const [method, setMethod] = useState<"import" | "signup" | "copy" | null>(null);
   // Edit mode: if the event already has participants, don't force another
   // import/signup choice on every visit - show a summary first.
   const [showChoice, setShowChoice] = useState(existingCount === 0);
@@ -43,8 +49,26 @@ export function ParticipantsStep({
   // --- signup sub-flow ---
   const [signupSaving, setSignupSaving] = useState(false);
 
+  // --- copy-from-another-event sub-flow ---
+  const [events, setEvents] = useState<EventOption[] | null>(null);
+  const [sourceEventId, setSourceEventId] = useState("");
+  const [copying, setCopying] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
+  const [copyResult, setCopyResult] = useState<{
+    imported: number;
+    skipped: number;
+    sourceEventName: string;
+  } | null>(null);
+
   // All hooks above run unconditionally on every render (Rules of Hooks) -
-  // the conditional branches below only affect what gets returned.
+  // the conditional branches below only affect what gets returned. Loads
+  // the event list lazily, only once the admin actually picks this method.
+  useEffect(() => {
+    if (method !== "copy" || events !== null) return;
+    fetch("/api/admin/events")
+      .then((r) => r.json())
+      .then((d) => setEvents((d.events ?? []).filter((e: EventOption) => e.id !== eventId)));
+  }, [method, events, eventId]);
 
   if (!showChoice && !method) {
     return (
@@ -131,6 +155,24 @@ export function ParticipantsStep({
     onDone();
   }
 
+  async function commitCopy() {
+    if (!sourceEventId) return;
+    setCopying(true);
+    setCopyError(null);
+    const res = await fetch("/api/admin/participants/import-from-event", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetEventId: eventId, sourceEventId }),
+    });
+    const data = await res.json();
+    setCopying(false);
+    if (!res.ok) {
+      setCopyError(data.error ?? "Não foi possível importar. Tente novamente.");
+      return;
+    }
+    setCopyResult(data);
+  }
+
   if (!method) {
     return (
       <Card icon="👥">
@@ -144,6 +186,10 @@ export function ParticipantsStep({
           <button className="method" onClick={() => setMethod("signup")}>
             <strong>Inscrição pública</strong>
             <span>O próprio cliente se cadastra pela página do evento.</span>
+          </button>
+          <button className="method" onClick={() => setMethod("copy")}>
+            <strong>Importar de outro evento</strong>
+            <span>Copia os participantes de um evento já existente, com números novos.</span>
           </button>
         </div>
         {existingCount > 0 ? (
@@ -229,6 +275,96 @@ export function ParticipantsStep({
           h2 { margin: 0 0 0.35rem; }
           .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
           .actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
+        `}</style>
+      </Card>
+    );
+  }
+
+  if (method === "copy") {
+    return (
+      <Card icon="🔁">
+        <h2>Importar de outro evento</h2>
+        <p className="subtitle">
+          Copia todos os participantes de um evento já existente pra este, com números de sorteio
+          novos. Quem já estiver cadastrado aqui (mesmo e-mail) não duplica.
+        </p>
+
+        {!copyResult ? (
+          <>
+            <Field label="Evento de origem" required>
+              <select
+                value={sourceEventId}
+                onChange={(e) => setSourceEventId(e.target.value)}
+                disabled={!events}
+              >
+                <option value="">{events ? "Selecione o evento" : "Carregando…"}</option>
+                {events?.map((ev) => (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.name} ({ev._count.participants}{" "}
+                    {ev._count.participants === 1 ? "participante" : "participantes"})
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            {events?.length === 0 && (
+              <p className="hint">Nenhum outro evento com participantes encontrado.</p>
+            )}
+            {copyError && <p className="error">{copyError}</p>}
+
+            <div className="actions">
+              <Button
+                variant="ghost"
+                onClick={() => (existingCount > 0 ? setShowChoice(false) : setMethod(null))}
+              >
+                ← Voltar
+              </Button>
+              <Button onClick={commitCopy} disabled={!sourceEventId || copying}>
+                {copying ? "Importando…" : "Importar e continuar →"}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <div className="result">
+            <p className="summary">
+              <strong>{copyResult.imported}</strong>{" "}
+              {copyResult.imported === 1 ? "participante importado" : "participantes importados"}{" "}
+              de "{copyResult.sourceEventName}".
+              {copyResult.skipped > 0 && (
+                <> {copyResult.skipped} já estavam cadastrados aqui, ignorados.</>
+              )}
+            </p>
+            <div className="actions">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setCopyResult(null);
+                  setSourceEventId("");
+                }}
+              >
+                + Importar de outro evento
+              </Button>
+              <Button onClick={onDone}>Continuar →</Button>
+            </div>
+          </div>
+        )}
+
+        <style jsx>{`
+          h2 { margin: 0 0 0.35rem; }
+          .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+          select {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 0.6rem 0.7rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+          }
+          .hint { color: var(--text-muted); font-size: 0.82rem; margin-top: 0.5rem; }
+          .actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+          .error { color: #c0392b; font-size: 0.85rem; margin-top: 0.75rem; }
+          .result .summary { font-size: 0.95rem; }
         `}</style>
       </Card>
     );
