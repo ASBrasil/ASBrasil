@@ -48,6 +48,12 @@ export function ParticipantsStep({
 
   // --- signup sub-flow ---
   const [signupSaving, setSignupSaving] = useState(false);
+  const [signupExtras, setSignupExtras] = useState({
+    phone: false,
+    instagram: false,
+    photo: false,
+    orderNumber: true,
+  });
 
   // --- copy-from-another-event sub-flow ---
   const [events, setEvents] = useState<EventOption[] | null>(null);
@@ -139,17 +145,25 @@ export function ParticipantsStep({
 
   async function enableSignup() {
     setSignupSaving(true);
+    const fields: { key: string; label: string; required: boolean; type?: "text" | "photo" }[] = [
+      { key: "name", label: "Nome", required: true },
+      { key: "email", label: "E-mail", required: true },
+    ];
+    if (signupExtras.phone) fields.push({ key: "phone", label: "Telefone", required: false });
+    if (signupExtras.instagram) {
+      fields.push({ key: "instagram", label: "@ do Instagram", required: true });
+    }
+    if (signupExtras.orderNumber) {
+      fields.push({ key: "orderNumber", label: "Número do pedido", required: false });
+    }
+    if (signupExtras.photo) {
+      fields.push({ key: "photo", label: "Print/comprovante", required: true, type: "photo" });
+    }
+
     await fetch(`/api/admin/events/${eventId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        publicSignupEnabled: true,
-        signupFields: [
-          { key: "name", label: "Nome", required: true },
-          { key: "email", label: "E-mail", required: true },
-          { key: "orderNumber", label: "Número do pedido", required: false },
-        ],
-      }),
+      body: JSON.stringify({ publicSignupEnabled: true, signupFields: fields }),
     });
     setSignupSaving(false);
     onDone();
@@ -255,11 +269,46 @@ export function ParticipantsStep({
   if (method === "signup") {
     return (
       <Card icon="📝">
-        <h2>Inscrição pública ativada</h2>
+        <h2>Inscrição pública</h2>
         <p className="subtitle">
-          Nome, e-mail e número do pedido serão pedidos na página do evento. Você pode ajustar os
-          campos depois no painel.
+          Nome e e-mail sempre são pedidos. Marca quais campos extras essa campanha também precisa.
         </p>
+
+        <div className="extras-list">
+          <label className="extra-row">
+            <input
+              type="checkbox"
+              checked={signupExtras.phone}
+              onChange={(e) => setSignupExtras({ ...signupExtras, phone: e.target.checked })}
+            />
+            Telefone
+          </label>
+          <label className="extra-row">
+            <input
+              type="checkbox"
+              checked={signupExtras.instagram}
+              onChange={(e) => setSignupExtras({ ...signupExtras, instagram: e.target.checked })}
+            />
+            @ do Instagram
+          </label>
+          <label className="extra-row">
+            <input
+              type="checkbox"
+              checked={signupExtras.orderNumber}
+              onChange={(e) => setSignupExtras({ ...signupExtras, orderNumber: e.target.checked })}
+            />
+            Número do pedido
+          </label>
+          <label className="extra-row">
+            <input
+              type="checkbox"
+              checked={signupExtras.photo}
+              onChange={(e) => setSignupExtras({ ...signupExtras, photo: e.target.checked })}
+            />
+            📸 Print/comprovante (upload de imagem)
+          </label>
+        </div>
+
         <div className="actions">
           <Button
             variant="ghost"
@@ -274,6 +323,22 @@ export function ParticipantsStep({
         <style jsx>{`
           h2 { margin: 0 0 0.35rem; }
           .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+          .extras-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            margin-bottom: 1rem;
+          }
+          .extra-row {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 0.9rem;
+            padding: 0.6rem 0.85rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            cursor: pointer;
+          }
           .actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
         `}</style>
       </Card>

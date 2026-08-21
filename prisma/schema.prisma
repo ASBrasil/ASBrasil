@@ -150,6 +150,15 @@ model Participant {
   importBatchId String?
   removedFromDraws Boolean        @default(false) // set when they win under REMOVE policy
 
+  // Inscrição pública com campos extras: comprovante/foto enviado junto
+  // (ex: print de um comentário no Instagram) ganha sua própria coluna, já
+  // que é um caso de uso comum o suficiente pra merecer; qualquer OUTRO
+  // campo customizado que o admin tenha configurado (ex: "@ do Instagram")
+  // fica guardado aqui como JSON livre, sem precisar de migration nova
+  // toda vez que um evento pedir um campo diferente.
+  photoUrl      String?
+  customData    Json?
+
   // Lookup token lets us avoid ever exposing raffle numbers by guessable id;
   // the public lookup endpoint matches on normalized email + event, rate limited.
   createdAt     DateTime          @default(now())
