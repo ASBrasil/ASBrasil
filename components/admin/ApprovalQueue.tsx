@@ -26,7 +26,7 @@ export function ApprovalQueue({ participants }: { participants: QueueParticipant
   const [busyId, setBusyId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
 
-  async function moderate(id: string, status: "APPROVED" | "REJECTED") {
+  async function moderate(id: string, status: "APPROVED" | "REJECTED" | "PENDING") {
     setBusyId(id);
     await fetch(`/api/admin/participants/${id}/moderate`, {
       method: "PATCH",
