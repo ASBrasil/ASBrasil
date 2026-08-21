@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getParticipantEmail } from "@/lib/participant-session";
+import { generateNumberPool } from "@/lib/raffle";
+import { ParticipantSource } from "@prisma/client";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const email = await getParticipantEmail();
@@ -8,6 +10,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const mission = await db.mission.findUnique({ where: { id: params.id } });
   if (!mission) return NextResponse.json({ error: "Missão não encontrada" }, { status: 404 });
+
+  if (mission.unlockAt && mission.unlockAt.getTime() > Date.now()) {
+    return NextResponse.json({ error: "Essa missão ainda não foi liberada." }, { status: 403 });
+  }
 
   const body = await req.json().catch(() => ({}));
 
@@ -41,11 +47,44 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   // SELF_CHECK e LINK_VISIT não têm dado extra - é só a confirmação em si.
 
+  // A missão só pode ser completada uma vez por e-mail (constraint única
+  // missionId+email) - se já existia uma conclusão, não gera outro número
+  // extra por engano, mesmo que o participante chame essa rota de novo.
+  const alreadyCompleted = await db.missionCompletion.findUnique({
+    where: { missionId_email: { missionId: mission.id, email } },
+  });
+
   const completion = await db.missionCompletion.upsert({
     where: { missionId_email: { missionId: mission.id, email } },
     create: data,
     update: data,
   });
 
-  return NextResponse.json({ completion, correct: true });
+  let bonusRaffleNumber: number | null = null;
+
+  if (mission.grantsExtraTicket && !alreadyCompleted) {
+    // Copia nome/telefone de um registro já existente dessa pessoa nesse
+    // evento (ela só chegou até aqui porque já tem pelo menos um ingresso
+    // - Participant.name é obrigatório, não dá pra criar sem isso).
+    const base = await db.participant.findFirst({
+      where: { eventId: mission.eventId, email },
+      orderBy: { createdAt: "asc" },
+    });
+    if (base) {
+      const [newNumber] = generateNumberPool(1);
+      const bonus = await db.participant.create({
+        data: {
+          eventId: mission.eventId,
+          name: base.name,
+          email,
+          phone: base.phone,
+          raffleNumber: newNumber,
+          source: ParticipantSource.MISSION,
+        },
+      });
+      bonusRaffleNumber = bonus.raffleNumber;
+    }
+  }
+
+  return NextResponse.json({ completion, correct: true, bonusRaffleNumber });
 }

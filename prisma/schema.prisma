@@ -14,6 +14,7 @@ enum ParticipantSource {
   IMPORT
   SIGNUP
   MANUAL
+  MISSION
 }
 
 enum ParticipantModerationStatus {
@@ -367,6 +368,18 @@ model Mission {
   // correta (0-based)
   quizOptions Json?
   quizCorrectIndex Int?
+
+  // Surpresa travada por data: se preenchido, a missão fica TOTALMENTE
+  // escondida (nem o titulo/descricao aparecem) ate essa data/hora passar -
+  // so um "algo vai ser liberado" generico com contagem regressiva. Sempre
+  // opcional na pratica (nunca bloqueia o acesso aos numeros ja
+  // conquistados), independente do campo `required` acima.
+  unlockAt    DateTime?
+  // Quando true, completar essa missao com sucesso cria um novo registro
+  // de participante (um numero da sorte A MAIS, adicional, nao substitui
+  // nenhum numero anterior) pro mesmo e-mail neste evento, em vez de so
+  // marcar a missao como concluida.
+  grantsExtraTicket Boolean @default(false)
 
   createdAt   DateTime    @default(now())
 

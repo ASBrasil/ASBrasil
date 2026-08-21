@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
+import { parseBrasiliaDatetimeLocal } from "@/lib/timezone";
 
 export async function GET(req: NextRequest) {
   await requireAdmin();
@@ -14,7 +15,18 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   await requireAdmin();
   const body = await req.json();
-  const { eventId, type, title, description, required, linkUrl, quizOptions, quizCorrectIndex } = body;
+  const {
+    eventId,
+    type,
+    title,
+    description,
+    required,
+    linkUrl,
+    quizOptions,
+    quizCorrectIndex,
+    unlockAt,
+    grantsExtraTicket,
+  } = body;
 
   if (!eventId || !type || !title) {
     return NextResponse.json({ error: "eventId, type e title são obrigatórios" }, { status: 400 });
@@ -33,6 +45,8 @@ export async function POST(req: NextRequest) {
       linkUrl: linkUrl || null,
       quizOptions: quizOptions ?? undefined,
       quizCorrectIndex: quizCorrectIndex ?? null,
+      unlockAt: unlockAt ? parseBrasiliaDatetimeLocal(unlockAt) : null,
+      grantsExtraTicket: grantsExtraTicket ?? false,
     },
   });
 

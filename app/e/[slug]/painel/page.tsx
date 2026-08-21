@@ -4,6 +4,7 @@ import { getParticipantEmail } from "@/lib/participant-session";
 import { ParticipantTopNav } from "@/components/participant/ParticipantTopNav";
 import { PrizePath, PathStep } from "@/components/participant/PrizePath";
 import { MissionGate } from "@/components/participant/MissionGate";
+import { SurpriseSection } from "@/components/participant/SurpriseSection";
 
 export default async function ParticipantEventPage({ params }: { params: { slug: string } }) {
   const email = await getParticipantEmail();
@@ -172,9 +173,12 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
   // alguma missão obrigatória pra esse e-mail, mostra a lista de missões em
   // vez dos números/sorteios - a pessoa só passa daqui depois de cumprir
   // tudo que for obrigatório (opcionais ficam visíveis mas não travam).
+  // Missões com unlockAt (surpresas travadas por data) NUNCA entram aqui -
+  // elas têm sua própria seção mais abaixo, pra não vazar titulo/descrição
+  // antes da hora caso apareçam misturadas com missões obrigatórias comuns.
   if (event.missionMode === "MISSIONS") {
     const missions = await db.mission.findMany({
-      where: { eventId: event.id },
+      where: { eventId: event.id, unlockAt: null },
       orderBy: { order: "asc" },
     });
     if (missions.length > 0) {
@@ -214,6 +218,61 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
         );
       }
     }
+  }
+
+  // Surpresa travada por data - independente do modo do evento (Simples ou
+  // Com Missões), já que é aditiva: a pessoa já garantiu seu número
+  // principal de qualquer jeito, isso é só uma oportunidade extra.
+  // Só suporta uma surpresa ativa por evento por enquanto.
+  const surpriseMission = await db.mission.findFirst({
+    where: { eventId: event.id, unlockAt: { not: null } },
+    orderBy: { order: "asc" },
+  });
+  let surpriseData: {
+    id: string;
+    unlockAt: string;
+    unlocked: boolean;
+    completed: boolean;
+    bonusRaffleNumber: number | null;
+    type?: string;
+    title?: string | null;
+    description?: string | null;
+    linkUrl?: string | null;
+    quizOptions?: string[] | null;
+  } | null = null;
+
+  if (surpriseMission) {
+    const unlocked = surpriseMission.unlockAt!.getTime() <= Date.now();
+    const completion = await db.missionCompletion.findUnique({
+      where: { missionId_email: { missionId: surpriseMission.id, email } },
+    });
+    let bonusRaffleNumber: number | null = null;
+    if (completion && surpriseMission.grantsExtraTicket) {
+      const bonusParticipant = await db.participant.findFirst({
+        where: { eventId: event.id, email, source: "MISSION" },
+        orderBy: { createdAt: "desc" },
+      });
+      bonusRaffleNumber = bonusParticipant?.raffleNumber ?? null;
+    }
+    surpriseData = {
+      id: surpriseMission.id,
+      unlockAt: surpriseMission.unlockAt!.toISOString(),
+      unlocked,
+      completed: !!completion,
+      bonusRaffleNumber,
+      // Só entrega os detalhes reais se já desbloqueou - antes disso, o
+      // participante não deve saber do que se trata, nem espiando o
+      // conteúdo carregado na página.
+      ...(unlocked
+        ? {
+            type: surpriseMission.type,
+            title: surpriseMission.title,
+            description: surpriseMission.description,
+            linkUrl: surpriseMission.linkUrl,
+            quizOptions: surpriseMission.quizOptions as string[] | null,
+          }
+        : {}),
+    };
   }
 
   const drawResults = await db.drawResult.findMany({
@@ -306,6 +365,8 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
           <p className="odds-note">Quanto mais números, mais chances em cada sorteio.</p>
         )}
       </section>
+
+      {surpriseData && <SurpriseSection mission={surpriseData} />}
 
       <section className="path-section">
         <h2>Seus sorteios</h2>

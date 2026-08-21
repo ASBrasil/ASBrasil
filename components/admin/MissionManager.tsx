@@ -15,6 +15,8 @@ interface Mission {
   linkUrl: string | null;
   quizOptions: string[] | null;
   quizCorrectIndex: number | null;
+  unlockAt: string | null;
+  grantsExtraTicket: boolean;
 }
 
 const TYPE_LABELS: Record<MissionType, { label: string; icon: string; hint: string }> = {
@@ -48,6 +50,9 @@ interface DraftMission {
   linkUrl: string;
   quizOptionsText: string; // uma opção por linha
   quizCorrectIndex: number;
+  isSurprise: boolean;
+  unlockAt: string; // datetime-local
+  grantsExtraTicket: boolean;
 }
 
 const EMPTY_DRAFT: DraftMission = {
@@ -58,6 +63,9 @@ const EMPTY_DRAFT: DraftMission = {
   linkUrl: "",
   quizOptionsText: "",
   quizCorrectIndex: 0,
+  isSurprise: false,
+  unlockAt: "",
+  grantsExtraTicket: false,
 };
 
 export function MissionManager({
@@ -87,6 +95,10 @@ export function MissionManager({
       setError("Informe o link.");
       return;
     }
+    if (draft.isSurprise && !draft.unlockAt) {
+      setError("Informe a data/hora em que a surpresa deve ser liberada.");
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -104,10 +116,12 @@ export function MissionManager({
         type: draft.type,
         title: draft.title,
         description: draft.description || undefined,
-        required: draft.required,
+        required: draft.isSurprise ? false : draft.required,
         linkUrl: draft.linkUrl || undefined,
         quizOptions: options,
         quizCorrectIndex: draft.type === "QUIZ" ? draft.quizCorrectIndex : undefined,
+        unlockAt: draft.isSurprise ? draft.unlockAt : undefined,
+        grantsExtraTicket: draft.grantsExtraTicket,
       }),
     });
     const data = await res.json();
@@ -144,15 +158,23 @@ export function MissionManager({
         <ul className="mission-list">
           {missions.map((m) => (
             <li key={m.id} className="mission-row">
-              <span className="type-icon">{TYPE_LABELS[m.type].icon}</span>
+              <span className="type-icon">{m.unlockAt ? "🎁" : TYPE_LABELS[m.type].icon}</span>
               <div className="mission-info">
                 <strong>{m.title}</strong>
-                <span className="type-label">{TYPE_LABELS[m.type].label}</span>
+                <span className="type-label">
+                  {TYPE_LABELS[m.type].label}
+                  {m.unlockAt && (
+                    <> · 🔒 libera em {new Date(m.unlockAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</>
+                  )}
+                  {m.grantsExtraTicket && <> · 🎟️ gera número extra</>}
+                </span>
               </div>
-              <label className="required-toggle">
-                <input type="checkbox" checked={m.required} onChange={() => toggleRequired(m)} />
-                Obrigatória
-              </label>
+              {!m.unlockAt && (
+                <label className="required-toggle">
+                  <input type="checkbox" checked={m.required} onChange={() => toggleRequired(m)} />
+                  Obrigatória
+                </label>
+              )}
               <button
                 type="button"
                 className="delete-btn"
@@ -242,17 +264,61 @@ export function MissionManager({
             </>
           )}
 
+          <div className="surprise-block">
+            <label className="required-row">
+              <input
+                type="checkbox"
+                checked={draft.isSurprise}
+                onChange={(e) => setDraft({ ...draft, isSurprise: e.target.checked })}
+              />
+              <span>
+                <strong>🎁 É uma surpresa travada por data</strong>
+                <small>
+                  Fica totalmente escondida (sem revelar do que se trata) até a data/hora abaixo -
+                  o participante só vê um aviso genérico de "surpresa em breve" com contagem
+                  regressiva. Sempre opcional, nunca bloqueia o acesso.
+                </small>
+              </span>
+            </label>
+            {draft.isSurprise && (
+              <Field label="Liberar em">
+                <Input
+                  type="datetime-local"
+                  value={draft.unlockAt}
+                  onChange={(e) => setDraft({ ...draft, unlockAt: e.target.value })}
+                />
+              </Field>
+            )}
+          </div>
+
           <label className="required-row">
             <input
               type="checkbox"
-              checked={draft.required}
-              onChange={(e) => setDraft({ ...draft, required: e.target.checked })}
+              checked={draft.grantsExtraTicket}
+              onChange={(e) => setDraft({ ...draft, grantsExtraTicket: e.target.checked })}
             />
             <span>
-              <strong>Obrigatória</strong>
-              <small>Bloqueia o acesso aos números/resultados até ser cumprida. Desmarcada, fica só visível.</small>
+              <strong>🎟️ Gera um número da sorte extra ao completar</strong>
+              <small>
+                Número adicional, não substitui nenhum anterior. Cada pessoa só pode ganhar esse
+                extra uma vez.
+              </small>
             </span>
           </label>
+
+          {!draft.isSurprise && (
+            <label className="required-row">
+              <input
+                type="checkbox"
+                checked={draft.required}
+                onChange={(e) => setDraft({ ...draft, required: e.target.checked })}
+              />
+              <span>
+                <strong>Obrigatória</strong>
+                <small>Bloqueia o acesso aos números/resultados até ser cumprida. Desmarcada, fica só visível.</small>
+              </span>
+            </label>
+          )}
 
           {error && <p className="error">{error}</p>}
 
@@ -386,6 +452,17 @@ export function MissionManager({
           background: var(--bg);
           border-radius: 0.5rem;
           cursor: pointer;
+        }
+        .surprise-block {
+          border: 1px dashed rgba(180, 83, 9, 0.4);
+          border-radius: 0.6rem;
+          padding: 0.25rem 0.75rem;
+          margin-top: 1rem;
+        }
+        .surprise-block .required-row {
+          background: none;
+          padding: 0.75rem 0;
+          margin: 0;
         }
         .required-row input {
           margin-top: 0.2rem;
