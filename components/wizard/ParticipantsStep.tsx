@@ -18,16 +18,27 @@ interface EventOption {
   _count: { participants: number };
 }
 
+interface SignupFieldConfig {
+  key: string;
+  label: string;
+  required: boolean;
+  type?: "text" | "photo";
+}
+
 export function ParticipantsStep({
   eventId,
   onDone,
   onBack,
   existingCount = 0,
+  initialSignupFields,
+  initialRequireApproval = false,
 }: {
   eventId: string;
   onDone: () => void;
   onBack?: () => void;
   existingCount?: number;
+  initialSignupFields?: SignupFieldConfig[];
+  initialRequireApproval?: boolean;
 }) {
   const [method, setMethod] = useState<"import" | "signup" | "copy" | null>(null);
   // Edit mode: if the event already has participants, don't force another
@@ -48,12 +59,19 @@ export function ParticipantsStep({
 
   // --- signup sub-flow ---
   const [signupSaving, setSignupSaving] = useState(false);
+  // Se o evento já tinha inscrição pública configurada, carrega o estado
+  // real dos checkboxes a partir disso - sem isso, reabrir essa tela pra
+  // ajustar UM campo (ex: desmarcar "Número do pedido") apagaria por
+  // engano qualquer outro campo que já estivesse configurado (ex:
+  // Instagram, Foto), já que os checkboxes voltariam pro padrão genérico
+  // em vez de refletir o que está de verdade salvo no evento.
+  const existingKeys = new Set((initialSignupFields ?? []).map((f) => f.key));
   const [signupExtras, setSignupExtras] = useState({
-    phone: false,
-    instagram: false,
-    photo: false,
-    orderNumber: true,
-    requireApproval: false,
+    phone: existingKeys.has("phone"),
+    instagram: existingKeys.has("instagram"),
+    photo: existingKeys.has("photo"),
+    orderNumber: initialSignupFields ? existingKeys.has("orderNumber") : true,
+    requireApproval: initialRequireApproval,
   });
 
   // --- copy-from-another-event sub-flow ---
@@ -277,6 +295,7 @@ export function ParticipantsStep({
         <h2>Inscrição pública</h2>
         <p className="subtitle">
           Nome e e-mail sempre são pedidos. Marca quais campos extras essa campanha também precisa.
+          {initialSignupFields && " Os campos abaixo já refletem a configuração atual deste evento."}
         </p>
 
         <div className="extras-list">

@@ -23,6 +23,9 @@ interface EditableEvent {
   prerequisiteText: string;
   heroFeatured: boolean;
   missionMode: "SIMPLE" | "MISSIONS";
+  publicSignupEnabled: boolean;
+  signupFields: { key: string; label: string; required: boolean; type?: "text" | "photo" }[];
+  requireSignupApproval: boolean;
   theme: { colors?: any; customCss?: string; bannerUrl?: string | null } | null;
   participantsCount: number;
   prizes: { id: string; name: string; imageUrl?: string | null }[];
@@ -211,6 +214,8 @@ export function EditEventWizard({ event }: { event: EditableEvent }) {
         <ParticipantsStep
           eventId={event.id}
           existingCount={event.participantsCount}
+          initialSignupFields={event.publicSignupEnabled ? event.signupFields : undefined}
+          initialRequireApproval={event.requireSignupApproval}
           onDone={() => setStep(3)}
           onBack={() => setStep(1)}
         />
