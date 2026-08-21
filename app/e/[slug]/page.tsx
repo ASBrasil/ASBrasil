@@ -52,6 +52,11 @@ export default async function EventPage({ params }: { params: { slug: string } }
         <ScrollReveal className="hero-content">
           <h1>{event.name}</h1>
           {event.description && <p className="description">{event.description}</p>}
+          {event.publicSignupEnabled && (
+            <a href={`/e/${event.slug}/inscrever`} className="signup-cta">
+              🎟️ Quero participar →
+            </a>
+          )}
         </ScrollReveal>
       </section>
 
@@ -120,6 +125,14 @@ export default async function EventPage({ params }: { params: { slug: string } }
           <a href="/entrar" className="callout-btn">
             Acompanhar meus sorteios →
           </a>
+          {event.publicSignupEnabled && (
+            <p className="signup-link-wrap">
+              Ainda não se inscreveu?{" "}
+              <a href={`/e/${event.slug}/inscrever`} className="signup-link">
+                Inscreva-se aqui
+              </a>
+            </p>
+          )}
         </div>
       </ScrollReveal>
 
@@ -196,6 +209,18 @@ export default async function EventPage({ params }: { params: { slug: string } }
           max-width: 40rem;
           margin: 0 auto;
           opacity: 0.8;
+        }
+        .signup-cta {
+          display: inline-block;
+          margin-top: 1.5rem;
+          background: var(--primary);
+          color: #12121a;
+          text-decoration: none;
+          font-weight: 700;
+          padding: 0.85rem 1.8rem;
+          border-radius: 999px;
+          font-size: 1rem;
+          box-shadow: 0 0.5rem 1.5rem color-mix(in srgb, var(--primary) 40%, transparent);
         }
         .stats {
           display: flex;
@@ -339,6 +364,15 @@ export default async function EventPage({ params }: { params: { slug: string } }
           padding: 0.65rem 1.3rem;
           border-radius: 999px;
           font-size: 0.9rem;
+        }
+        .signup-link-wrap {
+          margin: 1rem 0 0;
+          font-size: 0.82rem;
+          opacity: 0.7;
+        }
+        .signup-link {
+          color: var(--primary);
+          font-weight: 600;
         }
       `}</style>
     </main>
