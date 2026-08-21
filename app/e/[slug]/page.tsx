@@ -1,12 +1,17 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
+import { ScrollReveal } from "@/components/ScrollReveal";
+import { AnimatedCounter } from "@/components/AnimatedCounter";
 
 export const dynamic = "force-dynamic";
 
 export default async function EventPage({ params }: { params: { slug: string } }) {
   const event = await db.event.findUnique({
     where: { slug: params.slug },
-    include: { prizes: { orderBy: { order: "asc" } } },
+    include: {
+      prizes: { orderBy: { order: "asc" } },
+      _count: { select: { participants: true } },
+    },
   });
 
   if (!event || !event.active) notFound();
@@ -44,45 +49,71 @@ export default async function EventPage({ params }: { params: { slug: string } }
             <div className="hero-scrim" />
           </>
         )}
-        <div className="hero-content">
+        <ScrollReveal className="hero-content">
           <h1>{event.name}</h1>
           {event.description && <p className="description">{event.description}</p>}
-        </div>
+        </ScrollReveal>
       </section>
 
+      <ScrollReveal className="stats">
+        <div className="stat">
+          <strong>
+            <AnimatedCounter target={event._count.participants} />
+          </strong>
+          <span>{event._count.participants === 1 ? "participante" : "participantes"}</span>
+        </div>
+        <div className="stat">
+          <strong>
+            <AnimatedCounter target={event.prizes.length} />
+          </strong>
+          <span>{event.prizes.length === 1 ? "prêmio em sorteio" : "prêmios em sorteio"}</span>
+        </div>
+      </ScrollReveal>
+
       <section className="prizes">
-        <h2>Prêmios em sorteio</h2>
+        <ScrollReveal>
+          <h2>Prêmios em sorteio</h2>
+        </ScrollReveal>
         <div className="ticket-grid">
-          {event.prizes.map((prize) => (
-            <article className="ticket" key={prize.id}>
-              <div className="ticket-main">
-                <h3>{prize.name}</h3>
-                {prize.description && <p>{prize.description}</p>}
-              </div>
-              <div className="ticket-perforation" aria-hidden />
-              <div className="ticket-status">
-                {prize.status === "DRAWN" ? (
-                  <span className="badge drawn">Sorteado</span>
-                ) : (
-                  <span className="badge pending">
-                    {prize.scheduledAt
-                      ? new Date(prize.scheduledAt).toLocaleString("pt-BR", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          timeZone: "America/Sao_Paulo",
-                        })
-                      : "Em breve"}
-                  </span>
-                )}
-              </div>
-            </article>
+          {event.prizes.map((prize, i) => (
+            <ScrollReveal key={prize.id} delay={i * 80}>
+              <details className="ticket">
+                <summary className="ticket-summary">
+                  {prize.imageUrl && <img src={prize.imageUrl} alt="" className="ticket-img" />}
+                  <div className="ticket-main">
+                    <h3>{prize.name}</h3>
+                    {prize.description && <p>{prize.description}</p>}
+                    <span className="expand-hint">Ver detalhes ▾</span>
+                  </div>
+                  <div className="ticket-perforation" aria-hidden />
+                  <div className="ticket-status">
+                    {prize.status === "DRAWN" ? (
+                      <span className="badge drawn">Sorteado</span>
+                    ) : (
+                      <span className="badge pending">
+                        {prize.scheduledAt
+                          ? new Date(prize.scheduledAt).toLocaleString("pt-BR", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              timeZone: "America/Sao_Paulo",
+                            })
+                          : "Em breve"}
+                      </span>
+                    )}
+                  </div>
+                </summary>
+                <div className="ticket-detail">
+                  {prize.rules ? <p>{prize.rules}</p> : <p className="no-rules">Sem regras adicionais para este prêmio.</p>}
+                </div>
+              </details>
+            </ScrollReveal>
           ))}
         </div>
       </section>
 
-      <section className="lookup-section">
+      <ScrollReveal className="lookup-section">
         <div className="callout">
           <h2>Já se inscreveu?</h2>
           <p>Acompanhe seu número e o resultado de cada sorteio.</p>
@@ -90,7 +121,7 @@ export default async function EventPage({ params }: { params: { slug: string } }
             Acompanhar meus sorteios →
           </a>
         </div>
-      </section>
+      </ScrollReveal>
 
       <style>{`
         .topbar {
@@ -166,6 +197,25 @@ export default async function EventPage({ params }: { params: { slug: string } }
           margin: 0 auto;
           opacity: 0.8;
         }
+        .stats {
+          display: flex;
+          justify-content: center;
+          gap: 3rem;
+          padding: 0 1.5rem 2.5rem;
+          text-align: center;
+        }
+        .stat strong {
+          display: block;
+          font-family: var(--font-display, serif);
+          font-size: clamp(1.8rem, 4vw, 2.6rem);
+          color: var(--primary);
+        }
+        .stat span {
+          font-size: 0.8rem;
+          opacity: 0.65;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+        }
         .prizes {
           padding: 2rem 1.5rem 4rem;
           max-width: 64rem;
@@ -181,15 +231,31 @@ export default async function EventPage({ params }: { params: { slug: string } }
           gap: 1.25rem;
         }
         .ticket {
-          display: flex;
+          display: block;
           background: var(--surface);
           border-radius: 0.75rem;
           overflow: hidden;
           border: 1px solid rgba(255, 255, 255, 0.08);
         }
+        .ticket-summary {
+          display: flex;
+          align-items: stretch;
+          cursor: pointer;
+          list-style: none;
+        }
+        .ticket-summary::-webkit-details-marker {
+          display: none;
+        }
+        .ticket-img {
+          width: 4.5rem;
+          height: auto;
+          object-fit: cover;
+          flex-shrink: 0;
+        }
         .ticket-main {
           flex: 1;
           padding: 1.25rem;
+          min-width: 0;
         }
         .ticket-main h3 {
           margin: 0 0 0.4rem;
@@ -198,6 +264,16 @@ export default async function EventPage({ params }: { params: { slug: string } }
           margin: 0;
           font-size: 0.9rem;
           opacity: 0.75;
+        }
+        .expand-hint {
+          display: inline-block;
+          margin-top: 0.6rem;
+          font-size: 0.75rem;
+          color: var(--primary);
+          font-weight: 600;
+        }
+        .ticket[open] .expand-hint {
+          display: none;
         }
         .ticket-perforation {
           width: 0;
@@ -209,6 +285,20 @@ export default async function EventPage({ params }: { params: { slug: string } }
           justify-content: center;
           padding: 0 1rem;
           writing-mode: vertical-rl;
+        }
+        .ticket-detail {
+          padding: 0 1.25rem 1.25rem;
+          font-size: 0.88rem;
+          opacity: 0.8;
+          line-height: 1.6;
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .ticket-detail p {
+          margin: 1rem 0 0;
+        }
+        .ticket-detail .no-rules {
+          opacity: 0.6;
+          font-style: italic;
         }
         .badge {
           font-size: 0.75rem;
