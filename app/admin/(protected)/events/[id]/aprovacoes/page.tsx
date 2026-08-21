@@ -1,0 +1,98 @@
+import { db } from "@/lib/db";
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { ApprovalQueue } from "@/components/admin/ApprovalQueue";
+
+export const dynamic = "force-dynamic";
+
+export default async function ApprovalsPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams: { status?: string };
+}) {
+  const event = await db.event.findUnique({ where: { id: params.id } });
+  if (!event) notFound();
+
+  const status = searchParams.status === "all" ? undefined : searchParams.status ?? "PENDING";
+
+  const participants = await db.participant.findMany({
+    where: { eventId: event.id, ...(status ? { moderationStatus: status as any } : {}) },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return (
+    <div>
+      <Link href={`/admin/events/${event.id}`} className="back">
+        ← Voltar pro evento
+      </Link>
+
+      <div className="header">
+        <h1>🔍 Aprovações — {event.name}</h1>
+        <p className="subtitle">
+          Revise o comprovante enviado por cada participante antes de confirmar o número dele para
+          o sorteio.
+        </p>
+      </div>
+
+      <div className="tabs">
+        <Link href={`/admin/events/${event.id}/aprovacoes?status=PENDING`} className={`tab ${(status ?? "PENDING") === "PENDING" ? "active" : ""}`}>
+          Pendentes
+        </Link>
+        <Link href={`/admin/events/${event.id}/aprovacoes?status=APPROVED`} className={`tab ${status === "APPROVED" ? "active" : ""}`}>
+          Aprovados
+        </Link>
+        <Link href={`/admin/events/${event.id}/aprovacoes?status=REJECTED`} className={`tab ${status === "REJECTED" ? "active" : ""}`}>
+          Recusados
+        </Link>
+        <Link href={`/admin/events/${event.id}/aprovacoes?status=all`} className={`tab ${status === undefined ? "active" : ""}`}>
+          Todos
+        </Link>
+      </div>
+
+      <ApprovalQueue
+        participants={participants.map((p) => ({
+          id: p.id,
+          name: p.name,
+          email: p.email,
+          phone: p.phone,
+          raffleNumber: p.raffleNumber,
+          photoUrl: p.photoUrl,
+          customData: p.customData as Record<string, string> | null,
+          moderationStatus: p.moderationStatus,
+          createdAt: p.createdAt.toISOString(),
+        }))}
+      />
+
+      <style>{`
+        .back {
+          color: var(--indigo-600);
+          text-decoration: none;
+          font-size: 0.85rem;
+        }
+        .header { margin: 1rem 0 1.5rem; max-width: 40rem; }
+        h1 { margin: 0 0 0.4rem; font-family: var(--font-display, inherit); }
+        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin: 0; }
+        .tabs {
+          display: flex;
+          gap: 0.5rem;
+          margin-bottom: 1.5rem;
+          border-bottom: 1px solid var(--border);
+        }
+        .tab {
+          text-decoration: none;
+          color: var(--text-muted);
+          font-size: 0.85rem;
+          font-weight: 600;
+          padding: 0.6rem 0.9rem;
+          border-bottom: 2px solid transparent;
+        }
+        .tab.active {
+          color: var(--indigo-600);
+          border-bottom-color: var(--indigo-600);
+        }
+      `}</style>
+    </div>
+  );
+}

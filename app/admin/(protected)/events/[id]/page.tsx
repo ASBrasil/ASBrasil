@@ -31,7 +31,11 @@ export default async function EventDashboardPage({ params }: { params: { id: str
           <a href={`/e/${event.slug}`} target="_blank" className="public-link">
             Ver página pública ↗
           </a>
-          <EventActionsBar eventId={event.id} archived={event.archived} />
+          <EventActionsBar
+            eventId={event.id}
+            archived={event.archived}
+            showApprovals={event.requireSignupApproval}
+          />
         </div>
       </div>
 

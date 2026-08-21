@@ -4,7 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export function EventActionsBar({ eventId, archived }: { eventId: string; archived: boolean }) {
+export function EventActionsBar({
+  eventId,
+  archived,
+  showApprovals,
+}: {
+  eventId: string;
+  archived: boolean;
+  showApprovals?: boolean;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -71,6 +79,23 @@ export function EventActionsBar({ eventId, archived }: { eventId: string; archiv
       >
         ✏️ Editar
       </Link>
+      {showApprovals && (
+        <Link
+          href={`/admin/events/${eventId}/aprovacoes`}
+          className="approvals-link"
+          style={{
+            fontSize: "0.85rem",
+            fontWeight: 600,
+            color: "#b45309",
+            textDecoration: "none",
+            padding: "0.55rem 1rem",
+            borderRadius: "999px",
+            border: "1px solid rgba(180, 83, 9, 0.35)",
+          }}
+        >
+          🔍 Aprovações
+        </Link>
+      )}
       <button type="button" className="ghost-btn" onClick={toggleArchive} disabled={busy}>
         {archived ? "Desarquivar" : "Arquivar"}
       </button>

@@ -101,6 +101,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       alreadyRegistered: true,
       raffleNumber: existing.raffleNumber,
+      pendingApproval: existing.moderationStatus === "PENDING",
     });
   }
 
@@ -118,10 +119,14 @@ export async function POST(req: NextRequest) {
       source: ParticipantSource.SIGNUP,
       photoUrl,
       customData: Object.keys(custom).length > 0 ? custom : undefined,
+      moderationStatus: event.requireSignupApproval ? "PENDING" : "APPROVED",
     },
   });
 
   await createParticipantSession(emailRaw);
 
-  return NextResponse.json({ raffleNumber: participant.raffleNumber });
+  return NextResponse.json({
+    raffleNumber: participant.raffleNumber,
+    pendingApproval: event.requireSignupApproval,
+  });
 }

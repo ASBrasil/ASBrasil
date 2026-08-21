@@ -15,9 +15,11 @@ export function SignupForm({ slug, fields }: { slug: string; fields: SignupField
   const [files, setFiles] = useState<Record<string, File | null>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ raffleNumber: number; alreadyRegistered?: boolean } | null>(
-    null
-  );
+  const [result, setResult] = useState<{
+    raffleNumber: number;
+    alreadyRegistered?: boolean;
+    pendingApproval?: boolean;
+  } | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -48,10 +50,17 @@ export function SignupForm({ slug, fields }: { slug: string; fields: SignupField
   if (result) {
     return (
       <div className="result">
-        <span className="check">✅</span>
+        <span className="check">{result.pendingApproval ? "⏳" : "✅"}</span>
         <h2>{result.alreadyRegistered ? "Você já estava participando!" : "Participação confirmada!"}</h2>
         <p className="number-label">Seu Número da Sorte:</p>
         <p className="number">#{String(result.raffleNumber).padStart(6, "0")}</p>
+        {result.pendingApproval && (
+          <p className="pending-note">
+            Sua participação está em análise — nossa equipe vai conferir o comprovante enviado
+            antes de confirmar seu número para o sorteio. Você já pode acompanhar o status em
+            "Meus sorteios".
+          </p>
+        )}
         <Link
           href="/meus-eventos"
           className="cta"
@@ -85,6 +94,13 @@ export function SignupForm({ slug, fields }: { slug: string; fields: SignupField
             color: var(--primary);
             margin: 0 0 2rem;
             letter-spacing: 0.05em;
+          }
+          .pending-note {
+            font-size: 0.85rem;
+            opacity: 0.75;
+            line-height: 1.6;
+            max-width: 22rem;
+            margin: -1rem auto 2rem;
           }
         `}</style>
       </div>

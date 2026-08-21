@@ -21,7 +21,7 @@ export async function performDraw(
   }
 
   const eligible = await db.participant.findMany({
-    where: { eventId: prize.eventId, removedFromDraws: false },
+    where: { eventId: prize.eventId, removedFromDraws: false, moderationStatus: "APPROVED" },
     select: { id: true, raffleNumber: true },
   });
 

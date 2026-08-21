@@ -53,6 +53,7 @@ export function ParticipantsStep({
     instagram: false,
     photo: false,
     orderNumber: true,
+    requireApproval: false,
   });
 
   // --- copy-from-another-event sub-flow ---
@@ -163,7 +164,11 @@ export function ParticipantsStep({
     await fetch(`/api/admin/events/${eventId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ publicSignupEnabled: true, signupFields: fields }),
+      body: JSON.stringify({
+        publicSignupEnabled: true,
+        signupFields: fields,
+        requireSignupApproval: signupExtras.requireApproval,
+      }),
     });
     setSignupSaving(false);
     onDone();
@@ -309,6 +314,23 @@ export function ParticipantsStep({
           </label>
         </div>
 
+        {signupExtras.photo && (
+          <label className="approval-row">
+            <input
+              type="checkbox"
+              checked={signupExtras.requireApproval}
+              onChange={(e) => setSignupExtras({ ...signupExtras, requireApproval: e.target.checked })}
+            />
+            <span>
+              <strong>🔍 Exigir aprovação manual</strong>
+              <small>
+                A pessoa recebe um número na hora, mas ele só entra no sorteio depois que sua
+                equipe revisar e aprovar o comprovante numa fila dedicada.
+              </small>
+            </span>
+          </label>
+        )}
+
         <div className="actions">
           <Button
             variant="ghost"
@@ -338,6 +360,30 @@ export function ParticipantsStep({
             border: 1px solid var(--border);
             border-radius: 0.5rem;
             cursor: pointer;
+          }
+          .approval-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.65rem;
+            margin: 0.5rem 0 1rem;
+            padding: 0.85rem 1rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 0.6rem;
+            cursor: pointer;
+          }
+          .approval-row input {
+            margin-top: 0.2rem;
+            flex-shrink: 0;
+          }
+          .approval-row span {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+          }
+          .approval-row small {
+            color: var(--text-muted);
+            font-size: 0.8rem;
           }
           .actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
         `}</style>

@@ -16,6 +16,12 @@ enum ParticipantSource {
   MANUAL
 }
 
+enum ParticipantModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum WinnerPolicy {
   KEEP      // winner keeps competing in later draws of the same event
   REMOVE    // winner is excluded from later draws of the same event
@@ -64,6 +70,12 @@ model Event {
   // Which fields the public signup form asks for + which are required.
   // [{ key: "name", label: "Nome", required: true }, ...]
   signupFields         Json     @default("[]")
+  // When true, public signups start as PENDING (still get a raffle number
+  // right away, so the participant sees something immediately, but they're
+  // excluded from actual draws until an admin approves them - e.g. after
+  // reviewing a photo comprovante). When false (default), signups are
+  // auto-approved, same behavior as before this existed.
+  requireSignupApproval Boolean @default(false)
 
   winnerPolicy         WinnerPolicy @default(KEEP)
 
@@ -158,6 +170,14 @@ model Participant {
   // toda vez que um evento pedir um campo diferente.
   photoUrl      String?
   customData    Json?
+
+  // Default APPROVED so every existing participant (imports, manual adds,
+  // signups on events that never turned on moderation) is unaffected.
+  // Only events with Event.requireSignupApproval=true ever create someone
+  // as PENDING - performDraw() excludes non-APPROVED participants from
+  // eligibility, so a still-pending or rejected signup simply can't win
+  // until/unless an admin approves them.
+  moderationStatus ParticipantModerationStatus @default(APPROVED)
 
   // Lookup token lets us avoid ever exposing raffle numbers by guessable id;
   // the public lookup endpoint matches on normalized email + event, rate limited.

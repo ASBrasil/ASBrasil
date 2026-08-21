@@ -26,6 +26,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.winnerPolicy !== undefined) data.winnerPolicy = body.winnerPolicy;
   if (body.publicSignupEnabled !== undefined) data.publicSignupEnabled = body.publicSignupEnabled;
   if (body.signupFields !== undefined) data.signupFields = body.signupFields;
+  if (body.requireSignupApproval !== undefined) data.requireSignupApproval = body.requireSignupApproval;
   if (body.active !== undefined) data.active = body.active;
   if (body.archived !== undefined) data.archived = body.archived;
   if (body.featuredOnLogin !== undefined) data.featuredOnLogin = body.featuredOnLogin;
