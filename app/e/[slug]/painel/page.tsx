@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getParticipantEmail } from "@/lib/participant-session";
 import { ParticipantTopNav } from "@/components/participant/ParticipantTopNav";
 import { PrizePath, PathStep } from "@/components/participant/PrizePath";
+import { MissionGate } from "@/components/participant/MissionGate";
 
 export default async function ParticipantEventPage({ params }: { params: { slug: string } }) {
   const email = await getParticipantEmail();
@@ -166,6 +167,54 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
 
   const myParticipantIds = new Set(myParticipants.map((p) => p.id));
   const myNumbers = myParticipants.map((p) => p.raffleNumber);
+
+  // Barreira de missões: se o evento exige pré-requisitos e ainda falta
+  // alguma missão obrigatória pra esse e-mail, mostra a lista de missões em
+  // vez dos números/sorteios - a pessoa só passa daqui depois de cumprir
+  // tudo que for obrigatório (opcionais ficam visíveis mas não travam).
+  if (event.missionMode === "MISSIONS") {
+    const missions = await db.mission.findMany({
+      where: { eventId: event.id },
+      orderBy: { order: "asc" },
+    });
+    if (missions.length > 0) {
+      const completions = await db.missionCompletion.findMany({
+        where: { missionId: { in: missions.map((m) => m.id) }, email },
+      });
+      const completedIds = new Set(completions.map((c) => c.missionId));
+      const pendingRequired = missions.filter((m) => m.required && !completedIds.has(m.id));
+
+      if (pendingRequired.length > 0) {
+        return (
+          <main
+            style={
+              {
+                "--primary": colors.primary ?? "#4F5FFF",
+                background: colors.background ?? "#0A1330",
+                color: colors.text ?? "#F5F6FA",
+                minHeight: "100vh",
+                fontFamily: "system-ui, sans-serif",
+              } as React.CSSProperties
+            }
+          >
+            <ParticipantTopNav eventName={event.name} />
+            <MissionGate
+              missions={missions.map((m) => ({
+                id: m.id,
+                type: m.type,
+                title: m.title,
+                description: m.description,
+                required: m.required,
+                linkUrl: m.linkUrl,
+                quizOptions: m.quizOptions as string[] | null,
+                completed: completedIds.has(m.id),
+              }))}
+            />
+          </main>
+        );
+      }
+    }
+  }
 
   const drawResults = await db.drawResult.findMany({
     where: { prizeId: { in: event.prizes.map((p) => p.id) }, voided: false },

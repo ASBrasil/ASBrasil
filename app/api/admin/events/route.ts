@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   await requireAdmin();
   const body = await req.json();
 
-  const { name, campaign, slug, description, startAt, endAt } = body;
+  const { name, campaign, slug, description, startAt, endAt, missionMode } = body;
   if (!name || !slug) {
     return NextResponse.json({ error: "name e slug são obrigatórios" }, { status: 400 });
   }
@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
       description,
       startAt: startAt ? new Date(startAt) : null,
       endAt: endAt ? new Date(endAt) : null,
+      missionMode: missionMode === "MISSIONS" ? "MISSIONS" : "SIMPLE",
       order: (last?.order ?? -1) + 1,
       theme: {
         colors: { primary: "#E8B646", background: "#12121A", surface: "#1B1B26", text: "#F5F0E6" },

@@ -22,6 +22,7 @@ interface EditableEvent {
   vip: boolean;
   prerequisiteText: string;
   heroFeatured: boolean;
+  missionMode: "SIMPLE" | "MISSIONS";
   theme: { colors?: any; customCss?: string; bannerUrl?: string | null } | null;
   participantsCount: number;
   prizes: { id: string; name: string; imageUrl?: string | null }[];
@@ -43,6 +44,7 @@ export function EditEventWizard({ event }: { event: EditableEvent }) {
     global: event.global,
     vip: event.vip,
     prerequisiteText: event.prerequisiteText,
+    missionMode: event.missionMode,
   });
 
   function update(key: keyof typeof form, value: string) {
@@ -103,6 +105,41 @@ export function EditEventWizard({ event }: { event: EditableEvent }) {
           <Field label="Descrição">
             <Input value={form.description} onChange={(e) => update("description", e.target.value)} />
           </Field>
+
+          <div className="divider">
+            <span>Tipo de sorteio</span>
+          </div>
+          <div className="mode-choice">
+            <label className={`mode-option ${form.missionMode === "SIMPLE" ? "active" : ""}`}>
+              <input
+                type="radio"
+                name="missionMode"
+                checked={form.missionMode === "SIMPLE"}
+                onChange={() => setForm({ ...form, missionMode: "SIMPLE" })}
+              />
+              <span>
+                <strong>🎲 Simples</strong>
+                <small>Participa direto, sem nenhuma barreira.</small>
+              </span>
+            </label>
+            <label className={`mode-option ${form.missionMode === "MISSIONS" ? "active" : ""}`}>
+              <input
+                type="radio"
+                name="missionMode"
+                checked={form.missionMode === "MISSIONS"}
+                onChange={() => setForm({ ...form, missionMode: "MISSIONS" })}
+              />
+              <span>
+                <strong>🎯 Com missões</strong>
+                <small>Só libera o número/resultado depois de cumprir pré-requisitos.</small>
+              </span>
+            </label>
+          </div>
+          {form.missionMode === "MISSIONS" && (
+            <a href={`/admin/events/${event.id}/missoes`} className="missions-link">
+              🎯 Gerenciar missões deste evento →
+            </a>
+          )}
 
           <div className="divider">
             <span>Visibilidade global</span>
@@ -278,6 +315,49 @@ export function EditEventWizard({ event }: { event: EditableEvent }) {
         .checkbox-row small {
           color: var(--text-muted);
           font-size: 0.8rem;
+        }
+        .mode-choice {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.75rem;
+          margin-bottom: 1rem;
+        }
+        .mode-option {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.6rem;
+          padding: 0.85rem 1rem;
+          border: 1px solid var(--border);
+          border-radius: 0.6rem;
+          cursor: pointer;
+        }
+        .mode-option.active {
+          border-color: var(--indigo-600);
+          background: color-mix(in srgb, var(--indigo-600) 6%, var(--surface));
+        }
+        .mode-option input {
+          margin-top: 0.2rem;
+          flex-shrink: 0;
+        }
+        .mode-option span {
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+        }
+        .mode-option small {
+          color: var(--text-muted);
+          font-size: 0.8rem;
+        }
+        .missions-link {
+          display: inline-block;
+          margin: -0.5rem 0 1rem;
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: var(--indigo-600);
+          text-decoration: none;
+        }
+        .missions-link:hover {
+          text-decoration: underline;
         }
         .textarea {
           width: 100%;

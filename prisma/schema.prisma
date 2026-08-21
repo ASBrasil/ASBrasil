@@ -103,6 +103,12 @@ model Event {
   // itself - no separate upload needed.
   heroFeatured         Boolean  @default(false)
 
+  // "Simples" (padrão): a pessoa participa direto, sem barreira nenhuma.
+  // "Com missões": precisa completar as missões obrigatórias abaixo antes
+  // de ver seus números/resultados naquele evento.
+  missionMode          EventMissionMode @default(SIMPLE)
+  missions             Mission[]
+
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -297,4 +303,63 @@ model LoginEvent {
 
   @@index([email, createdAt])
   @@index([createdAt])
+}
+
+enum EventMissionMode {
+  SIMPLE
+  MISSIONS
+}
+
+enum MissionType {
+  SELF_CHECK   // autodeclaração - ex: "Siga no Instagram", botão "Já fiz!"
+  QUIZ         // pergunta de múltipla escolha, correção automática
+  PHOTO_UPLOAD // participante envia uma foto
+  LINK_VISIT   // visita um link e confirma
+}
+
+model Mission {
+  id          String      @id @default(cuid())
+  eventId     String
+  event       Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  type        MissionType
+  order       Int         @default(0)
+  // Obrigatória bloqueia o acesso aos números/resultados até ser cumprida.
+  // Opcional (required: false) fica visível mas não trava nada.
+  required    Boolean     @default(true)
+
+  title       String
+  description String?
+
+  // SELF_CHECK / LINK_VISIT
+  linkUrl     String?
+
+  // QUIZ - opções em texto simples (uma por linha no admin), índice da
+  // correta (0-based)
+  quizOptions Json?
+  quizCorrectIndex Int?
+
+  createdAt   DateTime    @default(now())
+
+  completions MissionCompletion[]
+
+  @@index([eventId, order])
+}
+
+// Uma pessoa (por e-mail, não por ingresso - a missão vale pra pessoa,
+// não pro ticket) só pode completar cada missão uma vez.
+model MissionCompletion {
+  id          String   @id @default(cuid())
+  missionId   String
+  mission     Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  email       String
+
+  photoUrl    String?  // PHOTO_UPLOAD
+  quizAnswer  Int?     // QUIZ - índice escolhido
+  quizCorrect Boolean? // QUIZ - se acertou
+
+  completedAt DateTime @default(now())
+
+  @@unique([missionId, email])
+  @@index([missionId])
 }

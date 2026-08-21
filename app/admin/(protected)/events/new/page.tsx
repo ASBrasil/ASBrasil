@@ -16,7 +16,13 @@ export default function NewEventWizard() {
   const [error, setError] = useState<string | null>(null);
   const [eventId, setEventId] = useState<string | null>(null);
 
-  const [form, setForm] = useState({ name: "", campaign: "", slug: "", description: "" });
+  const [form, setForm] = useState({
+    name: "",
+    campaign: "",
+    slug: "",
+    description: "",
+    missionMode: "SIMPLE" as "SIMPLE" | "MISSIONS",
+  });
 
   function update(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -92,6 +98,42 @@ export default function NewEventWizard() {
             />
           </Field>
 
+          <div className="divider">
+            <span>Tipo de sorteio</span>
+          </div>
+          <div className="mode-choice">
+            <label className={`mode-option ${form.missionMode === "SIMPLE" ? "active" : ""}`}>
+              <input
+                type="radio"
+                name="missionMode"
+                checked={form.missionMode === "SIMPLE"}
+                onChange={() => setForm((f) => ({ ...f, missionMode: "SIMPLE" }))}
+              />
+              <span>
+                <strong>🎲 Simples</strong>
+                <small>Participa direto, sem nenhuma barreira.</small>
+              </span>
+            </label>
+            <label className={`mode-option ${form.missionMode === "MISSIONS" ? "active" : ""}`}>
+              <input
+                type="radio"
+                name="missionMode"
+                checked={form.missionMode === "MISSIONS"}
+                onChange={() => setForm((f) => ({ ...f, missionMode: "MISSIONS" }))}
+              />
+              <span>
+                <strong>🎯 Com missões</strong>
+                <small>Só libera número/resultado após cumprir pré-requisitos.</small>
+              </span>
+            </label>
+          </div>
+          {form.missionMode === "MISSIONS" && (
+            <p className="missions-hint">
+              Depois de criar o evento, configure as missões em <strong>Editar → Tipo de sorteio →
+              Gerenciar missões</strong>.
+            </p>
+          )}
+
           {error && <p className="error">{error}</p>}
 
           <div className="actions">
@@ -140,6 +182,60 @@ export default function NewEventWizard() {
         .error {
           color: #c0392b;
           font-size: 0.85rem;
+        }
+        .divider {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          margin: 1.5rem 0 1.1rem;
+          font-size: 0.75rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--text-muted);
+        }
+        .divider::before,
+        .divider::after {
+          content: "";
+          flex: 1;
+          height: 1px;
+          background: var(--border);
+        }
+        .mode-choice {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.75rem;
+        }
+        .mode-option {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.6rem;
+          padding: 0.85rem 1rem;
+          border: 1px solid var(--border);
+          border-radius: 0.6rem;
+          cursor: pointer;
+        }
+        .mode-option.active {
+          border-color: var(--indigo-600);
+          background: color-mix(in srgb, var(--indigo-600) 6%, var(--surface));
+        }
+        .mode-option input {
+          margin-top: 0.2rem;
+          flex-shrink: 0;
+        }
+        .mode-option span {
+          display: flex;
+          flex-direction: column;
+          gap: 0.15rem;
+        }
+        .mode-option small {
+          color: var(--text-muted);
+          font-size: 0.8rem;
+        }
+        .missions-hint {
+          font-size: 0.82rem;
+          color: var(--text-muted);
+          margin: 0.75rem 0 0;
         }
       `}</style>
     </div>

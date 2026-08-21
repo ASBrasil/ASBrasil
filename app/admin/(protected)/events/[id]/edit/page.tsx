@@ -28,6 +28,7 @@ export default async function EditEventPage({ params }: { params: { id: string }
         vip: event.vip,
         prerequisiteText: event.prerequisiteText ?? "",
         heroFeatured: event.heroFeatured,
+        missionMode: event.missionMode,
         theme: event.theme as unknown as { colors?: any; customCss?: string; bannerUrl?: string | null } | null,
         participantsCount: event._count.participants,
         prizes: event.prizes.map((p) => ({ id: p.id, name: p.name, imageUrl: p.imageUrl })),
