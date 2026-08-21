@@ -234,7 +234,7 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
     unlocked: boolean;
     completed: boolean;
     bonusRaffleNumber: number | null;
-    type?: string;
+    type?: "SELF_CHECK" | "QUIZ" | "PHOTO_UPLOAD" | "LINK_VISIT";
     title?: string | null;
     description?: string | null;
     linkUrl?: string | null;
