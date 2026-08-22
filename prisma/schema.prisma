@@ -78,6 +78,13 @@ model Event {
   // auto-approved, same behavior as before this existed.
   requireSignupApproval Boolean @default(false)
 
+  // Blocos de conteúdo editáveis da Landing Page pública - array de
+  // { id, type: "text" | "image" | "cards", order, ...campos por tipo }.
+  // Renderizados entre o hero e a lista de prêmios em /e/[slug]. Vazio por
+  // padrão - eventos sem nada configurado aqui simplesmente não mostram
+  // nada extra (comportamento igual ao de antes dessa funcionalidade).
+  lpBlocks             Json     @default("[]")
+
   winnerPolicy         WinnerPolicy @default(KEEP)
 
   // Manual ordering for the admin listing (and anywhere else events are

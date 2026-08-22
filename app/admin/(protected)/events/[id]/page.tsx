@@ -34,7 +34,7 @@ export default async function EventDashboardPage({ params }: { params: { id: str
           <EventActionsBar
             eventId={event.id}
             archived={event.archived}
-            showApprovals={event.requireSignupApproval}
+            showApprovals={event.publicSignupEnabled}
           />
         </div>
       </div>

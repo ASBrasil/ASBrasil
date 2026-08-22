@@ -11,6 +11,12 @@ export function EventActionsBar({
 }: {
   eventId: string;
   archived: boolean;
+  // Mostra sempre que a inscrição pública está ligada, não só quando a
+  // aprovação manual está ativa - assim o link nunca "some" de vez por
+  // causa de um toggle que pode ter sido desmarcado sem querer em algum
+  // momento. A pagina de aprovacoes em si continua util de checar mesmo
+  // que a moderacao esteja desligada agora (historico de quem ja passou
+  // por ali).
   showApprovals?: boolean;
 }) {
   const router = useRouter();
@@ -96,6 +102,21 @@ export function EventActionsBar({
           🔍 Aprovações
         </Link>
       )}
+      <Link
+        href={`/admin/events/${eventId}/lp`}
+        className="lp-link"
+        style={{
+          fontSize: "0.85rem",
+          fontWeight: 600,
+          color: "#7c3aed",
+          textDecoration: "none",
+          padding: "0.55rem 1rem",
+          borderRadius: "999px",
+          border: "1px solid rgba(124, 58, 237, 0.35)",
+        }}
+      >
+        🎨 Editar LP
+      </Link>
       <button type="button" className="ghost-btn" onClick={toggleArchive} disabled={busy}>
         {archived ? "Desarquivar" : "Arquivar"}
       </button>
