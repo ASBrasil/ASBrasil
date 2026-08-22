@@ -28,7 +28,12 @@ export function ThemeStep({
   eventId: string;
   onDone: () => void;
   onBack?: () => void;
-  initialTheme?: { colors?: ThemeColors; customCss?: string; bannerUrl?: string | null } | null;
+  initialTheme?: {
+    colors?: ThemeColors;
+    customCss?: string;
+    bannerUrl?: string | null;
+    bannerUrlMobile?: string | null;
+  } | null;
   initialHeroFeatured?: boolean;
 }) {
   const [colors, setColors] = useState<ThemeColors>(
@@ -36,6 +41,9 @@ export function ThemeStep({
   );
   const [customCss, setCustomCss] = useState(initialTheme?.customCss ?? "");
   const [bannerUrl, setBannerUrl] = useState<string | null>(initialTheme?.bannerUrl ?? null);
+  const [bannerUrlMobile, setBannerUrlMobile] = useState<string | null>(
+    initialTheme?.bannerUrlMobile ?? null
+  );
   const [heroFeatured, setHeroFeatured] = useState(initialHeroFeatured ?? false);
   const [saving, setSaving] = useState(false);
 
@@ -45,7 +53,12 @@ export function ThemeStep({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        theme: { colors: { ...colors }, customCss: customCss || undefined, bannerUrl: bannerUrl || undefined },
+        theme: {
+          colors: { ...colors },
+          customCss: customCss || undefined,
+          bannerUrl: bannerUrl || undefined,
+          bannerUrlMobile: bannerUrlMobile || undefined,
+        },
         heroFeatured,
       }),
     });
@@ -61,12 +74,21 @@ export function ThemeStep({
       </p>
 
       <ImageUpload
-        label="Banner do evento"
+        label="Banner do evento (desktop)"
         hint="Aparece no topo da página pública e no card do evento para o participante. Recomendado: 1200×630px."
         value={bannerUrl}
         onChange={setBannerUrl}
         folder="event-banners"
         aspectRatio="1200 / 630"
+      />
+
+      <ImageUpload
+        label="Banner do evento (mobile)"
+        hint="Opcional, mas recomendado - em telas de celular, essa imagem substitui a de cima automaticamente, evitando corte estranho. Recomendado: formato vertical, ex. 800×1000px."
+        value={bannerUrlMobile}
+        onChange={setBannerUrlMobile}
+        folder="event-banners"
+        aspectRatio="4 / 5"
       />
 
       <label className="hero-checkbox">

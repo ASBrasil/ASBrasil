@@ -26,7 +26,12 @@ interface EditableEvent {
   publicSignupEnabled: boolean;
   signupFields: { key: string; label: string; required: boolean; type?: "text" | "photo" }[];
   requireSignupApproval: boolean;
-  theme: { colors?: any; customCss?: string; bannerUrl?: string | null } | null;
+  theme: {
+    colors?: any;
+    customCss?: string;
+    bannerUrl?: string | null;
+    bannerUrlMobile?: string | null;
+  } | null;
   participantsCount: number;
   prizes: { id: string; name: string; imageUrl?: string | null }[];
 }

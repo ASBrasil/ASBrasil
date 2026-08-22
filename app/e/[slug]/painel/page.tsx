@@ -5,6 +5,7 @@ import { ParticipantTopNav } from "@/components/participant/ParticipantTopNav";
 import { PrizePath, PathStep } from "@/components/participant/PrizePath";
 import { MissionGate } from "@/components/participant/MissionGate";
 import { SurpriseSection } from "@/components/participant/SurpriseSection";
+import { ResponsiveBanner } from "@/components/ResponsiveBanner";
 
 export default async function ParticipantEventPage({ params }: { params: { slug: string } }) {
   const email = await getParticipantEmail();
@@ -27,6 +28,7 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
   const theme = event.theme as any;
   const colors = theme?.colors ?? {};
   const bannerUrl = theme?.bannerUrl as string | undefined;
+  const bannerUrlMobile = theme?.bannerUrlMobile as string | undefined;
 
   // Sem ingresso: se o evento é global, mostra a tela de pré-requisito em
   // vez de simplesmente devolver a pessoa pra "Meus eventos" sem explicação
@@ -54,7 +56,7 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
         <section className={`hero ${bannerUrl ? "has-banner" : ""}`}>
           {bannerUrl && (
             <>
-              <img src={bannerUrl} alt="" className="hero-bg" />
+              <ResponsiveBanner desktopUrl={bannerUrl} mobileUrl={bannerUrlMobile} className="hero-bg" />
               <div className="hero-scrim" />
             </>
           )}
@@ -331,7 +333,7 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
       <section className={`hero ${bannerUrl ? "has-banner" : ""}`}>
         {bannerUrl && (
           <>
-            <img src={bannerUrl} alt="" className="hero-bg" />
+            <ResponsiveBanner desktopUrl={bannerUrl} mobileUrl={bannerUrlMobile} className="hero-bg" />
             <div className="hero-scrim" />
           </>
         )}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ResponsiveBanner } from "@/components/ResponsiveBanner";
 
 interface HeroEvent {
   id: string;
@@ -10,6 +11,7 @@ interface HeroEvent {
   campaign: string | null;
   vip: boolean;
   bannerUrl: string | null;
+  bannerUrlMobile?: string | null;
   primary: string;
 }
 
@@ -45,7 +47,7 @@ export function HeroCarousel({ events }: { events: HeroEvent[] }) {
           tabIndex={i === index ? 0 : -1}
         >
           {ev.bannerUrl ? (
-            <img src={ev.bannerUrl} alt="" className="bg" />
+            <ResponsiveBanner desktopUrl={ev.bannerUrl} mobileUrl={ev.bannerUrlMobile} className="bg" />
           ) : (
             <div className="bg-fallback" style={{ background: ev.primary }} />
           )}

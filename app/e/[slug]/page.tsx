@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
+import { ResponsiveBanner } from "@/components/ResponsiveBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,7 @@ export default async function EventPage({ params }: { params: { slug: string } }
   const theme = event.theme as any;
   const colors = theme?.colors ?? {};
   const bannerUrl = theme?.bannerUrl as string | undefined;
+  const bannerUrlMobile = theme?.bannerUrlMobile as string | undefined;
 
   return (
     <main
@@ -45,7 +47,7 @@ export default async function EventPage({ params }: { params: { slug: string } }
       <section className={`hero ${bannerUrl ? "has-banner" : ""}`}>
         {bannerUrl && (
           <>
-            <img src={bannerUrl} alt="" className="hero-bg" />
+            <ResponsiveBanner desktopUrl={bannerUrl} mobileUrl={bannerUrlMobile} className="hero-bg" />
             <div className="hero-scrim" />
           </>
         )}

@@ -5,6 +5,7 @@ import { getParticipantEmail } from "@/lib/participant-session";
 import { AnnouncementPopup } from "@/components/participant/AnnouncementPopup";
 import { TicketBreakdown } from "@/components/TicketBreakdown";
 import { HeroCarousel } from "@/components/HeroCarousel";
+import { ResponsiveBanner } from "@/components/ResponsiveBanner";
 
 export default async function MeusEventosPage() {
   const email = await getParticipantEmail();
@@ -50,6 +51,7 @@ export default async function MeusEventosPage() {
       campaign: e.campaign,
       vip: e.vip,
       bannerUrl: (theme?.bannerUrl as string | undefined) ?? null,
+      bannerUrlMobile: (theme?.bannerUrlMobile as string | undefined) ?? null,
       primary: theme?.colors?.primary ?? "#4F5FFF",
     };
   });
@@ -311,11 +313,12 @@ function EventCard({
   const theme = event.theme as any;
   const primary = theme?.colors?.primary ?? "#4F5FFF";
   const bannerUrl = theme?.bannerUrl as string | undefined;
+  const bannerUrlMobile = theme?.bannerUrlMobile as string | undefined;
 
   return (
     <Link href={`/e/${event.slug}/painel`} className={`card ${muted ? "muted" : ""}`}>
       {bannerUrl ? (
-        <img src={bannerUrl} alt="" className="banner-img" />
+        <ResponsiveBanner desktopUrl={bannerUrl} mobileUrl={bannerUrlMobile} className="banner-img" />
       ) : (
         <div className="banner" style={{ background: primary }} />
       )}
@@ -340,12 +343,13 @@ function DiscoverCard({
   const theme = event.theme as any;
   const primary = theme?.colors?.primary ?? "#4F5FFF";
   const bannerUrl = theme?.bannerUrl as string | undefined;
+  const bannerUrlMobile = theme?.bannerUrlMobile as string | undefined;
 
   return (
     <Link href={`/e/${event.slug}/painel`} className={`card ${event.vip ? "vip" : ""}`}>
       {event.vip && <span className="vip-badge">💎 VIP</span>}
       {bannerUrl ? (
-        <img src={bannerUrl} alt="" className="banner-img" />
+        <ResponsiveBanner desktopUrl={bannerUrl} mobileUrl={bannerUrlMobile} className="banner-img" />
       ) : (
         <div className="banner" style={{ background: primary }} />
       )}

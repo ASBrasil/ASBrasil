@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { SignupForm } from "@/components/participant/SignupForm";
+import { ResponsiveBanner } from "@/components/ResponsiveBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ export default async function EventSignupPage({ params }: { params: { slug: stri
   const theme = event.theme as any;
   const colors = theme?.colors ?? {};
   const bannerUrl = theme?.bannerUrl as string | undefined;
+  const bannerUrlMobile = theme?.bannerUrlMobile as string | undefined;
   const fields = (event.signupFields as unknown as SignupField[]) ?? [];
 
   return (
@@ -35,7 +37,7 @@ export default async function EventSignupPage({ params }: { params: { slug: stri
       <section className={`hero ${bannerUrl ? "has-banner" : ""}`}>
         {bannerUrl && (
           <>
-            <img src={bannerUrl} alt="" className="hero-bg" />
+            <ResponsiveBanner desktopUrl={bannerUrl} mobileUrl={bannerUrlMobile} className="hero-bg" />
             <div className="hero-scrim" />
           </>
         )}
