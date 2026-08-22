@@ -1,8 +1,14 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
 /**
- * <picture> nativo - o próprio navegador escolhe a fonte certa ANTES de
- * baixar a imagem (não é troca via JS depois de carregar a errada), então
- * funciona em Server Components sem precisar de "use client". Sem
- * mobileUrl, cai de volta pro comportamento de sempre (uma imagem só).
+ * Escolhe a imagem certa checando a largura real da janela em JS, em vez
+ * de depender do <picture>/<source media="..."> nativo do navegador - que
+ * na prática estava escolhendo a versão errada mesmo em telas grandes.
+ * No primeiro render (servidor + antes do JS rodar no cliente) sempre
+ * mostra a desktop, pra nunca piscar a mobile errada numa tela grande;
+ * troca pra mobile assim que o JS confirma que a janela é estreita.
  */
 export function ResponsiveBanner({
   desktopUrl,
@@ -15,13 +21,18 @@ export function ResponsiveBanner({
   className?: string;
   alt?: string;
 }) {
-  if (!mobileUrl) {
-    return <img src={desktopUrl} alt={alt} className={className} />;
-  }
-  return (
-    <picture>
-      <source media="(max-width: 640px)" srcSet={mobileUrl} />
-      <img src={desktopUrl} alt={alt} className={className} />
-    </picture>
-  );
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (!mobileUrl) return;
+    function check() {
+      setIsMobile(window.innerWidth <= 640);
+    }
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [mobileUrl]);
+
+  const src = isMobile && mobileUrl ? mobileUrl : desktopUrl;
+  return <img src={src} alt={alt} className={className} />;
 }
