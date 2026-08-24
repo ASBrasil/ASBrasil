@@ -211,13 +211,16 @@ export function LpBlocksEditor({
             {(block.type === "cardsGrid" || block.type === "cardsCarousel") && (
               <div className="block-body">
                 {block.type === "cardsGrid" && (
-                  <Field label="Colunas fixas" hint="De 2 a 10 por linha. Em telas estreitas, ajusta sozinho.">
+                  <Field
+                    label="Colunas por linha"
+                    hint="De 2 a 5. Se tiver menos cards do que colunas, a grade se ajusta pra não sobrar espaço vazio. No celular, sempre mostra pelo menos 2 lado a lado."
+                  >
                     <select
                       className="select"
                       value={block.columns ?? 4}
                       onChange={(e) => updateBlock(block.id, { columns: Number(e.target.value) })}
                     >
-                      {Array.from({ length: 9 }, (_, i) => i + 2).map((n) => (
+                      {[2, 3, 4, 5].map((n) => (
                         <option key={n} value={n}>
                           {n} colunas
                         </option>

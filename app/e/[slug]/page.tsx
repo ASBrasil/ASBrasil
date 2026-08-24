@@ -102,22 +102,32 @@ export default async function EventPage({ params }: { params: { slug: string } }
                   {block.caption && <figcaption>{block.caption}</figcaption>}
                 </figure>
               )}
-              {block.type === "cardsGrid" && (
-                <div
-                  className="lp-cards"
-                  style={{ "--cols": block.columns ?? 4 } as React.CSSProperties}
-                >
-                  {(block.cards ?? []).map((card: any) => (
-                    <div className="lp-card" key={card.id}>
-                      {card.imageUrl && <img src={card.imageUrl} alt="" />}
-                      <div className="lp-card-body">
-                        {card.title && <h3>{card.title}</h3>}
-                        {card.description && <p>{card.description}</p>}
+              {block.type === "cardsGrid" && (() => {
+                const cardCount = (block.cards ?? []).length || 1;
+                const desktopCols = Math.max(1, Math.min(block.columns ?? 4, cardCount));
+                const mobileCols = Math.max(1, Math.min(2, cardCount));
+                return (
+                  <div
+                    className="lp-cards"
+                    style={
+                      {
+                        "--cols": desktopCols,
+                        "--cols-mobile": mobileCols,
+                      } as React.CSSProperties
+                    }
+                  >
+                    {(block.cards ?? []).map((card: any) => (
+                      <div className="lp-card" key={card.id}>
+                        {card.imageUrl && <img src={card.imageUrl} alt="" />}
+                        <div className="lp-card-body">
+                          {card.title && <h3>{card.title}</h3>}
+                          {card.description && <p>{card.description}</p>}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                );
+              })()}
               {block.type === "cardsCarousel" && (
                 <CardsCarousel
                   cards={block.cards ?? []}
@@ -289,14 +299,10 @@ export default async function EventPage({ params }: { params: { slug: string } }
           grid-template-columns: repeat(var(--cols, auto-fit), 1fr);
           gap: 1.25rem;
         }
-        @media (max-width: 700px) {
+        @media (max-width: 640px) {
           .lp-cards {
-            --cols: 2 !important;
-          }
-        }
-        @media (max-width: 420px) {
-          .lp-cards {
-            --cols: 1 !important;
+            grid-template-columns: repeat(var(--cols-mobile, 2), 1fr) !important;
+            gap: 0.75rem;
           }
         }
         .lp-card {
