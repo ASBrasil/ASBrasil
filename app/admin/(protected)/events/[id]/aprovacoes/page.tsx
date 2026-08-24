@@ -18,7 +18,12 @@ export default async function ApprovalsPage({
   const status = searchParams.status === "all" ? undefined : searchParams.status ?? "PENDING";
 
   const participants = await db.participant.findMany({
-    where: { eventId: event.id, ...(status ? { moderationStatus: status as any } : {}) },
+    // Só mostra quem veio pela inscrição pública de verdade - alguém
+    // importado de planilha ou adicionado manualmente pelo admin nunca
+    // passou pela exigência de foto, então aparecer aqui só confunde
+    // (fica "Aprovado" e "Sem foto" por padrão, o que parece um bug mas
+    // não é - só não fazia parte desse fluxo).
+    where: { eventId: event.id, source: "SIGNUP", ...(status ? { moderationStatus: status as any } : {}) },
     orderBy: { createdAt: "desc" },
   });
 
@@ -33,6 +38,10 @@ export default async function ApprovalsPage({
         <p className="subtitle">
           Revise o comprovante enviado por cada participante antes de confirmar o número dele para
           o sorteio.
+        </p>
+        <p className="filter-note">
+          Mostra só quem se inscreveu pelo formulário público — importados de planilha e adicionados
+          manualmente não passam por essa etapa, então não aparecem aqui.
         </p>
       </div>
 
@@ -73,7 +82,13 @@ export default async function ApprovalsPage({
         }
         .header { margin: 1rem 0 1.5rem; max-width: 40rem; }
         h1 { margin: 0 0 0.4rem; font-family: var(--font-display, inherit); }
-        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin: 0; }
+        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin: 0 0 0.5rem; }
+        .filter-note {
+          color: var(--text-muted);
+          font-size: 0.8rem;
+          margin: 0;
+          font-style: italic;
+        }
         .tabs {
           display: flex;
           gap: 0.5rem;

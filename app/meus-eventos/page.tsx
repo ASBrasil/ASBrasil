@@ -5,6 +5,7 @@ import { getParticipantEmail } from "@/lib/participant-session";
 import { AnnouncementPopup } from "@/components/participant/AnnouncementPopup";
 import { TicketBreakdown } from "@/components/TicketBreakdown";
 import { HeroCarousel } from "@/components/HeroCarousel";
+import { EventsCarousel } from "@/components/participant/EventsCarousel";
 
 export default async function MeusEventosPage() {
   const email = await getParticipantEmail();
@@ -31,6 +32,7 @@ export default async function MeusEventosPage() {
     db.event.findMany({
       where: { global: true, active: true, archived: false },
       orderBy: [{ vip: "desc" }, { order: "asc" }],
+      include: { prizes: { select: { status: true } } },
     }),
     // Rotating hero at the top - admin-curated separately from
     // vip/global, full manual control over what gets this prime slot.
@@ -78,7 +80,11 @@ export default async function MeusEventosPage() {
   );
 
   const myEventIds = new Set(participations.map((p) => p.event.id));
-  const discoverable = globalEvents.filter((e) => !myEventIds.has(e.id));
+  const discoverableAll = globalEvents.filter((e) => !myEventIds.has(e.id));
+  // "Mais sorteios" só mostra o que ainda não foi sorteado - assim que sai
+  // o primeiro resultado, o evento migra sozinho pra "Resultados".
+  const discoverable = discoverableAll.filter((e) => !e.prizes.some((pr) => pr.status === "DRAWN"));
+  const discoverableDrawn = discoverableAll.filter((e) => e.prizes.some((pr) => pr.status === "DRAWN"));
 
   return (
     <main className="page">
@@ -116,42 +122,51 @@ export default async function MeusEventosPage() {
           <p className="subtitle">Escolha uma campanha para ver seus números e os sorteios.</p>
         </div>
 
-        {ativos.length === 0 && historico.length === 0 ? (
+        {ativos.length === 0 && historico.length === 0 && discoverable.length === 0 && discoverableDrawn.length === 0 ? (
           <p className="empty">Nenhuma campanha encontrada para esse e-mail.</p>
         ) : (
-          <div className="grid">
-            {ativos.map(({ event, tickets }) => (
-              <EventCard key={event.id} event={event} tickets={tickets} />
-            ))}
-          </div>
-        )}
-
-        {historico.length > 0 && (
           <>
-            <div className="section-heading">
-              <span className="eyebrow">Arquivo</span>
-              <h2>Histórico</h2>
-            </div>
-            <div className="grid">
-              {historico.map(({ event, tickets }) => (
-                <EventCard key={event.id} event={event} tickets={tickets} muted />
-              ))}
-            </div>
-          </>
-        )}
+            {ativos.length > 0 && (
+              <EventsCarousel>
+                {ativos.map(({ event, tickets }) => (
+                  <EventCard key={event.id} event={event} tickets={tickets} />
+                ))}
+              </EventsCarousel>
+            )}
 
-        {discoverable.length > 0 && (
-          <>
-            <div className="section-heading">
-              <span className="eyebrow">Descubra</span>
-              <h2>Mais sorteios</h2>
-              <p className="subtitle small">Campanhas abertas que você ainda não está participando.</p>
-            </div>
-            <div className="grid">
-              {discoverable.map((event) => (
-                <DiscoverCard key={event.id} event={event} />
-              ))}
-            </div>
+            {discoverable.length > 0 && (
+              <>
+                <div className="section-heading">
+                  <span className="eyebrow">Descubra</span>
+                  <h2>Mais sorteios</h2>
+                  <p className="subtitle small">Campanhas abertas que você ainda não está participando.</p>
+                </div>
+                <EventsCarousel>
+                  {discoverable.map((event) => (
+                    <DiscoverCard key={event.id} event={event} />
+                  ))}
+                </EventsCarousel>
+              </>
+            )}
+
+            {(historico.length > 0 || discoverableDrawn.length > 0) && (
+              <>
+                <div className="section-heading">
+                  <span className="eyebrow">Arquivo</span>
+                  <h2>Resultados</h2>
+                </div>
+                <EventsCarousel>
+                  {[
+                    ...historico.map(({ event, tickets }) => (
+                      <EventCard key={event.id} event={event} tickets={tickets} muted />
+                    )),
+                    ...discoverableDrawn.map((event) => (
+                      <DiscoverCard key={event.id} event={event} drawn />
+                    )),
+                  ]}
+                </EventsCarousel>
+              </>
+            )}
           </>
         )}
       </section>
@@ -397,16 +412,18 @@ function EventCard({
 
 function DiscoverCard({
   event,
+  drawn,
 }: {
   event: { id: string; slug: string; name: string; campaign: string | null; theme: unknown; vip: boolean };
+  drawn?: boolean;
 }) {
   const theme = event.theme as any;
   const primary = theme?.colors?.primary ?? "#4F5FFF";
   const bannerUrl = theme?.bannerUrl as string | undefined;
 
   return (
-    <Link href={`/e/${event.slug}/painel`} className={`card ${event.vip ? "vip" : ""}`}>
-      {event.vip && <span className="vip-badge">💎 VIP</span>}
+    <Link href={`/e/${event.slug}/painel`} className={`card ${event.vip ? "vip" : ""} ${drawn ? "muted" : ""}`}>
+      {event.vip && !drawn && <span className="vip-badge">💎 VIP</span>}
       {bannerUrl ? (
         <img src={bannerUrl} alt="" className="banner-img" />
       ) : (
@@ -415,7 +432,7 @@ function DiscoverCard({
       <div className="info">
         {event.campaign && <span className="campaign">{event.campaign}</span>}
         <h3>{event.name}</h3>
-        <span className="cta">Ver como participar →</span>
+        <span className="cta">{drawn ? "Ver resultado →" : "Ver como participar →"}</span>
       </div>
     </Link>
   );
