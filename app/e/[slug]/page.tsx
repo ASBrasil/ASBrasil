@@ -41,8 +41,11 @@ export default async function EventPage({ params }: { params: { slug: string } }
       {theme?.customCss && <style dangerouslySetInnerHTML={{ __html: theme.customCss }} />}
 
       <div className="topbar">
-        <span>{event.campaign || event.name}</span>
-        <a href={`/e/${event.slug}/vencedores`}>🏆 Vencedores</a>
+        <span className="topbar-brand">{event.campaign || event.name}</span>
+        <a href={`/e/${event.slug}/vencedores`} className="topbar-winners">
+          🏆 Vencedores
+        </a>
+        <span className="topbar-spacer" aria-hidden />
       </div>
 
       <section className={`hero ${bannerUrl ? "has-banner" : ""}`}>
@@ -168,17 +171,18 @@ export default async function EventPage({ params }: { params: { slug: string } }
           position: sticky;
           top: 0;
           z-index: 40;
-          display: flex;
+          display: grid;
+          grid-template-columns: 1fr auto 1fr;
           align-items: center;
-          justify-content: space-between;
           gap: 1rem;
-          padding: 0.65rem 1.25rem;
+          padding: 0.75rem 1.5rem;
           background: rgba(0, 0, 0, 0.35);
-          backdrop-filter: blur(10px);
+          backdrop-filter: blur(14px);
           border-bottom: 1px solid rgba(255, 255, 255, 0.08);
           font-size: 0.78rem;
         }
-        .topbar span {
+        .topbar-brand {
+          justify-self: start;
           text-transform: uppercase;
           letter-spacing: 0.12em;
           font-weight: 600;
@@ -187,11 +191,15 @@ export default async function EventPage({ params }: { params: { slug: string } }
           text-overflow: ellipsis;
           white-space: nowrap;
         }
-        .topbar a {
-          flex-shrink: 0;
+        .topbar-winners {
+          justify-self: center;
           color: var(--primary);
           text-decoration: none;
-          font-weight: 600;
+          font-weight: 700;
+          white-space: nowrap;
+        }
+        .topbar-spacer {
+          justify-self: end;
         }
         .hero {
           position: relative;
@@ -253,7 +261,7 @@ export default async function EventPage({ params }: { params: { slug: string } }
           display: flex;
           justify-content: center;
           gap: 3rem;
-          padding: 0 1.5rem 2.5rem;
+          padding: 0 1.5rem 3.5rem;
           text-align: center;
         }
         .stat strong {
@@ -271,10 +279,10 @@ export default async function EventPage({ params }: { params: { slug: string } }
         .lp-blocks {
           max-width: 48rem;
           margin: 0 auto;
-          padding: 0 1.5rem 2.5rem;
+          padding: 0 1.5rem 4rem;
           display: flex;
           flex-direction: column;
-          gap: 2.5rem;
+          gap: 3.5rem;
         }
         .lp-text h2 {
           font-family: var(--font-display, "Sora", serif);
