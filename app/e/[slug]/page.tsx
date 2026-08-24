@@ -78,9 +78,17 @@ export default async function EventPage({ params }: { params: { slug: string } }
         </div>
       </ScrollReveal>
 
-      {(event.lpBlocks as any[])?.length > 0 && (
-        <section className="lp-blocks">
-          {(event.lpBlocks as any[]).map((block, i) => (
+      {(() => {
+        // Blocos salvos antes de "Cards" virar Grade/Carrossel ainda tem
+        // type:"cards" no banco - trata como Grade aqui tambem, senao
+        // simplesmente nao aparecem (nenhum dos dois tipos novos bate).
+        const lpBlocks = (event.lpBlocks as any[])?.map((b) =>
+          b.type === "cards" ? { ...b, type: "cardsGrid", columns: b.columns ?? 4 } : b
+        );
+        if (!lpBlocks?.length) return null;
+        return (
+          <section className="lp-blocks">
+            {lpBlocks.map((block, i) => (
             <ScrollReveal key={block.id} delay={i * 60} className="lp-block">
               {block.type === "text" && (
                 <div className="lp-text">
@@ -119,8 +127,9 @@ export default async function EventPage({ params }: { params: { slug: string } }
               )}
             </ScrollReveal>
           ))}
-        </section>
-      )}
+          </section>
+        );
+      })()}
 
       <ScrollReveal className="lookup-section">
         <div className="callout">

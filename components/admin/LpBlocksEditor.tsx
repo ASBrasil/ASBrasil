@@ -30,6 +30,20 @@ function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+/**
+ * Blocos salvos antes de "Cards" virar "Grade de Cards"/"Carrossel de
+ * Cards" ainda têm type:"cards" no banco - sem isso, tanto o editor
+ * (TYPE_LABELS[block.type] undefined) quanto a página pública quebram
+ * pra quem já tinha criado algum. Trata como Grade, mantendo os cards
+ * que já existiam.
+ */
+function normalizeBlock(b: Block): Block {
+  if ((b as any).type === "cards") {
+    return { ...b, type: "cardsGrid", columns: b.columns ?? 4 };
+  }
+  return b;
+}
+
 const TYPE_LABELS: Record<BlockType, { label: string; icon: string }> = {
   text: { label: "Texto", icon: "📝" },
   image: { label: "Imagem", icon: "🖼️" },
@@ -44,7 +58,7 @@ export function LpBlocksEditor({
   eventId: string;
   initialBlocks: Block[];
 }) {
-  const [blocks, setBlocks] = useState<Block[]>(initialBlocks ?? []);
+  const [blocks, setBlocks] = useState<Block[]>((initialBlocks ?? []).map(normalizeBlock));
   const [addingType, setAddingType] = useState<BlockType | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
