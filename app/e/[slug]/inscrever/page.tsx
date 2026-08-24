@@ -34,6 +34,10 @@ export default async function EventSignupPage({ params }: { params: { slug: stri
         } as React.CSSProperties
       }
     >
+      <a href={`/e/${event.slug}`} className="back-link">
+        ← Voltar
+      </a>
+
       <section className={`hero ${bannerUrl ? "has-banner" : ""}`}>
         {bannerUrl && (
           <>
@@ -53,6 +57,24 @@ export default async function EventSignupPage({ params }: { params: { slug: stri
       </div>
 
       <style>{`
+        .back-link {
+          position: sticky;
+          top: 0;
+          z-index: 40;
+          display: block;
+          padding: 0.85rem 1.5rem;
+          background: rgba(0, 0, 0, 0.35);
+          backdrop-filter: blur(14px);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          color: inherit;
+          text-decoration: none;
+          font-size: 0.8rem;
+          font-weight: 600;
+          opacity: 0.85;
+        }
+        .back-link:hover {
+          opacity: 1;
+        }
         .hero {
           position: relative;
           padding: 3rem 1.5rem 1.5rem;
@@ -103,12 +125,12 @@ export default async function EventSignupPage({ params }: { params: { slug: stri
         .form-wrap {
           max-width: 28rem;
           margin: 0 auto;
-          padding: 2rem 1.5rem 5rem;
+          padding: 2.5rem 1.5rem 5rem;
         }
         .description {
           text-align: center;
           opacity: 0.75;
-          margin: 0 0 2rem;
+          margin: 0 0 2.5rem;
           line-height: 1.6;
         }
       `}</style>

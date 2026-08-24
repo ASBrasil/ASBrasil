@@ -146,12 +146,12 @@ export function SignupForm({ slug, fields }: { slug: string; fields: SignupField
         .signup-form {
           display: flex;
           flex-direction: column;
-          gap: 1.1rem;
+          gap: 1.35rem;
         }
         .field {
           display: flex;
           flex-direction: column;
-          gap: 0.4rem;
+          gap: 0.45rem;
         }
         label {
           font-size: 0.85rem;
@@ -163,22 +163,33 @@ export function SignupForm({ slug, fields }: { slug: string; fields: SignupField
         }
         input[type="text"],
         input[type="email"] {
-          padding: 0.75rem 1rem;
+          padding: 0.85rem 1rem;
           border-radius: 0.6rem;
           border: 1px solid rgba(255, 255, 255, 0.15);
           background: rgba(255, 255, 255, 0.95);
           color: #12121a;
           font-size: 16px;
+          transition: box-shadow 0.15s, border-color 0.15s;
+        }
+        input[type="text"]:focus,
+        input[type="email"]:focus {
+          outline: none;
+          border-color: var(--primary);
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 30%, transparent);
         }
         .photo-input {
           display: inline-block;
           text-align: center;
-          padding: 0.9rem;
+          padding: 1.1rem;
           border: 1.5px dashed rgba(255, 255, 255, 0.25);
           border-radius: 0.6rem;
           cursor: pointer;
           font-size: 0.9rem;
           font-weight: 600;
+          transition: border-color 0.15s;
+        }
+        .photo-input:hover {
+          border-color: rgba(255, 255, 255, 0.45);
         }
         .photo-input input {
           display: none;
@@ -193,15 +204,21 @@ export function SignupForm({ slug, fields }: { slug: string; fields: SignupField
           color: #12121a;
           border: none;
           border-radius: 999px;
-          padding: 0.9rem;
+          padding: 1rem;
           font-weight: 700;
           font-size: 0.95rem;
           cursor: pointer;
-          margin-top: 0.5rem;
+          margin-top: 0.75rem;
+          box-shadow: 0 0.5rem 1.5rem color-mix(in srgb, var(--primary) 35%, transparent);
+          transition: transform 0.1s;
+        }
+        .submit-btn:active:not(:disabled) {
+          transform: scale(0.98);
         }
         .submit-btn:disabled {
           opacity: 0.6;
           cursor: default;
+          box-shadow: none;
         }
       `}</style>
     </form>
