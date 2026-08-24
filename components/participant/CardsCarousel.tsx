@@ -77,32 +77,23 @@ export function CardsCarousel({
             key={card.id}
             style={{
               flex: `0 0 calc((100% - ${(visibleCount - 1) * 1}rem) / ${visibleCount})`,
+              minWidth: "9rem",
               scrollSnapAlign: "start",
               background: "var(--surface, #141b3d)",
               borderRadius: "1rem",
               overflow: "hidden",
               border: "1px solid rgba(255,255,255,0.08)",
+              padding: "1.1rem 1rem",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              textAlign: "center",
+              minHeight: "3.5rem",
             }}
           >
-            {card.contentType === "html" && card.customHtml ? (
-              <div dangerouslySetInnerHTML={{ __html: card.customHtml }} />
-            ) : (
-              card.imageUrl && (
-                <img
-                  src={card.imageUrl}
-                  alt=""
-                  style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", display: "block" }}
-                />
-              )
+            {card.title && (
+              <h3 style={{ margin: 0, fontSize: "1rem", lineHeight: 1.4 }}>{card.title}</h3>
             )}
-            <div style={{ padding: "1rem 1.1rem" }}>
-              {card.title && <h3 style={{ margin: "0 0 0.4rem", fontSize: "1rem" }}>{card.title}</h3>}
-              {card.description && (
-                <p style={{ margin: 0, fontSize: "0.85rem", opacity: 0.75, lineHeight: 1.5 }}>
-                  {card.description}
-                </p>
-              )}
-            </div>
           </div>
         ))}
       </div>

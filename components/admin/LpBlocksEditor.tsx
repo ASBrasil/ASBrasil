@@ -265,43 +265,47 @@ export function LpBlocksEditor({
 
                 {(block.cards ?? []).map((card) => (
                   <div key={card.id} className="card-editor">
-                    <div className="content-type-toggle">
-                      <button
-                        type="button"
-                        className={`ct-option ${(card.contentType ?? "image") === "image" ? "active" : ""}`}
-                        onClick={() => updateCard(block.id, card.id, { contentType: "image" })}
-                      >
-                        📷 Upload
-                      </button>
-                      <button
-                        type="button"
-                        className={`ct-option ${card.contentType === "html" ? "active" : ""}`}
-                        onClick={() => updateCard(block.id, card.id, { contentType: "html" })}
-                      >
-                        {"</>"} HTML
-                      </button>
-                    </div>
+                    {block.type === "cardsGrid" && (
+                      <>
+                        <div className="content-type-toggle">
+                          <button
+                            type="button"
+                            className={`ct-option ${(card.contentType ?? "image") === "image" ? "active" : ""}`}
+                            onClick={() => updateCard(block.id, card.id, { contentType: "image" })}
+                          >
+                            📷 Upload
+                          </button>
+                          <button
+                            type="button"
+                            className={`ct-option ${card.contentType === "html" ? "active" : ""}`}
+                            onClick={() => updateCard(block.id, card.id, { contentType: "html" })}
+                          >
+                            {"</>"} HTML
+                          </button>
+                        </div>
 
-                    {(card.contentType ?? "image") === "image" ? (
-                      <ImageUpload
-                        label="Foto do card"
-                        value={card.imageUrl}
-                        onChange={(url) => updateCard(block.id, card.id, { imageUrl: url })}
-                        folder="lp-blocks"
-                        aspectRatio="4 / 3"
-                      />
-                    ) : (
-                      <Field
-                        label="HTML customizado"
-                        hint="Substitui a foto do card - renderizado exatamente como escrito. Só cole HTML de fontes em que você confia."
-                      >
-                        <textarea
-                          className="textarea code"
-                          rows={4}
-                          value={card.customHtml ?? ""}
-                          onChange={(e) => updateCard(block.id, card.id, { customHtml: e.target.value })}
-                        />
-                      </Field>
+                        {(card.contentType ?? "image") === "image" ? (
+                          <ImageUpload
+                            label="Foto do card"
+                            value={card.imageUrl}
+                            onChange={(url) => updateCard(block.id, card.id, { imageUrl: url })}
+                            folder="lp-blocks"
+                            aspectRatio="4 / 3"
+                          />
+                        ) : (
+                          <Field
+                            label="HTML customizado"
+                            hint="Substitui a foto do card - renderizado exatamente como escrito. Só cole HTML de fontes em que você confia."
+                          >
+                            <textarea
+                              className="textarea code"
+                              rows={4}
+                              value={card.customHtml ?? ""}
+                              onChange={(e) => updateCard(block.id, card.id, { customHtml: e.target.value })}
+                            />
+                          </Field>
+                        )}
+                      </>
                     )}
 
                     <Field label="Título do card">
@@ -310,12 +314,14 @@ export function LpBlocksEditor({
                         onChange={(e) => updateCard(block.id, card.id, { title: e.target.value })}
                       />
                     </Field>
-                    <Field label="Descrição" hint="Opcional">
-                      <Input
-                        value={card.description}
-                        onChange={(e) => updateCard(block.id, card.id, { description: e.target.value })}
-                      />
-                    </Field>
+                    {block.type === "cardsGrid" && (
+                      <Field label="Descrição" hint="Opcional">
+                        <Input
+                          value={card.description}
+                          onChange={(e) => updateCard(block.id, card.id, { description: e.target.value })}
+                        />
+                      </Field>
+                    )}
                     <button
                       type="button"
                       className="remove-card-btn"
