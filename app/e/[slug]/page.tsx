@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
 import { ResponsiveBanner } from "@/components/ResponsiveBanner";
+import { CardsCarousel } from "@/components/participant/CardsCarousel";
 
 export const dynamic = "force-dynamic";
 
@@ -93,8 +94,11 @@ export default async function EventPage({ params }: { params: { slug: string } }
                   {block.caption && <figcaption>{block.caption}</figcaption>}
                 </figure>
               )}
-              {block.type === "cards" && (
-                <div className="lp-cards">
+              {block.type === "cardsGrid" && (
+                <div
+                  className="lp-cards"
+                  style={{ "--cols": block.columns ?? 4 } as React.CSSProperties}
+                >
                   {(block.cards ?? []).map((card: any) => (
                     <div className="lp-card" key={card.id}>
                       {card.imageUrl && <img src={card.imageUrl} alt="" />}
@@ -105,6 +109,13 @@ export default async function EventPage({ params }: { params: { slug: string } }
                     </div>
                   ))}
                 </div>
+              )}
+              {block.type === "cardsCarousel" && (
+                <CardsCarousel
+                  cards={block.cards ?? []}
+                  visibleCount={block.visibleCount ?? 3}
+                  autoplay={!!block.autoplay}
+                />
               )}
             </ScrollReveal>
           ))}
@@ -266,8 +277,18 @@ export default async function EventPage({ params }: { params: { slug: string } }
         }
         .lp-cards {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+          grid-template-columns: repeat(var(--cols, auto-fit), 1fr);
           gap: 1.25rem;
+        }
+        @media (max-width: 700px) {
+          .lp-cards {
+            --cols: 2 !important;
+          }
+        }
+        @media (max-width: 420px) {
+          .lp-cards {
+            --cols: 1 !important;
+          }
         }
         .lp-card {
           background: var(--surface);

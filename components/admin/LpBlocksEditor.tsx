@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button, Field, Input } from "@/components/ui/primitives";
 import { ImageUpload } from "@/components/admin/ImageUpload";
 
-type BlockType = "text" | "image" | "cards";
+type BlockType = "text" | "image" | "cardsGrid" | "cardsCarousel";
 
 interface CardItem {
   id: string;
@@ -21,6 +21,9 @@ interface Block {
   imageUrl?: string | null;
   caption?: string;
   cards?: CardItem[];
+  columns?: number; // cardsGrid: quantas colunas fixas
+  visibleCount?: number; // cardsCarousel: quantos cards aparecem por vez
+  autoplay?: boolean; // cardsCarousel: avança sozinho devagar
 }
 
 function uid() {
@@ -30,7 +33,8 @@ function uid() {
 const TYPE_LABELS: Record<BlockType, { label: string; icon: string }> = {
   text: { label: "Texto", icon: "📝" },
   image: { label: "Imagem", icon: "🖼️" },
-  cards: { label: "Cards", icon: "🗂️" },
+  cardsGrid: { label: "Grade de Cards", icon: "🗂️" },
+  cardsCarousel: { label: "Carrossel de Cards", icon: "🎠" },
 };
 
 export function LpBlocksEditor({
@@ -54,7 +58,12 @@ export function LpBlocksEditor({
     } else if (type === "image") {
       base.imageUrl = null;
       base.caption = "";
+    } else if (type === "cardsGrid") {
+      base.columns = 4;
+      base.cards = [{ id: uid(), imageUrl: null, title: "", description: "" }];
     } else {
+      base.visibleCount = 3;
+      base.autoplay = false;
       base.cards = [{ id: uid(), imageUrl: null, title: "", description: "" }];
     }
     setBlocks((b) => [...b, base]);
@@ -185,8 +194,53 @@ export function LpBlocksEditor({
               </div>
             )}
 
-            {block.type === "cards" && (
+            {(block.type === "cardsGrid" || block.type === "cardsCarousel") && (
               <div className="block-body">
+                {block.type === "cardsGrid" && (
+                  <Field label="Colunas fixas" hint="De 2 a 10 por linha. Em telas estreitas, ajusta sozinho.">
+                    <select
+                      className="select"
+                      value={block.columns ?? 4}
+                      onChange={(e) => updateBlock(block.id, { columns: Number(e.target.value) })}
+                    >
+                      {Array.from({ length: 9 }, (_, i) => i + 2).map((n) => (
+                        <option key={n} value={n}>
+                          {n} colunas
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                )}
+
+                {block.type === "cardsCarousel" && (
+                  <>
+                    <Field label="Cards visíveis por vez" hint="De 1 a 6. Pode adicionar quantos cards quiser abaixo - o resto rola.">
+                      <select
+                        className="select"
+                        value={block.visibleCount ?? 3}
+                        onChange={(e) => updateBlock(block.id, { visibleCount: Number(e.target.value) })}
+                      >
+                        {[1, 2, 3, 4, 5, 6].map((n) => (
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <label className="autoplay-row">
+                      <input
+                        type="checkbox"
+                        checked={block.autoplay ?? false}
+                        onChange={(e) => updateBlock(block.id, { autoplay: e.target.checked })}
+                      />
+                      <span>
+                        <strong>▶️ Avançar automaticamente</strong>
+                        <small>Passa sozinho devagar. A pessoa também pode arrastar/clicar pros lados a qualquer momento.</small>
+                      </span>
+                    </label>
+                  </>
+                )}
+
                 {(block.cards ?? []).map((card) => (
                   <div key={card.id} className="card-editor">
                     <ImageUpload
@@ -326,6 +380,38 @@ export function LpBlocksEditor({
           background: none;
           border: none;
           cursor: pointer;
+        }
+        .select {
+          width: 100%;
+          box-sizing: border-box;
+          padding: 0.6rem 0.8rem;
+          border-radius: 0.5rem;
+          border: 1px solid var(--border);
+          background: var(--surface);
+          color: var(--text);
+          font-family: inherit;
+          font-size: 0.9rem;
+        }
+        .autoplay-row {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.6rem;
+          padding: 0.75rem 0.9rem;
+          background: var(--bg);
+          border-radius: 0.5rem;
+          cursor: pointer;
+        }
+        .autoplay-row input {
+          margin-top: 0.2rem;
+        }
+        .autoplay-row span {
+          display: flex;
+          flex-direction: column;
+          gap: 0.1rem;
+        }
+        .autoplay-row small {
+          color: var(--text-muted);
+          font-size: 0.78rem;
         }
         .textarea {
           width: 100%;
