@@ -248,7 +248,7 @@ export default async function EventPage({ params }: { params: { slug: string } }
         .signup-cta {
           display: inline-block;
           margin-top: 1.5rem;
-          background: var(--primary);
+          background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 100%, black 28%));
           color: #12121a;
           text-decoration: none;
           font-weight: 700;
@@ -256,6 +256,10 @@ export default async function EventPage({ params }: { params: { slug: string } }
           border-radius: 999px;
           font-size: 1rem;
           box-shadow: 0 0.5rem 1.5rem color-mix(in srgb, var(--primary) 40%, transparent);
+          transition: opacity 0.2s;
+        }
+        .signup-cta:hover {
+          opacity: 0.85;
         }
         .stats {
           display: flex;
@@ -374,13 +378,17 @@ export default async function EventPage({ params }: { params: { slug: string } }
         }
         .callout-btn {
           display: inline-block;
-          background: var(--primary);
+          background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 100%, black 28%));
           color: #12121a;
           text-decoration: none;
           font-weight: 600;
           padding: 0.65rem 1.3rem;
           border-radius: 999px;
           font-size: 0.9rem;
+          transition: opacity 0.2s;
+        }
+        .callout-btn:hover {
+          opacity: 0.85;
         }
         .signup-link-wrap {
           margin: 1rem 0 0;

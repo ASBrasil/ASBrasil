@@ -155,13 +155,17 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
           }
           .cta-btn {
             display: inline-block;
-            background: var(--primary);
+            background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 100%, black 28%));
             color: #12121a;
             font-weight: 700;
             text-decoration: none;
             padding: 0.7rem 1.5rem;
             border-radius: 999px;
             font-size: 0.9rem;
+            transition: opacity 0.2s;
+          }
+          .cta-btn:hover {
+            opacity: 0.85;
           }
         `}</style>
       </main>

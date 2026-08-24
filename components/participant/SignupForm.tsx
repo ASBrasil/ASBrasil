@@ -200,7 +200,7 @@ export function SignupForm({ slug, fields }: { slug: string; fields: SignupField
           margin: 0;
         }
         .submit-btn {
-          background: var(--primary);
+          background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 100%, black 28%));
           color: #12121a;
           border: none;
           border-radius: 999px;
@@ -210,7 +210,10 @@ export function SignupForm({ slug, fields }: { slug: string; fields: SignupField
           cursor: pointer;
           margin-top: 0.75rem;
           box-shadow: 0 0.5rem 1.5rem color-mix(in srgb, var(--primary) 35%, transparent);
-          transition: transform 0.1s;
+          transition: transform 0.1s, opacity 0.2s;
+        }
+        .submit-btn:hover:not(:disabled) {
+          opacity: 0.9;
         }
         .submit-btn:active:not(:disabled) {
           transform: scale(0.98);

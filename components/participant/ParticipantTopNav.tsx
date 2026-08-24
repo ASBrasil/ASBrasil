@@ -45,7 +45,7 @@ export function ParticipantTopNav({ eventName }: { eventName: string }) {
           style={{
             ...navLinkBase,
             color: "#12121a",
-            background: "var(--primary, #4f5fff)",
+            background: "linear-gradient(135deg, var(--primary, #4f5fff), color-mix(in srgb, var(--primary, #4f5fff) 100%, black 28%))",
           }}
         >
           ← Meus eventos
