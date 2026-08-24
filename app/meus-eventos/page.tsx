@@ -85,8 +85,11 @@ export default async function MeusEventosPage() {
       <AnnouncementPopup popup={activePopup} />
 
       <header className="topbar">
-        <span>Meus sorteios</span>
-        <div className="topbar-actions">
+        <span className="brand">
+          <span aria-hidden className="dot">●</span>
+          AS BRASIL
+        </span>
+        <nav className="topbar-center">
           <Link href="/vencedores" className="winners-link">
             🏆 Vencedores
           </Link>
@@ -98,17 +101,20 @@ export default async function MeusEventosPage() {
           >
             Minhas reservas ↗
           </a>
-          <form action="/api/public/session" method="post">
-            <button className="logout">Sair</button>
-          </form>
-        </div>
+        </nav>
+        <form action="/api/public/session" method="post" className="topbar-right">
+          <button className="logout">Sair</button>
+        </form>
       </header>
 
       <section className="content">
         {heroEvents.length > 0 && <HeroCarousel events={heroEvents} />}
 
-        <h1>Seus eventos</h1>
-        <p className="subtitle">Escolha uma campanha para ver seus números e os sorteios.</p>
+        <div className="page-heading">
+          <span className="eyebrow">Meus sorteios</span>
+          <h1>Seus eventos</h1>
+          <p className="subtitle">Escolha uma campanha para ver seus números e os sorteios.</p>
+        </div>
 
         {ativos.length === 0 && historico.length === 0 ? (
           <p className="empty">Nenhuma campanha encontrada para esse e-mail.</p>
@@ -122,7 +128,10 @@ export default async function MeusEventosPage() {
 
         {historico.length > 0 && (
           <>
-            <h2>Histórico</h2>
+            <div className="section-heading">
+              <span className="eyebrow">Arquivo</span>
+              <h2>Histórico</h2>
+            </div>
             <div className="grid">
               {historico.map(({ event, tickets }) => (
                 <EventCard key={event.id} event={event} tickets={tickets} muted />
@@ -133,8 +142,11 @@ export default async function MeusEventosPage() {
 
         {discoverable.length > 0 && (
           <>
-            <h2>Mais sorteios</h2>
-            <p className="subtitle small">Campanhas abertas que você ainda não está participando.</p>
+            <div className="section-heading">
+              <span className="eyebrow">Descubra</span>
+              <h2>Mais sorteios</h2>
+              <p className="subtitle small">Campanhas abertas que você ainda não está participando.</p>
+            </div>
             <div className="grid">
               {discoverable.map((event) => (
                 <DiscoverCard key={event.id} event={event} />
@@ -155,15 +167,38 @@ export default async function MeusEventosPage() {
           position: sticky;
           top: 0;
           z-index: 40;
-          display: flex;
-          justify-content: space-between;
+          display: grid;
+          grid-template-columns: 1fr auto 1fr;
           align-items: center;
-          padding: 0.9rem 1.75rem;
-          background: rgba(0, 0, 0, 0.35);
-          backdrop-filter: blur(10px);
+          gap: 1rem;
+          padding: 0.85rem 1.75rem;
+          background: rgba(8, 12, 30, 0.72);
+          backdrop-filter: blur(14px);
           border-bottom: 1px solid rgba(255, 255, 255, 0.08);
           font-size: 0.85rem;
-          color: rgba(255, 255, 255, 0.7);
+        }
+        .brand {
+          justify-self: start;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          font-weight: 800;
+          font-size: 0.85rem;
+          letter-spacing: 0.03em;
+        }
+        .brand .dot {
+          color: #4f5fff;
+        }
+        .topbar-center {
+          justify-self: center;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+          justify-content: center;
+        }
+        .topbar-right {
+          justify-self: end;
         }
         .logout {
           background: none;
@@ -171,7 +206,7 @@ export default async function MeusEventosPage() {
           color: white;
           opacity: 0.85;
           border-radius: 999px;
-          padding: 0.4rem 0.9rem;
+          padding: 0.42rem 1rem;
           cursor: pointer;
           font-size: 0.78rem;
         }
@@ -179,19 +214,17 @@ export default async function MeusEventosPage() {
           opacity: 1;
           border-color: rgba(255, 255, 255, 0.4);
         }
-        .topbar-actions {
-          display: flex;
-          align-items: center;
-          gap: 0.6rem;
-        }
         .reservas {
+          display: inline-flex;
+          align-items: center;
           color: white;
           text-decoration: none;
           border: 1px solid rgba(255, 255, 255, 0.2);
           border-radius: 999px;
-          padding: 0.4rem 0.9rem;
-          font-size: 0.78rem;
+          padding: 0.46rem 1.05rem;
+          font-size: 0.8rem;
           font-weight: 600;
+          white-space: nowrap;
           opacity: 0.9;
         }
         .reservas:hover {
@@ -199,28 +232,58 @@ export default async function MeusEventosPage() {
           border-color: rgba(255, 255, 255, 0.4);
         }
         .winners-link {
+          display: inline-flex;
+          align-items: center;
           color: #f5cf87;
           text-decoration: none;
           border: 1px solid rgba(232, 182, 70, 0.35);
           background: rgba(232, 182, 70, 0.1);
           border-radius: 999px;
-          padding: 0.4rem 0.9rem;
-          font-size: 0.78rem;
+          padding: 0.48rem 1.05rem;
+          font-size: 0.8rem;
           font-weight: 700;
+          white-space: nowrap;
         }
         .winners-link:hover {
           border-color: rgba(232, 182, 70, 0.65);
         }
-        .content { max-width: 60rem; margin: 0 auto; padding: 2.5rem 1.75rem 5rem; }
-        h1 { margin: 0 0 0.25rem; font-family: "Sora", system-ui, sans-serif; }
-        h2 { margin: 3rem 0 0.25rem; font-family: "Sora", system-ui, sans-serif; font-size: 1.25rem; }
-        .subtitle { color: rgba(255, 255, 255, 0.6); margin-bottom: 2rem; }
-        .subtitle.small { margin-bottom: 1.25rem; font-size: 0.9rem; }
+        .content { max-width: 64rem; margin: 0 auto; padding: 3.5rem 2rem 6rem; }
+        .page-heading { max-width: 32rem; margin-bottom: 3rem; }
+        .eyebrow {
+          display: block;
+          font-size: 0.72rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.14em;
+          color: #8b9aff;
+          margin-bottom: 0.6rem;
+        }
+        h1 { margin: 0 0 0.6rem; font-family: "Sora", system-ui, sans-serif; font-size: clamp(1.8rem, 3.5vw, 2.4rem); }
+        .section-heading { margin: 4.5rem 0 1.75rem; }
+        h2 { margin: 0; font-family: "Sora", system-ui, sans-serif; font-size: 1.4rem; }
+        .subtitle { color: rgba(255, 255, 255, 0.6); margin: 0; line-height: 1.6; }
+        .subtitle.small { margin-top: 0.4rem; font-size: 0.9rem; }
         .empty { color: rgba(255, 255, 255, 0.6); }
         .grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
-          gap: 1.1rem;
+          grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+          gap: 1.35rem;
+        }
+        @media (max-width: 860px) {
+          .topbar {
+            grid-template-columns: 1fr auto;
+            grid-template-areas: "brand right" "nav nav";
+            row-gap: 0.75rem;
+          }
+          .brand { grid-area: brand; }
+          .topbar-right { grid-area: right; }
+          .topbar-center {
+            grid-area: nav;
+            justify-self: stretch;
+            justify-content: flex-start;
+            overflow-x: auto;
+            flex-wrap: nowrap;
+          }
         }
 
         /* Cartões de evento (EventCard e DiscoverCard) - num bloco só, já
