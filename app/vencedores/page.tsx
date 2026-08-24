@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import Link from "next/link";
+import { WinnersMarquee } from "@/components/participant/WinnersMarquee";
 
 export const dynamic = "force-dynamic";
 
@@ -44,13 +45,18 @@ export default async function GlobalWinnersPage() {
     }))
     .filter((s) => s.winners.length > 0);
 
+  const marqueeItems = sections.flatMap((s) => s.winners.map((w) => `${w.winnerName} · ${w.prizeName}`));
+
   return (
     <main className="page">
       <header className="topbar">
-        <Link href="/meus-eventos" className="back">
-          ← Meus eventos
+        <Link href="/meus-eventos" className="brand">
+          <span aria-hidden className="dot">●</span>
+          AS BRASIL
         </Link>
-        <span>🏆 Vencedores</span>
+        <Link href="/meus-eventos" className="back">
+          ← Voltar
+        </Link>
       </header>
 
       <section className="hero">
@@ -60,6 +66,12 @@ export default async function GlobalWinnersPage() {
           participando.
         </p>
       </section>
+
+      {marqueeItems.length > 0 && (
+        <div className="marquee-wrap">
+          <WinnersMarquee items={marqueeItems} />
+        </div>
+      )}
 
       {sections.length === 0 ? (
         <p className="empty">Nenhum resultado publicado ainda. Volte em breve!</p>
@@ -107,28 +119,38 @@ export default async function GlobalWinnersPage() {
           align-items: center;
           justify-content: space-between;
           gap: 1rem;
-          padding: 0.9rem 1.75rem;
-          background: rgba(0, 0, 0, 0.35);
-          backdrop-filter: blur(10px);
+          padding: 0.85rem 1.75rem;
+          background: rgba(8, 12, 30, 0.72);
+          backdrop-filter: blur(14px);
           border-bottom: 1px solid rgba(255, 255, 255, 0.08);
           font-size: 0.85rem;
+        }
+        .brand {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          color: white;
+          text-decoration: none;
+          font-weight: 800;
+          font-size: 0.85rem;
+          letter-spacing: 0.03em;
+        }
+        .brand .dot {
+          color: #4f5fff;
         }
         .back {
           color: white;
           text-decoration: none;
           opacity: 0.8;
           font-weight: 600;
+          font-size: 0.82rem;
         }
         .back:hover {
           opacity: 1;
         }
-        .topbar span {
-          font-weight: 700;
-          opacity: 0.9;
-        }
         .hero {
           text-align: center;
-          padding: 3rem 1.5rem 2rem;
+          padding: 3.5rem 1.5rem 1.5rem;
         }
         h1 {
           font-family: "Sora", system-ui, sans-serif;
@@ -139,6 +161,9 @@ export default async function GlobalWinnersPage() {
           color: rgba(255, 255, 255, 0.6);
           max-width: 32rem;
           margin: 0 auto;
+        }
+        .marquee-wrap {
+          margin: 2rem 0 3.5rem;
         }
         .empty {
           text-align: center;
@@ -151,18 +176,21 @@ export default async function GlobalWinnersPage() {
           padding: 0 1.5rem 5rem;
         }
         .event-section {
-          margin-bottom: 3rem;
+          margin-bottom: 4rem;
         }
         .event-header {
-          margin-bottom: 1.1rem;
+          margin-bottom: 1.25rem;
         }
         .campaign {
-          display: block;
-          font-size: 0.72rem;
+          display: inline-block;
+          font-size: 0.7rem;
           text-transform: uppercase;
           letter-spacing: 0.1em;
           color: #8b9aff;
-          margin-bottom: 0.2rem;
+          border: 1px solid rgba(139, 154, 255, 0.4);
+          border-radius: 999px;
+          padding: 0.25rem 0.75rem;
+          margin-bottom: 0.6rem;
         }
         .event-header h2 {
           font-family: "Sora", system-ui, sans-serif;
@@ -197,10 +225,14 @@ export default async function GlobalWinnersPage() {
           padding: 1.1rem 1.25rem;
         }
         .prize {
-          font-size: 0.75rem;
+          display: inline-block;
+          font-size: 0.7rem;
           text-transform: uppercase;
           letter-spacing: 0.06em;
           color: #8b9aff;
+          border: 1px solid rgba(139, 154, 255, 0.35);
+          border-radius: 999px;
+          padding: 0.2rem 0.65rem;
         }
         .info h3 {
           margin: 0.3rem 0;
