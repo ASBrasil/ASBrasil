@@ -7,6 +7,8 @@ interface CardItem {
   imageUrl: string | null;
   title: string;
   description: string;
+  contentType?: "image" | "html";
+  customHtml?: string;
 }
 
 export function CardsCarousel({
@@ -82,12 +84,16 @@ export function CardsCarousel({
               border: "1px solid rgba(255,255,255,0.08)",
             }}
           >
-            {card.imageUrl && (
-              <img
-                src={card.imageUrl}
-                alt=""
-                style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", display: "block" }}
-              />
+            {card.contentType === "html" && card.customHtml ? (
+              <div dangerouslySetInnerHTML={{ __html: card.customHtml }} />
+            ) : (
+              card.imageUrl && (
+                <img
+                  src={card.imageUrl}
+                  alt=""
+                  style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", display: "block" }}
+                />
+              )
             )}
             <div style={{ padding: "1rem 1.1rem" }}>
               {card.title && <h3 style={{ margin: "0 0 0.4rem", fontSize: "1rem" }}>{card.title}</h3>}

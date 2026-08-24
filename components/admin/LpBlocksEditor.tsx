@@ -11,6 +11,11 @@ interface CardItem {
   imageUrl: string | null;
   title: string;
   description: string;
+  // "image" (padrão) usa imageUrl via upload normal; "html" usa customHtml
+  // no lugar da imagem - dá pra misturar os dois tipos no mesmo bloco,
+  // cada card decide por si.
+  contentType?: "image" | "html";
+  customHtml?: string;
 }
 
 interface Block {
@@ -237,7 +242,7 @@ export function LpBlocksEditor({
                         value={block.visibleCount ?? 3}
                         onChange={(e) => updateBlock(block.id, { visibleCount: Number(e.target.value) })}
                       >
-                        {[1, 2, 3, 4, 5, 6].map((n) => (
+                        {Array.from({ length: 15 }, (_, i) => i + 1).map((n) => (
                           <option key={n} value={n}>
                             {n}
                           </option>
@@ -260,13 +265,45 @@ export function LpBlocksEditor({
 
                 {(block.cards ?? []).map((card) => (
                   <div key={card.id} className="card-editor">
-                    <ImageUpload
-                      label="Foto do card"
-                      value={card.imageUrl}
-                      onChange={(url) => updateCard(block.id, card.id, { imageUrl: url })}
-                      folder="lp-blocks"
-                      aspectRatio="4 / 3"
-                    />
+                    <div className="content-type-toggle">
+                      <button
+                        type="button"
+                        className={`ct-option ${(card.contentType ?? "image") === "image" ? "active" : ""}`}
+                        onClick={() => updateCard(block.id, card.id, { contentType: "image" })}
+                      >
+                        📷 Upload
+                      </button>
+                      <button
+                        type="button"
+                        className={`ct-option ${card.contentType === "html" ? "active" : ""}`}
+                        onClick={() => updateCard(block.id, card.id, { contentType: "html" })}
+                      >
+                        {"</>"} HTML
+                      </button>
+                    </div>
+
+                    {(card.contentType ?? "image") === "image" ? (
+                      <ImageUpload
+                        label="Foto do card"
+                        value={card.imageUrl}
+                        onChange={(url) => updateCard(block.id, card.id, { imageUrl: url })}
+                        folder="lp-blocks"
+                        aspectRatio="4 / 3"
+                      />
+                    ) : (
+                      <Field
+                        label="HTML customizado"
+                        hint="Substitui a foto do card - renderizado exatamente como escrito. Só cole HTML de fontes em que você confia."
+                      >
+                        <textarea
+                          className="textarea code"
+                          rows={4}
+                          value={card.customHtml ?? ""}
+                          onChange={(e) => updateCard(block.id, card.id, { customHtml: e.target.value })}
+                        />
+                      </Field>
+                    )}
+
                     <Field label="Título do card">
                       <Input
                         value={card.title}
@@ -389,6 +426,28 @@ export function LpBlocksEditor({
           display: flex;
           flex-direction: column;
           gap: 0.6rem;
+        }
+        .content-type-toggle {
+          display: flex;
+          gap: 0.4rem;
+        }
+        .ct-option {
+          flex: 1;
+          padding: 0.45rem 0.6rem;
+          border-radius: 0.5rem;
+          border: 1px solid var(--border);
+          background: var(--bg);
+          cursor: pointer;
+          font-size: 0.82rem;
+          color: var(--text);
+        }
+        .ct-option.active {
+          border-color: var(--indigo-600);
+          background: color-mix(in srgb, var(--indigo-600) 8%, var(--bg));
+        }
+        .textarea.code {
+          font-family: var(--font-mono, monospace);
+          font-size: 0.8rem;
         }
         .remove-card-btn {
           align-self: flex-start;

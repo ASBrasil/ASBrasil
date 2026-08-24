@@ -118,7 +118,11 @@ export default async function EventPage({ params }: { params: { slug: string } }
                   >
                     {(block.cards ?? []).map((card: any) => (
                       <div className="lp-card" key={card.id}>
-                        {card.imageUrl && <img src={card.imageUrl} alt="" />}
+                        {card.contentType === "html" && card.customHtml ? (
+                          <div dangerouslySetInnerHTML={{ __html: card.customHtml }} />
+                        ) : (
+                          card.imageUrl && <img src={card.imageUrl} alt="" />
+                        )}
                         <div className="lp-card-body">
                           {card.title && <h3>{card.title}</h3>}
                           {card.description && <p>{card.description}</p>}
