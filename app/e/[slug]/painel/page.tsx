@@ -371,7 +371,10 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
       {surpriseData && <SurpriseSection mission={surpriseData} />}
 
       <section className="path-section">
-        <h2>Seus sorteios</h2>
+        <div className="section-heading">
+          <span className="eyebrow">Acompanhe</span>
+          <h2>Seus sorteios</h2>
+        </div>
         {steps.length === 0 ? (
           <p className="empty">Nenhum prêmio cadastrado ainda.</p>
         ) : (
@@ -428,16 +431,17 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
           margin: 0;
         }
         .numbers-section {
-          padding: 1.5rem 1.5rem 0.5rem;
+          padding: 2.5rem 1.5rem 0.75rem;
           text-align: center;
         }
         .number-pill {
           display: inline-block;
           max-width: 32rem;
           background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 1.5rem;
-          padding: 0.6rem 1.4rem;
-          font-size: 0.9rem;
+          padding: 0.75rem 1.6rem;
+          font-size: 0.92rem;
           line-height: 1.6;
         }
         .number-pill strong {
@@ -505,18 +509,26 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
         .path-section {
           max-width: 60rem;
           margin: 0 auto;
-          padding: 1rem 1.5rem 4rem;
+          padding: 1.5rem 1.5rem 4.5rem;
+        }
+        .section-heading {
+          margin-bottom: 1.5rem;
+        }
+        .section-heading .eyebrow {
+          display: block;
+          font-size: 0.72rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.14em;
+          color: var(--primary);
+          margin-bottom: 0.4rem;
         }
         h2 {
-          font-size: 1rem;
-          opacity: 0.75;
-          font-weight: 500;
-        }
-        @media (min-width: 40rem) {
-          h2 {
-            font-size: 1.1rem;
-            margin-bottom: 0.5rem;
-          }
+          font-family: "Sora", system-ui, sans-serif;
+          font-size: 1.3rem;
+          font-weight: 700;
+          margin: 0;
+          opacity: 1;
         }
         .empty {
           opacity: 0.6;
