@@ -6,6 +6,7 @@ import { PrizePath, PathStep } from "@/components/participant/PrizePath";
 import { MissionGate } from "@/components/participant/MissionGate";
 import { SurpriseSection } from "@/components/participant/SurpriseSection";
 import { ResponsiveBanner } from "@/components/ResponsiveBanner";
+import { LpBlocksSection } from "@/components/LpBlocksSection";
 
 export default async function ParticipantEventPage({ params }: { params: { slug: string } }) {
   const email = await getParticipantEmail();
@@ -89,6 +90,8 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
             </a>
           </div>
         </section>
+
+        <LpBlocksSection blocks={event.lpBlocks} />
 
         <style>{`
           .hero {
@@ -425,6 +428,8 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
           <PrizePath slug={event.slug} steps={steps} />
         )}
       </section>
+
+      <LpBlocksSection blocks={event.lpBlocks} />
 
       <style>{`
         .hero {
