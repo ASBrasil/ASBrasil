@@ -45,6 +45,7 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
           {
             "--primary": colors.primary ?? "#4F5FFF",
             "--background": colors.background ?? "#0A1330",
+            "--surface": colors.surface ?? "#141B3D",
             background: colors.background ?? "#0A1330",
             color: colors.text ?? "#F5F6FA",
             minHeight: "100vh",
@@ -231,6 +232,7 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
             style={
               {
                 "--primary": colors.primary ?? "#4F5FFF",
+                "--surface": colors.surface ?? "#141B3D",
                 background: colors.background ?? "#0A1330",
                 color: colors.text ?? "#F5F6FA",
                 minHeight: "100vh",
@@ -356,6 +358,7 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
         {
           "--primary": colors.primary ?? "#4F5FFF",
           "--background": colors.background ?? "#0A1330",
+          "--surface": colors.surface ?? "#141B3D",
           background: colors.background ?? "#0A1330",
           color: colors.text ?? "#F5F6FA",
           minHeight: "100vh",

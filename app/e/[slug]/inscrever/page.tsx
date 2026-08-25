@@ -27,6 +27,7 @@ export default async function EventSignupPage({ params }: { params: { slug: stri
       style={
         {
           "--primary": colors.primary ?? "#4F5FFF",
+          "--surface": colors.surface ?? "#141B3D",
           background: colors.background ?? "#0A1330",
           color: colors.text ?? "#F5F6FA",
           minHeight: "100vh",

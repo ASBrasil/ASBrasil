@@ -235,32 +235,19 @@ export function LpBlocksEditor({
                 )}
 
                 {block.type === "cardsCarousel" && (
-                  <>
-                    <Field label="Cards visíveis por vez" hint="De 1 a 6. Pode adicionar quantos cards quiser abaixo - o resto rola.">
-                      <select
-                        className="select"
-                        value={block.visibleCount ?? 3}
-                        onChange={(e) => updateBlock(block.id, { visibleCount: Number(e.target.value) })}
-                      >
-                        {Array.from({ length: 15 }, (_, i) => i + 1).map((n) => (
-                          <option key={n} value={n}>
-                            {n}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    <label className="autoplay-row">
-                      <input
-                        type="checkbox"
-                        checked={block.autoplay ?? false}
-                        onChange={(e) => updateBlock(block.id, { autoplay: e.target.checked })}
-                      />
-                      <span>
-                        <strong>▶️ Avançar automaticamente</strong>
-                        <small>Passa sozinho devagar. A pessoa também pode arrastar/clicar pros lados a qualquer momento.</small>
-                      </span>
-                    </label>
-                  </>
+                  <Field label="Cards visíveis por vez" hint="De 1 a 6. Pode adicionar quantos cards quiser abaixo - o resto rola. Avança sozinho devagar sempre, sem parar; a pessoa também pode arrastar/clicar pros lados a qualquer momento.">
+                    <select
+                      className="select"
+                      value={block.visibleCount ?? 3}
+                      onChange={(e) => updateBlock(block.id, { visibleCount: Number(e.target.value) })}
+                    >
+                      {Array.from({ length: 15 }, (_, i) => i + 1).map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
                 )}
 
                 {(block.cards ?? []).map((card) => (

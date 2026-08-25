@@ -8,26 +8,32 @@ export function EventsCarousel({ children }: { children: React.ReactNode[] }) {
   const [manualPause, setManualPause] = useState(false);
   const [showArrows, setShowArrows] = useState(false);
 
+  // Duplica a lista pra permitir loop infinito sem "pulo" visível: quando o
+  // scroll passa da primeira cópia inteira, volta pro mesmo ponto na
+  // segunda copia identica - o reset e imperceptivel. Mesma tecnica ja
+  // usada no carrossel de cards e no run-line de vencedores.
+  const loopable = children.length > 0;
+  const displayChildren = loopable ? [...children, ...children] : children;
+
   useEffect(() => {
     const el = trackRef.current;
     if (!el) return;
-    setShowArrows(el.scrollWidth > el.clientWidth + 4);
+    setShowArrows(el.scrollWidth / 2 > el.clientWidth + 4);
   }, [children.length]);
 
   useEffect(() => {
+    if (!loopable) return;
     const el = trackRef.current;
     if (!el) return;
 
     let raf: number;
-    const speed = 0.4;
+    const speed = 0.5;
 
     function step() {
       if (el && !pausedRef.current) {
-        const max = el.scrollWidth - el.clientWidth;
-        if (max > 0) {
-          el.scrollLeft += speed;
-          if (el.scrollLeft >= max) el.scrollLeft = 0;
-        }
+        el.scrollLeft += speed;
+        const singleSetWidth = el.scrollWidth / 2;
+        if (el.scrollLeft >= singleSetWidth) el.scrollLeft -= singleSetWidth;
       }
       raf = requestAnimationFrame(step);
     }
@@ -49,7 +55,7 @@ export function EventsCarousel({ children }: { children: React.ReactNode[] }) {
       el.removeEventListener("touchstart", onEnter);
       el.removeEventListener("touchend", onLeave);
     };
-  }, [manualPause]);
+  }, [loopable, manualPause]);
 
   function scroll(dir: -1 | 1) {
     const el = trackRef.current;
@@ -75,7 +81,7 @@ export function EventsCarousel({ children }: { children: React.ReactNode[] }) {
           paddingBottom: "0.25rem",
         }}
       >
-        {children.map((child, i) => (
+        {displayChildren.map((child, i) => (
           <div key={i} style={{ flex: "0 0 16rem", minWidth: 0 }}>
             {child}
           </div>

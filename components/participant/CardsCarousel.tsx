@@ -28,8 +28,10 @@ export function CardsCarousel({
 
   // Duplica a lista pra permitir loop infinito sem "pulo" visível: quando o
   // scroll passa da primeira cópia inteira, volta pro início do mesmo ponto
-  // (como as duas cópias são idênticas, o reset é imperceptível).
-  const loopable = autoplay && cards.length > 0;
+  // (como as duas cópias são idênticas, o reset é imperceptível). Sempre
+  // ativo agora - antes só rolava se "autoplay" estivesse marcado no admin,
+  // o que fazia o carrossel parecer travado quando não estava.
+  const loopable = cards.length > 0;
   const displayCards = loopable ? [...cards, ...cards] : cards;
 
   useEffect(() => {
