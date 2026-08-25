@@ -17,6 +17,7 @@ export default async function ApprovalsPage({
 
   const fields = (event.signupFields as any[]) ?? [];
   const photoField = fields.find((f) => f.type === "photo");
+  const needsApproval = event.requireSignupApproval || !!photoField?.required;
 
   const status = searchParams.status === "all" ? undefined : searchParams.status ?? "PENDING";
 
@@ -48,16 +49,22 @@ export default async function ApprovalsPage({
         </p>
       </div>
 
-      <div className={`diagnostic ${event.requireSignupApproval ? "ok" : "warn"}`}>
-        <strong>{event.requireSignupApproval ? "✅" : "⚠️"} Aprovação manual: {event.requireSignupApproval ? "LIGADA" : "DESLIGADA"}</strong>
+      <div className={`diagnostic ${needsApproval ? "ok" : "warn"}`}>
+        <strong>
+          {needsApproval ? "✅" : "⚠️"} Novas inscrições ficam pendentes: {needsApproval ? "SIM" : "NÃO"}
+        </strong>
         <span>
-          {event.requireSignupApproval
-            ? "Novas inscrições nascem Pendentes e precisam ser revisadas aqui."
-            : "Novas inscrições são aprovadas automaticamente, sem passar por revisão. Se não era essa a intenção, liga em Editar → Participantes → Inscrição pública."}
+          {needsApproval
+            ? "Toda inscrição nova nasce Pendente e precisa ser revisada aqui antes do número valer pro sorteio."
+            : "Inscrições novas são aprovadas automaticamente, sem passar por revisão nenhuma."}
         </span>
         <strong className="second">
           {photoField ? "📸" : "—"} Print/comprovante: {photoField ? (photoField.required ? "obrigatório" : "opcional") : "não configurado neste evento"}
         </strong>
+        <span className="detail-line">
+          "Exigir aprovação manual": {event.requireSignupApproval ? "ligada" : "desligada"}
+          {photoField?.required && !event.requireSignupApproval && " · fica pendente mesmo assim, porque o comprovante é obrigatório"}
+        </span>
       </div>
 
       <div className="tabs">
@@ -130,6 +137,10 @@ export default async function ApprovalsPage({
           margin-top: 0.3rem;
           padding-top: 0.5rem;
           border-top: 1px solid var(--border);
+        }
+        .diagnostic .detail-line {
+          font-size: 0.78rem;
+          opacity: 0.75;
         }
         .tabs {
           display: flex;

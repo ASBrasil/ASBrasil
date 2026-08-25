@@ -109,6 +109,14 @@ export async function POST(req: NextRequest) {
   const phone = custom.phone ?? null;
   delete custom.phone;
 
+  // Sempre que o evento pede foto obrigatória, a inscrição nasce Pendente
+  // - independente do toggle "Exigir aprovação manual" estar ligado ou não.
+  // Isso fecha a brecha de alguém marcar a foto como obrigatória mas
+  // esquecer (ou não perceber) que precisava ligar o outro toggle também:
+  // pedir comprovante e não revisar ele não faz sentido nenhum.
+  const hasRequiredPhoto = fields.some((f) => f.type === "photo" && f.required);
+  const needsApproval = event.requireSignupApproval || hasRequiredPhoto;
+
   const participant = await db.participant.create({
     data: {
       eventId: event.id,
@@ -119,7 +127,7 @@ export async function POST(req: NextRequest) {
       source: ParticipantSource.SIGNUP,
       photoUrl,
       customData: Object.keys(custom).length > 0 ? custom : undefined,
-      moderationStatus: event.requireSignupApproval ? "PENDING" : "APPROVED",
+      moderationStatus: needsApproval ? "PENDING" : "APPROVED",
     },
   });
 
@@ -127,6 +135,6 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     raffleNumber: participant.raffleNumber,
-    pendingApproval: event.requireSignupApproval,
+    pendingApproval: needsApproval,
   });
 }
