@@ -107,6 +107,9 @@ export default async function MeusEventosPage() {
           >
             Minhas reservas ↗
           </a>
+          <Link href="/perfil" className="profile-link">
+            👤 Meu perfil
+          </Link>
         </nav>
         <form action="/api/public/session" method="post" className="topbar-right">
           <button className="logout">Sair</button>
@@ -262,6 +265,21 @@ export default async function MeusEventosPage() {
         .winners-link:hover {
           border-color: rgba(232, 182, 70, 0.65);
         }
+        .profile-link {
+          display: inline-flex;
+          align-items: center;
+          color: white;
+          text-decoration: none;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 999px;
+          padding: 0.48rem 1.05rem;
+          font-size: 0.8rem;
+          font-weight: 600;
+          white-space: nowrap;
+        }
+        .profile-link:hover {
+          border-color: rgba(255, 255, 255, 0.4);
+        }
         .content { max-width: 64rem; margin: 0 auto; padding: 3.5rem 2rem 6rem; }
         .page-heading { max-width: 32rem; margin-bottom: 3rem; }
         .eyebrow {
@@ -341,6 +359,19 @@ export default async function MeusEventosPage() {
           border-radius: 999px;
           box-shadow: 0 0.2rem 0.5rem rgba(0, 0, 0, 0.25);
         }
+        .drawn-badge {
+          position: absolute;
+          top: 0.6rem;
+          right: 0.6rem;
+          z-index: 1;
+          background: rgba(10, 15, 35, 0.85);
+          border: 1px solid rgba(79, 95, 255, 0.5);
+          color: #8b9aff;
+          font-size: 0.68rem;
+          font-weight: 700;
+          padding: 0.25rem 0.6rem;
+          border-radius: 999px;
+        }
         .banner {
           height: 5rem;
         }
@@ -382,16 +413,18 @@ function EventCard({
   tickets,
   muted,
 }: {
-  event: { id: string; slug: string; name: string; campaign: string | null; theme: unknown };
+  event: { id: string; slug: string; name: string; campaign: string | null; theme: unknown; prizes?: { status: string }[] };
   tickets: { name: string; number: number }[];
   muted?: boolean;
 }) {
   const theme = event.theme as any;
   const primary = theme?.colors?.primary ?? "#4F5FFF";
   const bannerUrl = theme?.bannerUrl as string | undefined;
+  const hasDrawn = (event.prizes ?? []).some((p) => p.status === "DRAWN");
 
   return (
     <Link href={`/e/${event.slug}/painel`} className={`card ${muted ? "muted" : ""}`}>
+      {hasDrawn && <span className="drawn-badge">🎉 Sorteado</span>}
       {bannerUrl ? (
         <img src={bannerUrl} alt="" className="banner-img" />
       ) : (

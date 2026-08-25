@@ -15,6 +15,9 @@ export default async function ApprovalsPage({
   const event = await db.event.findUnique({ where: { id: params.id } });
   if (!event) notFound();
 
+  const fields = (event.signupFields as any[]) ?? [];
+  const photoField = fields.find((f) => f.type === "photo");
+
   const status = searchParams.status === "all" ? undefined : searchParams.status ?? "PENDING";
 
   const participants = await db.participant.findMany({
@@ -43,6 +46,18 @@ export default async function ApprovalsPage({
           Mostra só quem se inscreveu pelo formulário público — importados de planilha e adicionados
           manualmente não passam por essa etapa, então não aparecem aqui.
         </p>
+      </div>
+
+      <div className={`diagnostic ${event.requireSignupApproval ? "ok" : "warn"}`}>
+        <strong>{event.requireSignupApproval ? "✅" : "⚠️"} Aprovação manual: {event.requireSignupApproval ? "LIGADA" : "DESLIGADA"}</strong>
+        <span>
+          {event.requireSignupApproval
+            ? "Novas inscrições nascem Pendentes e precisam ser revisadas aqui."
+            : "Novas inscrições são aprovadas automaticamente, sem passar por revisão. Se não era essa a intenção, liga em Editar → Participantes → Inscrição pública."}
+        </span>
+        <strong className="second">
+          {photoField ? "📸" : "—"} Print/comprovante: {photoField ? (photoField.required ? "obrigatório" : "opcional") : "não configurado neste evento"}
+        </strong>
       </div>
 
       <div className="tabs">
@@ -88,6 +103,33 @@ export default async function ApprovalsPage({
           font-size: 0.8rem;
           margin: 0;
           font-style: italic;
+        }
+        .diagnostic {
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+          max-width: 40rem;
+          padding: 0.9rem 1.1rem;
+          border-radius: 0.6rem;
+          margin-bottom: 1.5rem;
+          font-size: 0.85rem;
+        }
+        .diagnostic.ok {
+          background: rgba(22, 163, 74, 0.08);
+          border: 1px solid rgba(22, 163, 74, 0.3);
+        }
+        .diagnostic.warn {
+          background: rgba(180, 83, 9, 0.08);
+          border: 1px solid rgba(180, 83, 9, 0.3);
+        }
+        .diagnostic span {
+          color: var(--text-muted);
+          line-height: 1.5;
+        }
+        .diagnostic .second {
+          margin-top: 0.3rem;
+          padding-top: 0.5rem;
+          border-top: 1px solid var(--border);
         }
         .tabs {
           display: flex;

@@ -69,6 +69,17 @@ export function ParticipantTopNav({ eventName }: { eventName: string }) {
         >
           🏆 Vencedores
         </Link>
+        <Link
+          href="/perfil"
+          style={{
+            ...navLinkBase,
+            color: "#fff",
+            background: "transparent",
+            border: "1px solid rgba(255, 255, 255, 0.2)",
+          }}
+        >
+          👤 Meu perfil
+        </Link>
       </nav>
 
       <div className="right">

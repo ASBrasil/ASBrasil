@@ -348,6 +348,18 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
       </section>
 
       <section className="numbers-section">
+        {myParticipants.some((p) => p.moderationStatus === "PENDING") && (
+          <p className="moderation-note pending">
+            ⏳ Sua participação está em análise. Seu número aparece abaixo, mas só entra no
+            sorteio depois que a equipe confirmar seu comprovante.
+          </p>
+        )}
+        {myParticipants.some((p) => p.moderationStatus === "REJECTED") && (
+          <p className="moderation-note rejected">
+            ❌ Sua participação não foi aprovada. Esse número não entra no sorteio até que a
+            situação seja corrigida — entre em contato com a organização.
+          </p>
+        )}
         {myNumbers.length === 1 ? (
           <div className="number-pill">
             Seu número é: <strong>{myNumbers[0]}</strong>
@@ -437,6 +449,23 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
         .numbers-section {
           padding: 2.5rem 1.5rem 0.75rem;
           text-align: center;
+        }
+        .moderation-note {
+          max-width: 32rem;
+          margin: 0 auto 1rem;
+          padding: 0.75rem 1.1rem;
+          border-radius: 0.75rem;
+          font-size: 0.85rem;
+          line-height: 1.6;
+          text-align: left;
+        }
+        .moderation-note.pending {
+          background: rgba(180, 83, 9, 0.12);
+          border: 1px solid rgba(180, 83, 9, 0.35);
+        }
+        .moderation-note.rejected {
+          background: rgba(192, 57, 43, 0.12);
+          border: 1px solid rgba(192, 57, 43, 0.35);
         }
         .number-pill {
           display: inline-block;
