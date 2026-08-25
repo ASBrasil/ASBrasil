@@ -73,9 +73,21 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
             {event.prerequisiteText ||
               "Esse sorteio tem um pré-requisito específico para participar. Fale com nosso time para saber como entrar."}
           </p>
-          <a href="https://app.asbrasil.tur.br/" target="_blank" rel="noopener noreferrer" className="cta-btn">
-            Minhas reservas ↗
-          </a>
+          <div className="prerequisite-actions">
+            {event.publicSignupEnabled && (
+              <a href={`/e/${event.slug}/inscrever`} className="cta-btn primary">
+                🎟️ Inscrever-se agora
+              </a>
+            )}
+            <a
+              href="https://app.asbrasil.tur.br/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`cta-btn ${event.publicSignupEnabled ? "secondary" : ""}`}
+            >
+              Minhas reservas ↗
+            </a>
+          </div>
         </section>
 
         <style>{`
@@ -153,6 +165,12 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
             margin: 0 0 1.75rem;
             white-space: pre-wrap;
           }
+          .prerequisite-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.75rem;
+          }
           .cta-btn {
             display: inline-block;
             background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 100%, black 28%));
@@ -162,10 +180,20 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
             padding: 0.7rem 1.5rem;
             border-radius: 999px;
             font-size: 0.9rem;
-            transition: opacity 0.2s;
+            transition: opacity 0.2s, background 0.2s, color 0.2s;
           }
           .cta-btn:hover {
             opacity: 0.85;
+          }
+          .cta-btn.secondary {
+            background: transparent;
+            color: #fff;
+            opacity: 0.85;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+          }
+          .cta-btn.secondary:hover {
+            opacity: 1;
+            border-color: rgba(255, 255, 255, 0.45);
           }
         `}</style>
       </main>
