@@ -17,6 +17,8 @@ export default async function AcessosPage({
   const startOfToday = startOfTodayBrasilia();
   const d7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
+  const d14 = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
   const [
     totalEntries,
     entriesToday,
@@ -24,6 +26,7 @@ export default async function AcessosPage({
     active48hGroups,
     uniqueAllTimeGroups,
     recentEntries,
+    last14dEntries,
   ] = await Promise.all([
     db.loginEvent.count(),
     db.loginEvent.count({ where: { createdAt: { gte: startOfToday } } }),
@@ -35,7 +38,27 @@ export default async function AcessosPage({
       take: PAGE_SIZE,
       skip: (page - 1) * PAGE_SIZE,
     }),
+    db.loginEvent.findMany({ where: { createdAt: { gte: d14 } }, select: { createdAt: true } }),
   ]);
+
+  // Agrupa por dia em Brasília inteiramente em JS (evita qualquer
+  // ambiguidade de fuso entre SQL e JS) - preenche dias sem nenhum acesso
+  // com 0, senão o grafico fica com buracos em vez de barras zeradas.
+  const dayKey = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const dailyMap = new Map<string, number>();
+  for (const entry of last14dEntries) {
+    const key = dayKey(entry.createdAt);
+    dailyMap.set(key, (dailyMap.get(key) ?? 0) + 1);
+  }
+  const dailyCounts: { label: string; count: number }[] = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+    dailyCounts.push({
+      label: d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" }),
+      count: dailyMap.get(dayKey(d)) ?? 0,
+    });
+  }
+  const maxDaily = Math.max(1, ...dailyCounts.map((d) => d.count));
 
   const active48h = active48hGroups.length;
   const uniqueAllTime = uniqueAllTimeGroups.length;
@@ -72,6 +95,19 @@ export default async function AcessosPage({
           <strong>{uniqueAllTime}</strong>
           <span>E-mails únicos que já entraram</span>
         </div>
+      </div>
+
+      <h2>Acessos por dia (últimos 14 dias)</h2>
+      <div className="chart">
+        {dailyCounts.map((d, i) => (
+          <div key={i} className="bar-col">
+            <span className="bar-count">{d.count > 0 ? d.count : ""}</span>
+            <div className="bar-wrap">
+              <div className="bar" style={{ height: `${(d.count / maxDaily) * 100}%` }} />
+            </div>
+            <span className="bar-label">{d.label}</span>
+          </div>
+        ))}
       </div>
 
       <h2>Histórico</h2>
@@ -172,6 +208,50 @@ export default async function AcessosPage({
         .stat-card span {
           font-size: 0.82rem;
           color: var(--text-muted);
+        }
+        .chart {
+          display: flex;
+          align-items: flex-end;
+          gap: 0.5rem;
+          height: 10rem;
+          max-width: 56rem;
+          padding: 1rem 1.25rem 0;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 1rem;
+        }
+        .bar-col {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          height: 100%;
+          min-width: 0;
+        }
+        .bar-count {
+          font-size: 0.7rem;
+          color: var(--text-muted);
+          height: 1rem;
+        }
+        .bar-wrap {
+          flex: 1;
+          width: 100%;
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+        }
+        .bar {
+          width: 70%;
+          min-height: 2px;
+          background: var(--indigo-600);
+          border-radius: 0.25rem 0.25rem 0 0;
+        }
+        .bar-label {
+          font-size: 0.65rem;
+          color: var(--text-muted);
+          margin-top: 0.4rem;
+          padding-bottom: 0.75rem;
+          white-space: nowrap;
         }
         .table-shell {
           background: var(--surface);
