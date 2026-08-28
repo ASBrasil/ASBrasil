@@ -15,11 +15,11 @@ export default async function ClientesPage({
   const eventId = searchParams.eventId || undefined;
   const q = searchParams.q?.trim() || "";
 
-  const [events, groups] = await Promise.all([
+  const [porEvento, groups, totalInscricoes, totalPendentes] = await Promise.all([
     db.event.findMany({
       where: { archived: false },
       orderBy: [{ order: "asc" }, { createdAt: "desc" }],
-      select: { id: true, name: true },
+      select: { id: true, name: true, _count: { select: { participants: true } } },
     }),
     db.participant.groupBy({
       by: ["email"],
@@ -28,7 +28,21 @@ export default async function ClientesPage({
       _max: { name: true, createdAt: true },
       orderBy: { _max: { createdAt: "desc" } },
     }),
+    db.participant.count(),
+    db.participant.count({ where: { moderationStatus: "PENDING" } }),
   ]);
+  const events = porEvento;
+
+  // Total de pessoas únicas cruzando TODOS os eventos, sem aplicar o
+  // filtro de busca/evento - o painel de estatísticas sempre mostra o
+  // panorama geral, independente do que estiver filtrado na tabela abaixo.
+  // Se não há filtro de evento, "groups" já É o total global, sem
+  // precisar de mais uma consulta.
+  const totalClientesUnicos = eventId
+    ? (await db.participant.groupBy({ by: ["email"] })).length
+    : groups.length;
+
+  const maiorEvento = Math.max(1, ...porEvento.map((e) => e._count.participants));
 
   const filtered = q
     ? groups.filter((g) => fuzzyMatch(q, g._max.name ?? "") || fuzzyMatch(q, g.email))
@@ -62,6 +76,43 @@ export default async function ClientesPage({
           + Adicionar cliente
         </Link>
       </div>
+
+      <div className="stats-grid">
+        <div className="stat-card">
+          <span className="stat-value">{totalClientesUnicos}</span>
+          <span className="stat-label">Clientes únicos</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-value">{totalInscricoes}</span>
+          <span className="stat-label">Inscrições no total</span>
+        </div>
+        <div className={`stat-card ${totalPendentes > 0 ? "warn" : ""}`}>
+          <span className="stat-value">{totalPendentes}</span>
+          <span className="stat-label">Pendentes de aprovação</span>
+        </div>
+      </div>
+
+      {porEvento.length > 0 && (
+        <div className="by-event">
+          <h2>Cadastrados por evento</h2>
+          <ul>
+            {porEvento.map((e) => (
+              <li key={e.id}>
+                <Link href={`/admin/clientes?eventId=${e.id}`} className="event-row">
+                  <span className="event-name">{e.name}</span>
+                  <span className="bar-track">
+                    <span
+                      className="bar-fill"
+                      style={{ width: `${(e._count.participants / maiorEvento) * 100}%` }}
+                    />
+                  </span>
+                  <span className="event-count">{e._count.participants}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <form className="filter" method="get">
         <input
@@ -161,6 +212,86 @@ export default async function ClientesPage({
           font-size: 0.85rem;
           white-space: nowrap;
           flex-shrink: 0;
+        }
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+          gap: 1rem;
+          max-width: 42rem;
+          margin-bottom: 2rem;
+        }
+        .stat-card {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 0.75rem;
+          padding: 1.1rem 1.25rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.3rem;
+        }
+        .stat-card.warn {
+          border-color: rgba(180, 83, 9, 0.4);
+          background: rgba(180, 83, 9, 0.06);
+        }
+        .stat-value {
+          font-size: 1.9rem;
+          font-weight: 700;
+          font-family: var(--font-display, inherit);
+          line-height: 1;
+        }
+        .stat-label {
+          font-size: 0.78rem;
+          color: var(--text-muted);
+        }
+        .by-event {
+          max-width: 42rem;
+          margin-bottom: 2rem;
+        }
+        .by-event h2 {
+          font-size: 0.95rem;
+          margin: 0 0 0.85rem;
+          font-family: var(--font-display, inherit);
+        }
+        .by-event ul {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+        .event-row {
+          display: grid;
+          grid-template-columns: 10rem 1fr 2.5rem;
+          align-items: center;
+          gap: 0.75rem;
+          text-decoration: none;
+          color: var(--text);
+          padding: 0.4rem 0;
+        }
+        .event-name {
+          font-size: 0.85rem;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .bar-track {
+          background: var(--bg);
+          border-radius: 999px;
+          height: 0.55rem;
+          overflow: hidden;
+        }
+        .bar-fill {
+          display: block;
+          height: 100%;
+          background: var(--indigo-600);
+          border-radius: 999px;
+        }
+        .event-count {
+          text-align: right;
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: var(--text-muted);
         }
         .filter {
           display: flex;
