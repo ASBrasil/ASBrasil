@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { generateNumberPool } from "@/lib/raffle";
 import { createParticipantSession } from "@/lib/participant-session";
 import { put } from "@vercel/blob";
+import { compressImage } from "@/lib/image";
 import { randomUUID } from "node:crypto";
 import { ParticipantSource } from "@prisma/client";
 
@@ -73,10 +74,21 @@ export async function POST(req: NextRequest) {
             { status: 501 }
           );
         }
-        const ext = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
-        const blob = await put(`signup-photos/${randomUUID()}.${ext}`, file, {
+        // Comprime antes de subir - fotos de celular chegam com 3-8MB, mas
+        // pra visualizar um comprovante 300-500KB e de sobra. Corta muito
+        // tanto o armazenamento quanto a transferencia (que e cobrada toda
+        // vez que a foto e vista na fila de aprovacao).
+        let compressed: Buffer, extension: string;
+        try {
+          const original = Buffer.from(await file.arrayBuffer());
+          ({ buffer: compressed, extension } = await compressImage(original));
+        } catch {
+          return NextResponse.json({ error: "Não foi possível processar essa imagem. Tente outro arquivo." }, { status: 400 });
+        }
+        const blob = await put(`signup-photos/${randomUUID()}.${extension}`, compressed, {
           access: "public",
           addRandomSuffix: false,
+          contentType: "image/jpeg",
         });
         photoUrl = blob.url;
       }

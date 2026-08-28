@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import { randomUUID } from "node:crypto";
 import { requireAdmin } from "@/lib/auth";
+import { compressImage } from "@/lib/image";
 
 export const maxDuration = 30;
 
@@ -46,12 +47,22 @@ export async function POST(req: NextRequest) {
   }
 
   const safeFolder = /^[a-z0-9-]+$/i.test(folder) ? folder : "uploads";
-  const ext = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
-  const key = `${safeFolder}/${randomUUID()}.${ext}`;
+  // Compressão mais leve que a dos participantes (banner/design precisa de
+  // mais qualidade e resolução que um comprovante de inscrição) - ainda
+  // corta bastante o peso de fotos vindas direto da câmera sem edição.
+  let compressed: Buffer, extension: string;
+  try {
+    const original = Buffer.from(await file.arrayBuffer());
+    ({ buffer: compressed, extension } = await compressImage(original, { maxWidth: 2000, quality: 85 }));
+  } catch {
+    return NextResponse.json({ error: "Não foi possível processar essa imagem. Tente outro arquivo." }, { status: 400 });
+  }
+  const key = `${safeFolder}/${randomUUID()}.${extension}`;
 
-  const blob = await put(key, file, {
+  const blob = await put(key, compressed, {
     access: "public",
     addRandomSuffix: false,
+    contentType: "image/jpeg",
   });
 
   return NextResponse.json({ url: blob.url });

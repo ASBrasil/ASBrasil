@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import { randomUUID } from "node:crypto";
 import { getParticipantEmail } from "@/lib/participant-session";
+import { compressImage } from "@/lib/image";
 
 export const maxDuration = 30;
 
@@ -43,10 +44,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Arquivo muito grande. Máximo de 8MB." }, { status: 400 });
   }
 
-  const ext = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
-  const key = `mission-photos/${randomUUID()}.${ext}`;
+  let compressed: Buffer, extension: string;
+  try {
+    const original = Buffer.from(await file.arrayBuffer());
+    ({ buffer: compressed, extension } = await compressImage(original));
+  } catch {
+    return NextResponse.json({ error: "Não foi possível processar essa imagem. Tente outro arquivo." }, { status: 400 });
+  }
+  const key = `mission-photos/${randomUUID()}.${extension}`;
 
-  const blob = await put(key, file, { access: "public", addRandomSuffix: false });
+  const blob = await put(key, compressed, { access: "public", addRandomSuffix: false, contentType: "image/jpeg" });
 
   return NextResponse.json({ url: blob.url });
 }
