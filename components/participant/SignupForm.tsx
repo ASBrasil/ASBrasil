@@ -37,14 +37,28 @@ export function SignupForm({ slug, fields }: { slug: string; fields: SignupField
       }
     }
 
-    const res = await fetch("/api/public/signup", { method: "POST", body: form });
-    const data = await res.json();
-    setSubmitting(false);
-    if (!res.ok) {
-      setError(data.error ?? "Não foi possível concluir a inscrição. Tente de novo.");
-      return;
+    try {
+      const res = await fetch("/api/public/signup", { method: "POST", body: form });
+      let data: any;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error("O servidor demorou pra responder ou respondeu de um jeito inesperado.");
+      }
+      if (!res.ok) {
+        setError(data.error ?? "Não foi possível concluir a inscrição. Tente de novo.");
+        return;
+      }
+      setResult(data);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível concluir a inscrição. Verifique sua conexão e tente de novo."
+      );
+    } finally {
+      setSubmitting(false);
     }
-    setResult(data);
   }
 
   if (result) {
