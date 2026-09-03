@@ -136,7 +136,7 @@ export function MissionManager({
       type: draft.type,
       title: draft.title,
       description: draft.description || undefined,
-      required: draft.isSurprise ? false : draft.required,
+      required: draft.isSurprise || draft.grantsExtraTicket ? false : draft.required,
       linkUrl: draft.linkUrl || undefined,
       quizOptions: options,
       quizCorrectIndex: draft.type === "QUIZ" ? draft.quizCorrectIndex : undefined,
@@ -375,7 +375,7 @@ export function MissionManager({
         </label>
       )}
 
-      {!draft.isSurprise && (
+      {!draft.isSurprise && !draft.grantsExtraTicket && (
         <label className="required-row">
           <input
             type="checkbox"
@@ -387,6 +387,12 @@ export function MissionManager({
             <small>Bloqueia o acesso aos números/resultados até ser cumprida. Desmarcada, fica só visível.</small>
           </span>
         </label>
+      )}
+      {draft.grantsExtraTicket && (
+        <p className="required-note">
+          Essa missão "gera número" nunca bloqueia nada sozinha — é uma opção de pré-requisito à
+          escolha, não uma obrigação.
+        </p>
       )}
 
       {error && <p className="error">{error}</p>}
@@ -624,6 +630,12 @@ export function MissionManager({
         .required-row small {
           color: var(--text-muted);
           font-size: 0.78rem;
+        }
+        .required-note {
+          font-size: 0.78rem;
+          color: var(--text-muted);
+          font-style: italic;
+          margin: 0.5rem 0 0;
         }
         .error {
           color: #c0392b;
