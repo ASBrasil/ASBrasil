@@ -38,6 +38,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Inscrição pública não está habilitada para este evento" }, { status: 403 });
   }
 
+  // Eventos "Com Missões" que tenham pelo menos uma missão que gera número
+  // (grantsExtraTicket) usam o modelo novo de pré-requisitos à escolha: o
+  // primeiro número nasce escondido (awaitingPrerequisite) até a pessoa
+  // escolher e completar QUALQUER uma dessas missões - a aprovação real
+  // fica a critério de qual missão ela escolheu, decidida lá na hora da
+  // conclusão, não aqui. Eventos "Simples" nunca entram nesse modelo,
+  // mesmo que tenham missão com grantsExtraTicket (continuam tratando
+  // essas como bônus aditivo puro, como sempre foi).
+  const hasChoiceMissions =
+    event.missionMode === "MISSIONS" &&
+    (await db.mission.count({ where: { eventId: event.id, grantsExtraTicket: true } })) > 0;
+
   const fields = (event.signupFields as unknown as SignupField[]) ?? [];
 
   const name = String(form.get("name") ?? "").trim();
@@ -112,8 +124,9 @@ export async function POST(req: NextRequest) {
     await createParticipantSession(emailRaw);
     return NextResponse.json({
       alreadyRegistered: true,
-      raffleNumber: existing.raffleNumber,
+      raffleNumber: existing.awaitingPrerequisite ? null : existing.raffleNumber,
       pendingApproval: existing.moderationStatus === "PENDING",
+      awaitingPrerequisite: existing.awaitingPrerequisite,
     });
   }
 
@@ -127,7 +140,10 @@ export async function POST(req: NextRequest) {
   // esquecer (ou não perceber) que precisava ligar o outro toggle também:
   // pedir comprovante e não revisar ele não faz sentido nenhum.
   const hasRequiredPhoto = fields.some((f) => f.type === "photo" && f.required);
-  const needsApproval = event.requireSignupApproval || hasRequiredPhoto;
+  // Se usa pré-requisitos à escolha, o status real só é decidido quando a
+  // pessoa completa a missão escolhida - PENDING aqui é só um placeholder
+  // (nem aparece pra ela, já que o número fica escondido até lá).
+  const needsApproval = event.requireSignupApproval || hasRequiredPhoto || hasChoiceMissions;
 
   const participant = await db.participant.create({
     data: {
@@ -140,13 +156,15 @@ export async function POST(req: NextRequest) {
       photoUrl,
       customData: Object.keys(custom).length > 0 ? custom : undefined,
       moderationStatus: needsApproval ? "PENDING" : "APPROVED",
+      awaitingPrerequisite: hasChoiceMissions,
     },
   });
 
   await createParticipantSession(emailRaw);
 
   return NextResponse.json({
-    raffleNumber: participant.raffleNumber,
+    raffleNumber: hasChoiceMissions ? null : participant.raffleNumber,
     pendingApproval: needsApproval,
+    awaitingPrerequisite: hasChoiceMissions,
   });
 }

@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
     quizCorrectIndex,
     unlockAt,
     grantsExtraTicket,
+    requiresApproval,
   } = body;
 
   if (!eventId || !type || !title) {
@@ -47,6 +48,7 @@ export async function POST(req: NextRequest) {
       quizCorrectIndex: quizCorrectIndex ?? null,
       unlockAt: unlockAt ? parseBrasiliaDatetimeLocal(unlockAt) : null,
       grantsExtraTicket: grantsExtraTicket ?? false,
+      requiresApproval: requiresApproval ?? false,
     },
   });
 

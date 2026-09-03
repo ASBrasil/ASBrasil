@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 interface SignupField {
@@ -11,14 +12,16 @@ interface SignupField {
 }
 
 export function SignupForm({ slug, fields }: { slug: string; fields: SignupField[] }) {
+  const router = useRouter();
   const [values, setValues] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<Record<string, File | null>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{
-    raffleNumber: number;
+    raffleNumber: number | null;
     alreadyRegistered?: boolean;
     pendingApproval?: boolean;
+    awaitingPrerequisite?: boolean;
   } | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -49,6 +52,12 @@ export function SignupForm({ slug, fields }: { slug: string; fields: SignupField
         setError(data.error ?? "Não foi possível concluir a inscrição. Tente de novo.");
         return;
       }
+      if (data.awaitingPrerequisite) {
+        // Ainda não tem número nenhum pra mostrar - vai direto pro painel,
+        // onde vai ver as opções de pré-requisito pra escolher.
+        router.push(`/e/${slug}/painel`);
+        return;
+      }
       setResult(data);
     } catch (err) {
       setError(
@@ -76,7 +85,7 @@ export function SignupForm({ slug, fields }: { slug: string; fields: SignupField
           </p>
         )}
         <Link
-          href="/meus-eventos"
+          href={`/e/${slug}/painel`}
           className="cta"
           style={{
             display: "inline-block",

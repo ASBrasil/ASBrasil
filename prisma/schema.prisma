@@ -187,6 +187,13 @@ model Participant {
   // until/unless an admin approves them.
   moderationStatus ParticipantModerationStatus @default(APPROVED)
 
+  // True só pro "ticket base" de um evento que usa missões de escolha
+  // (grantsExtraTicket) como pré-requisito pro PRIMEIRO número - criado
+  // silenciosamente no cadastro, mas escondido da pessoa até ela escolher
+  // e completar alguma dessas missões. Vira false (revelado) na primeira
+  // que ela completar. Sempre false pra eventos que não usam esse modelo.
+  awaitingPrerequisite Boolean @default(false)
+
   // Lookup token lets us avoid ever exposing raffle numbers by guessable id;
   // the public lookup endpoint matches on normalized email + event, rate limited.
   createdAt     DateTime          @default(now())
@@ -338,8 +345,16 @@ model LoginEvent {
   email     String
   createdAt DateTime @default(now())
 
+  // Preenchido quando o acesso é a um evento específico (visita ao
+  // painel), null quando é só o login geral em /entrar. Nome guardado
+  // "congelado" (não é uma relação) - continua fazendo sentido no
+  // histórico mesmo se o evento for arquivado ou excluído depois.
+  eventId   String?
+  eventName String?
+
   @@index([email, createdAt])
   @@index([createdAt])
+  @@index([eventId, createdAt])
 }
 
 enum EventMissionMode {
@@ -387,6 +402,12 @@ model Mission {
   // nenhum numero anterior) pro mesmo e-mail neste evento, em vez de so
   // marcar a missao como concluida.
   grantsExtraTicket Boolean @default(false)
+  // Quando true, o numero gerado por essa missao (seja o primeiro ou um
+  // extra) nasce Pendente - so entra de verdade no sorteio depois que o
+  // admin aprovar na fila de Aprovacoes. Cada missao decide isso por si -
+  // dá pra ter, no mesmo evento, uma missao que aprova na hora e outra
+  // que exige revisao manual.
+  requiresApproval Boolean @default(false)
 
   createdAt   DateTime    @default(now())
 

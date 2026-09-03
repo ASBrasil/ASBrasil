@@ -4,7 +4,7 @@ import { getParticipantEmail } from "@/lib/participant-session";
 import { ParticipantTopNav } from "@/components/participant/ParticipantTopNav";
 import { PrizePath, PathStep } from "@/components/participant/PrizePath";
 import { MissionGate } from "@/components/participant/MissionGate";
-import { SurpriseSection } from "@/components/participant/SurpriseSection";
+import { MissionOpportunities } from "@/components/participant/MissionOpportunities";
 import { ResponsiveBanner } from "@/components/ResponsiveBanner";
 import { LpBlocksSection } from "@/components/LpBlocksSection";
 
@@ -205,7 +205,6 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
   }
 
   const myParticipantIds = new Set(myParticipants.map((p) => p.id));
-  const myNumbers = myParticipants.map((p) => p.raffleNumber);
 
   // Barreira de missões: se o evento exige pré-requisitos e ainda falta
   // alguma missão obrigatória pra esse e-mail, mostra a lista de missões em
@@ -259,60 +258,105 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
     }
   }
 
-  // Surpresa travada por data - independente do modo do evento (Simples ou
-  // Com Missões), já que é aditiva: a pessoa já garantiu seu número
-  // principal de qualquer jeito, isso é só uma oportunidade extra.
-  // Só suporta uma surpresa ativa por evento por enquanto.
-  const surpriseMission = await db.mission.findFirst({
-    where: { eventId: event.id, unlockAt: { not: null } },
+  // Missões de escolha (grantsExtraTicket): tanto pra revelar o primeiro
+  // número (quem ainda está com awaitingPrerequisite) quanto pra ganhar
+  // números extras (quem já tem pelo menos um número visível). Busca
+  // TODAS de uma vez, trava/destrava e completude decididas por item.
+  const choiceMissions = await db.mission.findMany({
+    where: { eventId: event.id, grantsExtraTicket: true },
     orderBy: { order: "asc" },
   });
-  let surpriseData: {
-    id: string;
-    unlockAt: string;
-    unlocked: boolean;
-    completed: boolean;
-    bonusRaffleNumber: number | null;
-    type?: "SELF_CHECK" | "QUIZ" | "PHOTO_UPLOAD" | "LINK_VISIT";
-    title?: string | null;
-    description?: string | null;
-    linkUrl?: string | null;
-    quizOptions?: string[] | null;
-  } | null = null;
+  const choiceCompletions =
+    choiceMissions.length > 0
+      ? await db.missionCompletion.findMany({
+          where: { missionId: { in: choiceMissions.map((m) => m.id) }, email },
+        })
+      : [];
+  const completedChoiceIds = new Set(choiceCompletions.map((c) => c.missionId));
 
-  if (surpriseMission) {
-    const unlocked = surpriseMission.unlockAt!.getTime() <= Date.now();
-    const completion = await db.missionCompletion.findUnique({
-      where: { missionId_email: { missionId: surpriseMission.id, email } },
-    });
-    let bonusRaffleNumber: number | null = null;
-    if (completion && surpriseMission.grantsExtraTicket) {
-      const bonusParticipant = await db.participant.findFirst({
-        where: { eventId: event.id, email, source: "MISSION" },
-        orderBy: { createdAt: "desc" },
-      });
-      bonusRaffleNumber = bonusParticipant?.raffleNumber ?? null;
-    }
-    surpriseData = {
-      id: surpriseMission.id,
-      unlockAt: surpriseMission.unlockAt!.toISOString(),
+  function toOpportunity(m: (typeof choiceMissions)[number]) {
+    const unlocked = !m.unlockAt || m.unlockAt.getTime() <= Date.now();
+    return {
+      id: m.id,
+      unlockAt: m.unlockAt ? m.unlockAt.toISOString() : null,
       unlocked,
-      completed: !!completion,
-      bonusRaffleNumber,
       // Só entrega os detalhes reais se já desbloqueou - antes disso, o
-      // participante não deve saber do que se trata, nem espiando o
-      // conteúdo carregado na página.
+      // participante não deve saber do que se trata.
       ...(unlocked
         ? {
-            type: surpriseMission.type,
-            title: surpriseMission.title,
-            description: surpriseMission.description,
-            linkUrl: surpriseMission.linkUrl,
-            quizOptions: surpriseMission.quizOptions as string[] | null,
+            type: m.type,
+            title: m.title,
+            description: m.description,
+            linkUrl: m.linkUrl,
+            quizOptions: m.quizOptions as string[] | null,
           }
         : {}),
     };
   }
+
+  const pendingChoiceMissions = choiceMissions
+    .filter((m) => !completedChoiceIds.has(m.id))
+    .map(toOpportunity);
+
+  // Se ela ainda não escolheu/completou nenhum pré-requisito, o número
+  // base nasceu escondido no cadastro (awaitingPrerequisite) - mostra a
+  // tela de escolha em vez dos números normais.
+  const stillAwaiting = myParticipants.some((p) => p.awaitingPrerequisite);
+  const visibleParticipants = myParticipants.filter((p) => !p.awaitingPrerequisite);
+
+  if (stillAwaiting && visibleParticipants.length === 0) {
+    return (
+      <main
+        style={
+          {
+            "--primary": colors.primary ?? "#4F5FFF",
+            "--background": colors.background ?? "#0A1330",
+            "--surface": colors.surface ?? "#141B3D",
+            background: colors.background ?? "#0A1330",
+            color: colors.text ?? "#F5F6FA",
+            minHeight: "100vh",
+            fontFamily: "system-ui, sans-serif",
+          } as React.CSSProperties
+        }
+      >
+        <ParticipantTopNav eventName={event.name} />
+        <section className={`hero ${bannerUrl ? "has-banner" : ""}`}>
+          {bannerUrl && (
+            <>
+              <ResponsiveBanner desktopUrl={bannerUrl} mobileUrl={bannerUrlMobile} className="hero-bg" />
+              <div className="hero-scrim" />
+            </>
+          )}
+          <div className="hero-content">
+            <h1>{event.name}</h1>
+            {event.campaign && <span className="eyebrow">{event.campaign}</span>}
+          </div>
+        </section>
+        <MissionOpportunities missions={pendingChoiceMissions} mode="first" />
+        <LpBlocksSection blocks={event.lpBlocks} />
+        <style>{`
+          .hero {
+            position: relative;
+            padding: 3rem 1.5rem 1.5rem;
+            text-align: center;
+            overflow: hidden;
+          }
+          .hero.has-banner { padding-top: 8rem; padding-bottom: 3rem; }
+          .hero-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+          .hero-scrim {
+            position: absolute; inset: 0;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.3), var(--background, #0A1330) 92%);
+            z-index: 1;
+          }
+          .hero-content { position: relative; z-index: 2; }
+          .hero h1 { margin: 0 0 0.4rem; font-family: "Sora", system-ui, sans-serif; font-size: clamp(1.5rem, 4vw, 2rem); }
+          .eyebrow { font-size: 0.78rem; opacity: 0.7; }
+        `}</style>
+      </main>
+    );
+  }
+
+  const myNumbers = visibleParticipants.map((p) => p.raffleNumber);
 
   const drawResults = await db.drawResult.findMany({
     where: { prizeId: { in: event.prizes.map((p) => p.id) }, voided: false },
@@ -352,6 +396,13 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
     };
   });
 
+  // Registro de acesso a esse evento especifico, pro dashboard de Acessos
+  // conseguir mostrar quem entrou em qual sorteio - fire-and-forget, uma
+  // falha aqui nunca pode quebrar a pagina de quem so quer ver o numero.
+  db.loginEvent
+    .create({ data: { email, eventId: event.id, eventName: event.name } })
+    .catch((err) => console.error("Falha ao registrar acesso ao evento:", err));
+
   return (
     <main
       style={
@@ -382,13 +433,13 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
       </section>
 
       <section className="numbers-section">
-        {myParticipants.some((p) => p.moderationStatus === "PENDING") && (
+        {visibleParticipants.some((p) => p.moderationStatus === "PENDING") && (
           <p className="moderation-note pending">
             ⏳ Sua participação está em análise. Seu número aparece abaixo, mas só entra no
             sorteio depois que a equipe confirmar seu comprovante.
           </p>
         )}
-        {myParticipants.some((p) => p.moderationStatus === "REJECTED") && (
+        {visibleParticipants.some((p) => p.moderationStatus === "REJECTED") && (
           <p className="moderation-note rejected">
             ❌ Sua participação não foi aprovada. Esse número não entra no sorteio até que a
             situação seja corrigida — entre em contato com a organização.
@@ -404,7 +455,7 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
               Seus números ({myNumbers.length}): <strong>{myNumbers.join(" · ")}</strong>
             </summary>
             <ul>
-              {myParticipants.map((p) => (
+              {visibleParticipants.map((p) => (
                 <li key={p.id}>
                   <span className="ticket-name">{p.name}</span>
                   <span className="ticket-number">{p.raffleNumber}</span>
@@ -418,7 +469,7 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
         )}
       </section>
 
-      {surpriseData && <SurpriseSection mission={surpriseData} />}
+      <MissionOpportunities missions={pendingChoiceMissions} mode="bonus" />
 
       <section className="path-section">
         <div className="section-heading">

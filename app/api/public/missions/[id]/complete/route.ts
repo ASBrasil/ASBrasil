@@ -61,6 +61,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   });
 
   let bonusRaffleNumber: number | null = null;
+  let revealedRaffleNumber: number | null = null;
+  let grantPending = false;
 
   if (mission.grantsExtraTicket && !alreadyCompleted) {
     // Copia nome/telefone de um registro já existente dessa pessoa nesse
@@ -71,20 +73,45 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       orderBy: { createdAt: "asc" },
     });
     if (base) {
-      const [newNumber] = generateNumberPool(1);
-      const bonus = await db.participant.create({
-        data: {
-          eventId: mission.eventId,
-          name: base.name,
-          email,
-          phone: base.phone,
-          raffleNumber: newNumber,
-          source: ParticipantSource.MISSION,
-        },
-      });
-      bonusRaffleNumber = bonus.raffleNumber;
+      grantPending = mission.requiresApproval;
+      if (base.awaitingPrerequisite) {
+        // Primeira missão de escolha que essa pessoa completa nesse
+        // evento - revela o número base que já existia escondido, em vez
+        // de criar um novo. O status final (pendente ou já aprovado)
+        // depende de qual missão ela escolheu completar primeiro.
+        const revealed = await db.participant.update({
+          where: { id: base.id },
+          data: {
+            awaitingPrerequisite: false,
+            moderationStatus: mission.requiresApproval ? "PENDING" : "APPROVED",
+          },
+        });
+        revealedRaffleNumber = revealed.raffleNumber;
+      } else {
+        // Base já revelado antes (ou esse evento nem usa o modelo de
+        // escolha) - continua criando um número A MAIS, como sempre foi.
+        const [newNumber] = generateNumberPool(1);
+        const bonus = await db.participant.create({
+          data: {
+            eventId: mission.eventId,
+            name: base.name,
+            email,
+            phone: base.phone,
+            raffleNumber: newNumber,
+            source: ParticipantSource.MISSION,
+            moderationStatus: mission.requiresApproval ? "PENDING" : "APPROVED",
+          },
+        });
+        bonusRaffleNumber = bonus.raffleNumber;
+      }
     }
   }
 
-  return NextResponse.json({ completion, correct: true, bonusRaffleNumber });
+  return NextResponse.json({
+    completion,
+    correct: true,
+    bonusRaffleNumber,
+    revealedRaffleNumber,
+    pending: grantPending,
+  });
 }

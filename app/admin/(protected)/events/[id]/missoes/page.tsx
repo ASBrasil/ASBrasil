@@ -23,7 +23,9 @@ export default async function EventMissionsPage({ params }: { params: { id: stri
         <p className="subtitle">
           Pré-requisitos que a pessoa precisa cumprir antes de ver seus números e resultados
           neste evento. Missões marcadas como obrigatórias bloqueiam o acesso; as opcionais só
-          ficam visíveis.
+          ficam visíveis. Missões com "🎟️ Gera um número" formam as opções de pré-requisito à
+          escolha — a pessoa completa qualquer uma delas pra ganhar seu primeiro número (ou mais
+          um, se já tiver completado outra antes). Isso só funciona com o evento em "Com Missões".
         </p>
         {event.missionMode !== "MISSIONS" && (
           <p className="warning">

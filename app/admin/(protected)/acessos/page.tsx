@@ -27,6 +27,7 @@ export default async function AcessosPage({
     uniqueAllTimeGroups,
     recentEntries,
     last14dEntries,
+    byEventGroups,
   ] = await Promise.all([
     db.loginEvent.count(),
     db.loginEvent.count({ where: { createdAt: { gte: startOfToday } } }),
@@ -39,7 +40,28 @@ export default async function AcessosPage({
       skip: (page - 1) * PAGE_SIZE,
     }),
     db.loginEvent.findMany({ where: { createdAt: { gte: d14 } }, select: { createdAt: true } }),
+    db.loginEvent.groupBy({
+      by: ["eventName"],
+      where: { eventId: { not: null } },
+      _count: { id: true },
+      orderBy: { _count: { id: "desc" } },
+    }),
   ]);
+
+  // Nome de cada e-mail que aparece nessa página do histórico, cruzando
+  // com os cadastros de participante - o login em si não guarda nome
+  // nenhum (é só e-mail), então busca à parte, uma vez pra cada e-mail
+  // distinto ao invés de repetir a busca linha a linha.
+  const emailsOnPage = [...new Set(recentEntries.map((e) => e.email))];
+  const namesByEmail = new Map<string, string>();
+  if (emailsOnPage.length > 0) {
+    const matches = await db.participant.findMany({
+      where: { email: { in: emailsOnPage } },
+      select: { email: true, name: true },
+      distinct: ["email"],
+    });
+    for (const m of matches) namesByEmail.set(m.email, m.name);
+  }
 
   // Agrupa por dia em Brasília inteiramente em JS (evita qualquer
   // ambiguidade de fuso entre SQL e JS) - preenche dias sem nenhum acesso
@@ -63,6 +85,7 @@ export default async function AcessosPage({
   const active48h = active48hGroups.length;
   const uniqueAllTime = uniqueAllTimeGroups.length;
   const totalPages = Math.max(1, Math.ceil(totalEntries / PAGE_SIZE));
+  const maxByEvent = Math.max(1, ...byEventGroups.map((g) => g._count.id));
 
   return (
     <div>
@@ -110,19 +133,45 @@ export default async function AcessosPage({
         ))}
       </div>
 
+      {byEventGroups.length > 0 && (
+        <>
+          <h2>Acessos por evento</h2>
+          <div className="by-event">
+            <ul>
+              {byEventGroups.map((g) => (
+                <li key={g.eventName}>
+                  <span className="event-name">{g.eventName ?? "Sem evento"}</span>
+                  <span className="bar-track">
+                    <span
+                      className="bar-fill"
+                      style={{ width: `${(g._count.id / maxByEvent) * 100}%` }}
+                    />
+                  </span>
+                  <span className="event-count">{g._count.id}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>
+      )}
+
       <h2>Histórico</h2>
       <div className="table-shell">
         <table>
           <thead>
             <tr>
+              <th>Nome</th>
               <th>E-mail</th>
+              <th>Evento</th>
               <th>Data e hora</th>
             </tr>
           </thead>
           <tbody>
             {recentEntries.map((entry) => (
               <tr key={entry.id}>
-                <td>{entry.email}</td>
+                <td>{namesByEmail.get(entry.email) ?? "—"}</td>
+                <td className="muted">{entry.email}</td>
+                <td className="muted">{entry.eventName ?? "Login geral"}</td>
                 <td className="muted">
                   {entry.createdAt.toLocaleString("pt-BR", {
                     day: "2-digit",
@@ -138,7 +187,7 @@ export default async function AcessosPage({
             ))}
             {recentEntries.length === 0 && (
               <tr>
-                <td colSpan={2} className="empty">
+                <td colSpan={4} className="empty">
                   Nenhum acesso registrado ainda.
                 </td>
               </tr>
@@ -253,12 +302,55 @@ export default async function AcessosPage({
           padding-bottom: 0.75rem;
           white-space: nowrap;
         }
+        .by-event {
+          max-width: 56rem;
+          margin-bottom: 0.5rem;
+        }
+        .by-event ul {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+        .by-event li {
+          display: grid;
+          grid-template-columns: 12rem 1fr 2.5rem;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 0.4rem 0;
+        }
+        .by-event .event-name {
+          font-size: 0.85rem;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .by-event .bar-track {
+          background: var(--bg);
+          border-radius: 999px;
+          height: 0.55rem;
+          overflow: hidden;
+        }
+        .by-event .bar-fill {
+          display: block;
+          height: 100%;
+          background: var(--indigo-600);
+          border-radius: 999px;
+        }
+        .by-event .event-count {
+          text-align: right;
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: var(--text-muted);
+        }
         .table-shell {
           background: var(--surface);
           border: 1px solid var(--border);
           border-radius: 0.75rem;
           overflow: hidden;
-          max-width: 40rem;
+          max-width: 56rem;
         }
         table {
           width: 100%;

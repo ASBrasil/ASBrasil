@@ -17,6 +17,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.order !== undefined) data.order = body.order;
   if (body.type !== undefined) data.type = body.type;
   if (body.grantsExtraTicket !== undefined) data.grantsExtraTicket = body.grantsExtraTicket;
+  if (body.requiresApproval !== undefined) data.requiresApproval = body.requiresApproval;
   if (body.unlockAt !== undefined) {
     data.unlockAt = body.unlockAt ? parseBrasiliaDatetimeLocal(body.unlockAt) : null;
   }

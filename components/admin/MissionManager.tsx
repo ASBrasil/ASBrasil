@@ -17,6 +17,7 @@ interface Mission {
   quizCorrectIndex: number | null;
   unlockAt: string | null;
   grantsExtraTicket: boolean;
+  requiresApproval: boolean;
 }
 
 const TYPE_LABELS: Record<MissionType, { label: string; icon: string; hint: string }> = {
@@ -53,6 +54,7 @@ interface DraftMission {
   isSurprise: boolean;
   unlockAt: string; // datetime-local
   grantsExtraTicket: boolean;
+  requiresApproval: boolean;
 }
 
 const EMPTY_DRAFT: DraftMission = {
@@ -66,6 +68,7 @@ const EMPTY_DRAFT: DraftMission = {
   isSurprise: false,
   unlockAt: "",
   grantsExtraTicket: false,
+  requiresApproval: false,
 };
 
 /** ISO string (UTC) -> "YYYY-MM-DDTHH:mm" em horário local, o que <input type="datetime-local"> espera. */
@@ -90,6 +93,7 @@ function missionToDraft(m: Mission): DraftMission {
     isSurprise: !!m.unlockAt,
     unlockAt: toDatetimeLocalValue(m.unlockAt),
     grantsExtraTicket: m.grantsExtraTicket,
+    requiresApproval: m.requiresApproval,
   };
 }
 
@@ -138,6 +142,7 @@ export function MissionManager({
       quizCorrectIndex: draft.type === "QUIZ" ? draft.quizCorrectIndex : undefined,
       unlockAt: draft.isSurprise ? draft.unlockAt : undefined,
       grantsExtraTicket: draft.grantsExtraTicket,
+      requiresApproval: draft.requiresApproval,
     };
   }
 
@@ -344,13 +349,31 @@ export function MissionManager({
           onChange={(e) => setDraft({ ...draft, grantsExtraTicket: e.target.checked })}
         />
         <span>
-          <strong>🎟️ Gera um número da sorte extra ao completar</strong>
+          <strong>🎟️ Gera um número da sorte ao completar</strong>
           <small>
-            Número adicional, não substitui nenhum anterior. Cada pessoa só pode ganhar esse extra
-            uma vez.
+            Se a pessoa ainda não tem número nesse evento, completar essa vira o PRIMEIRO número
+            dela (dentre as opções de pré-requisito disponíveis). Se já tem, gera um número A MAIS,
+            adicional. Cada pessoa só pode ganhar isso uma vez por missão.
           </small>
         </span>
       </label>
+
+      {draft.grantsExtraTicket && (
+        <label className="required-row">
+          <input
+            type="checkbox"
+            checked={draft.requiresApproval}
+            onChange={(e) => setDraft({ ...draft, requiresApproval: e.target.checked })}
+          />
+          <span>
+            <strong>🔍 Precisa de aprovação manual</strong>
+            <small>
+              O número gerado por essa missão nasce Pendente - só entra no sorteio depois que você
+              aprovar na fila de Aprovações. Desmarcado, o número já nasce aprovado direto.
+            </small>
+          </span>
+        </label>
+      )}
 
       {!draft.isSurprise && (
         <label className="required-row">
@@ -415,7 +438,7 @@ export function MissionManager({
                   {m.unlockAt && (
                     <> · 🔒 libera em {new Date(m.unlockAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</>
                   )}
-                  {m.grantsExtraTicket && <> · 🎟️ gera número extra</>}
+                  {m.grantsExtraTicket && <> · 🎟️ gera número{m.requiresApproval && " (com aprovação)"}</>}
                 </span>
               </div>
               {!m.unlockAt && (
