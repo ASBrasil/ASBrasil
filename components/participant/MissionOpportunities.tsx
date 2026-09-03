@@ -297,19 +297,19 @@ function MissionAction({
 
       {mission.type === "PHOTO_UPLOAD" && (
         <>
+          {mission.linkUrl && (
+            <a
+              href={mission.linkUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={linkBtnStyle}
+              onClick={() => setLinkVisited(true)}
+            >
+              {linkVisited ? "Abrir link de novo ↗" : "1. Abrir link ↗"}
+            </a>
+          )}
           {needsLinkFirst && (
-            <>
-              <a
-                href={mission.linkUrl!}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={linkBtnStyle}
-                onClick={() => setLinkVisited(true)}
-              >
-                1. Abrir link ↗
-              </a>
-              <p style={{ fontSize: "0.76rem", opacity: 0.55, margin: 0 }}>Depois volte aqui pra enviar a foto.</p>
-            </>
+            <p style={{ fontSize: "0.76rem", opacity: 0.55, margin: 0 }}>Depois volte aqui pra enviar a foto.</p>
           )}
           {!needsLinkFirst && (
             <label
