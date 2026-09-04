@@ -22,10 +22,25 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   REJECTED: { label: "Recusado", color: "#c0392b" },
 };
 
-export function ApprovalQueue({ participants }: { participants: QueueParticipant[] }) {
+export function ApprovalQueue({
+  participants,
+  collapsible = false,
+  pageSize,
+}: {
+  participants: QueueParticipant[];
+  // Usado nos painéis embutidos na página do evento - lá a lista pode ficar
+  // grande (todo mundo aprovado/pendente do evento inteiro), então some por
+  // padrão atrás de uma setinha e pagina em vez de jogar tudo na tela de
+  // uma vez. A página dedicada de Aprovações (/aprovacoes) não passa isso -
+  // continua sempre expandida e inteira, como já era.
+  collapsible?: boolean;
+  pageSize?: number;
+}) {
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(!collapsible);
+  const [page, setPage] = useState(1);
 
   async function moderate(id: string, status: "APPROVED" | "REJECTED" | "PENDING") {
     setBusyId(id);
@@ -42,9 +57,54 @@ export function ApprovalQueue({ participants }: { participants: QueueParticipant
     return <p className="empty">Nenhuma participação nessa categoria.</p>;
   }
 
+  const effectivePageSize = pageSize ?? participants.length;
+  const totalPages = Math.max(1, Math.ceil(participants.length / effectivePageSize));
+  const currentPage = Math.min(page, totalPages);
+  const visible = participants.slice(
+    (currentPage - 1) * effectivePageSize,
+    currentPage * effectivePageSize
+  );
+
+  if (collapsible && !expanded) {
+    return (
+      <button type="button" className="collapse-toggle" onClick={() => setExpanded(true)}>
+        <span className={`arrow ${expanded ? "open" : ""}`}>▸</span>
+        Ver lista ({participants.length})
+        <style jsx>{`
+          .collapse-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: none;
+            border: 1px dashed var(--border);
+            border-radius: 0.6rem;
+            padding: 0.7rem 1rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            width: 100%;
+            text-align: left;
+          }
+          .collapse-toggle:hover {
+            border-color: var(--indigo-600);
+            color: var(--text);
+          }
+          .arrow { display: inline-block; }
+        `}</style>
+      </button>
+    );
+  }
+
   return (
     <div className="queue">
-      {participants.map((p) => (
+      {collapsible && (
+        <button type="button" className="collapse-toggle open" onClick={() => setExpanded(false)}>
+          <span className="arrow open">▾</span>
+          Ocultar lista ({participants.length})
+        </button>
+      )}
+      {visible.map((p) => (
         <div key={p.id} className="card">
           {p.photoUrl ? (
             <button
@@ -112,6 +172,24 @@ export function ApprovalQueue({ participants }: { participants: QueueParticipant
           )}
         </div>
       ))}
+
+      {totalPages > 1 && (
+        <div className="pagination">
+          <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>
+            ← Anterior
+          </button>
+          <span>
+            Página {currentPage} de {totalPages}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+          >
+            Próxima →
+          </button>
+        </div>
+      )}
 
       {lightbox && (
         <div className="lightbox" onClick={() => setLightbox(null)}>
@@ -222,6 +300,56 @@ export function ApprovalQueue({ participants }: { participants: QueueParticipant
         .empty {
           color: var(--text-muted);
           font-size: 0.9rem;
+        }
+        .collapse-toggle {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: none;
+          border: 1px dashed var(--border);
+          border-radius: 0.6rem;
+          padding: 0.7rem 1rem;
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: var(--text-muted);
+          cursor: pointer;
+          width: 100%;
+          text-align: left;
+        }
+        .collapse-toggle:hover {
+          border-color: var(--indigo-600);
+          color: var(--text);
+        }
+        .collapse-toggle.open {
+          border-style: solid;
+          margin-bottom: 0.1rem;
+        }
+        .arrow { display: inline-block; }
+        .pagination {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 1rem;
+          padding-top: 0.5rem;
+          font-size: 0.82rem;
+          color: var(--text-muted);
+        }
+        .pagination button {
+          background: none;
+          border: 1px solid var(--border);
+          border-radius: 999px;
+          padding: 0.35rem 0.85rem;
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          color: inherit;
+        }
+        .pagination button:disabled {
+          opacity: 0.4;
+          cursor: default;
+        }
+        .pagination button:not(:disabled):hover {
+          border-color: var(--indigo-600);
         }
         .lightbox {
           position: fixed;

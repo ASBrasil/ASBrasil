@@ -1,0 +1,188 @@
+From 51c38b93e168b5b17e3f799778d14b04972bb444 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 4 Sep 2026 20:45:04 +0000
+Subject: [PATCH] Permite ao admin descrever o que a foto do cadastro publico
+ deve mostrar, exibindo essa instrucao pro participante junto do upload
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_0171QHdFfBm18o5YD5AZX1Z5
+---
+ components/participant/SignupForm.tsx  | 30 ++++++++----
+ components/wizard/ParticipantsStep.tsx | 64 +++++++++++++++++++++++++-
+ 2 files changed, 83 insertions(+), 11 deletions(-)
+
+diff --git a/components/participant/SignupForm.tsx b/components/participant/SignupForm.tsx
+index 2abbe61..dd0e772 100644
+--- a/components/participant/SignupForm.tsx
++++ b/components/participant/SignupForm.tsx
+@@ -9,6 +9,9 @@ interface SignupField {
+   label: string;
+   required: boolean;
+   type?: "text" | "photo";
++  // Só vem preenchido no campo de foto - instrução curta definida pelo admin
++  // dizendo o que a foto deve mostrar (ex: "Print do story marcando @asbrasil").
++  hint?: string;
+ }
+ 
+ export function SignupForm({ slug, fields }: { slug: string; fields: SignupField[] }) {
+@@ -139,15 +142,18 @@ export function SignupForm({ slug, fields }: { slug: string; fields: SignupField
+             {field.required && <span className="required">*</span>}
+           </label>
+           {field.type === "photo" ? (
+-            <label className="photo-input">
+-              {files[field.key] ? `📎 ${files[field.key]!.name}` : "📸 Escolher arquivo"}
+-              <input
+-                type="file"
+-                accept="image/*"
+-                required={field.required}
+-                onChange={(e) => setFiles({ ...files, [field.key]: e.target.files?.[0] ?? null })}
+-              />
+-            </label>
++            <>
++              {field.hint && <p className="photo-hint">{field.hint}</p>}
++              <label className="photo-input">
++                {files[field.key] ? `📎 ${files[field.key]!.name}` : "📸 Escolher arquivo"}
++                <input
++                  type="file"
++                  accept="image/*"
++                  required={field.required}
++                  onChange={(e) => setFiles({ ...files, [field.key]: e.target.files?.[0] ?? null })}
++                />
++              </label>
++            </>
+           ) : (
+             <input
+               type={field.key === "email" ? "email" : "text"}
+@@ -200,6 +206,12 @@ export function SignupForm({ slug, fields }: { slug: string; fields: SignupField
+           border-color: var(--primary);
+           box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 30%, transparent);
+         }
++        .photo-hint {
++          margin: -0.2rem 0 0;
++          font-size: 0.8rem;
++          opacity: 0.75;
++          line-height: 1.4;
++        }
+         .photo-input {
+           display: inline-block;
+           text-align: center;
+diff --git a/components/wizard/ParticipantsStep.tsx b/components/wizard/ParticipantsStep.tsx
+index 8c1149b..6e61c15 100644
+--- a/components/wizard/ParticipantsStep.tsx
++++ b/components/wizard/ParticipantsStep.tsx
+@@ -23,6 +23,10 @@ interface SignupFieldConfig {
+   label: string;
+   required: boolean;
+   type?: "text" | "photo";
++  // Só usado no campo de foto - instrução curta mostrada pro participante
++  // junto do botão de upload (ex: "Print do story marcando @asbrasil"),
++  // pra parar de receber foto qualquer sem relação com o que era pedido.
++  hint?: string;
+ }
+ 
+ export function ParticipantsStep({
+@@ -66,6 +70,7 @@ export function ParticipantsStep({
+   // Instagram, Foto), já que os checkboxes voltariam pro padrão genérico
+   // em vez de refletir o que está de verdade salvo no evento.
+   const existingKeys = new Set((initialSignupFields ?? []).map((f) => f.key));
++  const existingPhotoField = (initialSignupFields ?? []).find((f) => f.key === "photo");
+   const [signupExtras, setSignupExtras] = useState({
+     phone: existingKeys.has("phone"),
+     instagram: existingKeys.has("instagram"),
+@@ -73,6 +78,7 @@ export function ParticipantsStep({
+     orderNumber: initialSignupFields ? existingKeys.has("orderNumber") : true,
+     requireApproval: initialRequireApproval,
+   });
++  const [photoHint, setPhotoHint] = useState(existingPhotoField?.hint ?? "");
+ 
+   // --- copy-from-another-event sub-flow ---
+   const [events, setEvents] = useState<EventOption[] | null>(null);
+@@ -164,7 +170,7 @@ export function ParticipantsStep({
+ 
+   async function enableSignup() {
+     setSignupSaving(true);
+-    const fields: { key: string; label: string; required: boolean; type?: "text" | "photo" }[] = [
++    const fields: { key: string; label: string; required: boolean; type?: "text" | "photo"; hint?: string }[] = [
+       { key: "name", label: "Nome", required: true },
+       { key: "email", label: "E-mail", required: true },
+     ];
+@@ -176,7 +182,13 @@ export function ParticipantsStep({
+       fields.push({ key: "orderNumber", label: "Número do pedido", required: false });
+     }
+     if (signupExtras.photo) {
+-      fields.push({ key: "photo", label: "Print/comprovante", required: true, type: "photo" });
++      fields.push({
++        key: "photo",
++        label: "Print/comprovante",
++        required: true,
++        type: "photo",
++        hint: photoHint.trim() || undefined,
++      });
+     }
+ 
+     await fetch(`/api/admin/events/${eventId}`, {
+@@ -333,6 +345,27 @@ export function ParticipantsStep({
+           </label>
+         </div>
+ 
++        {signupExtras.photo && (
++          <div className="photo-hint-box">
++            <label htmlFor="photo-hint-input">
++              <strong>O que a pessoa deve fotografar?</strong>
++              <small>
++                Esse texto aparece pra ela junto do botão de upload, pra parar de receber foto
++                qualquer sem relação com o pedido (ex: &quot;Print do story marcando @asbrasil&quot;
++                ou &quot;Foto do comprovante de compra&quot;).
++              </small>
++            </label>
++            <input
++              id="photo-hint-input"
++              type="text"
++              placeholder="Ex: Print do story marcando @asbrasil"
++              value={photoHint}
++              onChange={(e) => setPhotoHint(e.target.value)}
++              maxLength={200}
++            />
++          </div>
++        )}
++
+         {signupExtras.photo && (
+           <label className="approval-row">
+             <input
+@@ -380,6 +413,33 @@ export function ParticipantsStep({
+             border-radius: 0.5rem;
+             cursor: pointer;
+           }
++          .photo-hint-box {
++            display: flex;
++            flex-direction: column;
++            gap: 0.5rem;
++            margin: 0 0 1rem;
++            padding: 0.85rem 1rem;
++            background: var(--bg);
++            border: 1px solid var(--border);
++            border-radius: 0.6rem;
++          }
++          .photo-hint-box label {
++            display: flex;
++            flex-direction: column;
++            gap: 0.15rem;
++          }
++          .photo-hint-box small {
++            color: var(--text-muted);
++            font-size: 0.8rem;
++          }
++          .photo-hint-box input {
++            padding: 0.55rem 0.7rem;
++            border: 1px solid var(--border);
++            border-radius: 0.5rem;
++            font-size: 0.88rem;
++            background: var(--surface, #fff);
++            color: inherit;
++          }
+           .approval-row {
+             display: flex;
+             align-items: flex-start;
+-- 
+2.43.0
+

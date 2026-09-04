@@ -47,6 +47,21 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.loseMessage !== undefined) data.loseMessage = body.loseMessage;
   if (body.couponCode !== undefined) data.couponCode = body.couponCode;
   if (body.autoDraw !== undefined) data.autoDraw = body.autoDraw;
+  if (body.surprise !== undefined) data.surprise = !!body.surprise;
+  if (body.unlockAt !== undefined) {
+    if (body.unlockAt) {
+      const parsed = parseBrasiliaDatetimeLocal(body.unlockAt);
+      if (Number.isNaN(parsed.getTime())) {
+        return NextResponse.json(
+          { error: `Data de revelação inválida: "${body.unlockAt}"` },
+          { status: 400 }
+        );
+      }
+      data.unlockAt = parsed;
+    } else {
+      data.unlockAt = null;
+    }
+  }
 
   try {
     const prize = await db.prize.update({ where: { id: params.id }, data });

@@ -256,6 +256,17 @@ model Prize {
   // date set just means "nothing happens automatically" until one is added.
   autoDraw     Boolean     @default(false)
 
+  // "Prêmio surpresa": fica escondido do participante (nome/imagem/
+  // descrição) até `unlockAt` passar - só aparece um teaser com contador
+  // (ou "data a definir" quando unlockAt é null) e um botão pra ativar
+  // aviso por e-mail. Independente de `scheduledAt`/`autoDraw`, que
+  // continuam controlando quando o SORTEIO em si acontece - unlockAt é só
+  // sobre quando o prêmio deixa de ser segredo. Revelação é sempre
+  // derivada (surprise && (unlockAt == null || unlockAt > agora)), nunca
+  // um campo separado pra não desincronizar.
+  surprise     Boolean     @default(false)
+  unlockAt     DateTime?
+
   // Shown on the participant's result screen for this prize. Falls back to
   // a generic message in the UI when null, so setting these is optional.
   winMessage   String?     // shown only to the winner
@@ -264,10 +275,25 @@ model Prize {
 
   createdAt    DateTime    @default(now())
 
-  drawResults  DrawResult[]
-  losePopup    PrizeLosePopup?
+  drawResults     DrawResult[]
+  losePopup       PrizeLosePopup?
+  notifyRequests  PrizeNotifyRequest[]
 
   @@index([eventId, order])
+}
+
+// Quem pediu aviso por e-mail pra saber quando um prêmio surpresa for
+// revelado. Não envia nada sozinho - o admin exporta essa lista (CSV) e
+// importa/dispara pelo Brevo (ferramenta de e-mail que já usa), então essa
+// tabela só existe pra coletar e não perder quem pediu.
+model PrizeNotifyRequest {
+  id        String   @id @default(cuid())
+  prizeId   String
+  prize     Prize    @relation(fields: [prizeId], references: [id], onDelete: Cascade)
+  email     String
+  createdAt DateTime @default(now())
+
+  @@unique([prizeId, email])
 }
 
 // A pop-up shown to whoever DIDN'T win this specific prize, once the draw

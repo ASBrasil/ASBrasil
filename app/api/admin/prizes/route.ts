@@ -26,6 +26,8 @@ export async function POST(req: NextRequest) {
     winMessage,
     loseMessage,
     couponCode,
+    surprise,
+    unlockAt,
   } = body;
 
   if (!eventId || !name) {
@@ -44,6 +46,8 @@ export async function POST(req: NextRequest) {
       winMessage,
       loseMessage,
       couponCode,
+      surprise: !!surprise,
+      unlockAt: unlockAt ? parseBrasiliaDatetimeLocal(unlockAt) : null,
     },
   });
 

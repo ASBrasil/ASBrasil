@@ -17,6 +17,8 @@ interface EditablePrize {
   loseMessage: string | null;
   couponCode: string | null;
   losePopup: LosePopupData | null;
+  surprise: boolean;
+  unlockAt: string | null; // ISO string, já serializado pelo server component
 }
 
 /** ISO string (UTC) -> "YYYY-MM-DDTHH:mm" in local time, what <input type="datetime-local"> expects. */
@@ -41,6 +43,8 @@ export function PrizeEditPanel({ prize }: { prize: EditablePrize }) {
     winMessage: prize.winMessage ?? "",
     loseMessage: prize.loseMessage ?? "",
     couponCode: prize.couponCode ?? "",
+    surprise: prize.surprise,
+    unlockAt: toDatetimeLocalValue(prize.unlockAt),
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +64,8 @@ export function PrizeEditPanel({ prize }: { prize: EditablePrize }) {
         winMessage: form.winMessage || null,
         loseMessage: form.loseMessage || null,
         couponCode: form.couponCode || null,
+        surprise: form.surprise,
+        unlockAt: form.surprise ? form.unlockAt || null : null,
       }),
     });
     setSaving(false);
@@ -121,6 +127,39 @@ export function PrizeEditPanel({ prize }: { prize: EditablePrize }) {
                 </small>
               </span>
             </label>
+          )}
+
+          <div className="divider">
+            <span>Prêmio surpresa</span>
+          </div>
+
+          <label className="auto-draw-row">
+            <input
+              type="checkbox"
+              checked={form.surprise}
+              onChange={(e) => setForm({ ...form, surprise: e.target.checked })}
+            />
+            <span>
+              <strong>🎁 Marcar como surpresa</strong>
+              <small>
+                Some o nome/imagem/descrição da tela do participante - só mostra um teaser com
+                contador (ou "data a definir") e um botão pra ativar aviso por e-mail. Some da
+                surpresa sozinho quando a data de revelação abaixo passar.
+              </small>
+            </span>
+          </label>
+
+          {form.surprise && (
+            <Field
+              label="Revelar em"
+              hint='Deixe em branco pra "data a definir" (mostra só o botão de aviso, sem contador). Isso NÃO é a data do sorteio - é só quando o segredo acaba.'
+            >
+              <Input
+                type="datetime-local"
+                value={form.unlockAt}
+                onChange={(e) => setForm({ ...form, unlockAt: e.target.value })}
+              />
+            </Field>
           )}
 
           <div className="divider">

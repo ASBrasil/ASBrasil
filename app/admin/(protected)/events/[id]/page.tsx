@@ -5,6 +5,7 @@ import { EventActionsBar } from "@/components/EventActionsBar";
 import { PrizeEditPanel } from "@/components/admin/PrizeEditPanel";
 import { PrizeReorderButtons } from "@/components/admin/PrizeReorderButtons";
 import { PrizeDuplicateButton } from "@/components/admin/PrizeDuplicateButton";
+import { PrizeCreatePanel } from "@/components/admin/PrizeCreatePanel";
 import { ApprovalQueue } from "@/components/admin/ApprovalQueue";
 import { startOfTodayBrasilia } from "@/lib/timezone";
 
@@ -24,7 +25,10 @@ export default async function EventDashboardPage({ params }: { params: { id: str
   const event = await db.event.findUnique({
     where: { id: params.id },
     include: {
-      prizes: { orderBy: { order: "asc" }, include: { losePopup: true } },
+      prizes: {
+        orderBy: { order: "asc" },
+        include: { losePopup: true, _count: { select: { notifyRequests: true } } },
+      },
       _count: { select: { participants: true } },
     },
   });
@@ -192,6 +196,130 @@ export default async function EventDashboardPage({ params }: { params: { id: str
         </div>
       </div>
 
+      <h2>Prêmios</h2>
+      <p className="hint">A ordem aqui é a mesma que o participante vê em "Seus sorteios".</p>
+
+      {event.prizes.length > 0 && (
+        <div className="prize-chart">
+          <div className="prize-chart-track">
+            {drawnCount > 0 && (
+              <div
+                className="prize-chart-seg done"
+                style={{ width: `${(drawnCount / event.prizes.length) * 100}%` }}
+              />
+            )}
+            {event.prizes.length - drawnCount > 0 && (
+              <div
+                className="prize-chart-seg pending"
+                style={{ width: `${((event.prizes.length - drawnCount) / event.prizes.length) * 100}%` }}
+              />
+            )}
+          </div>
+          <div className="prize-chart-legend">
+            <span><i className="dot done" /> {drawnCount} realizado{drawnCount !== 1 ? "s" : ""}</span>
+            <span><i className="dot pending" /> {event.prizes.length - drawnCount} pendente{event.prizes.length - drawnCount !== 1 ? "s" : ""}</span>
+          </div>
+        </div>
+      )}
+
+      <PrizeCreatePanel eventId={event.id} />
+
+      <div className="prizes">
+        {event.prizes.map((prize, i) => {
+          const revealed = !prize.surprise || (prize.unlockAt !== null && prize.unlockAt.getTime() <= Date.now());
+          return (
+          <div key={prize.id} className="prize-row">
+            <PrizeReorderButtons
+              prizeId={prize.id}
+              isFirst={i === 0}
+              isLast={i === event.prizes.length - 1}
+            />
+            <div className="prize-main">
+              {prize.imageUrl ? (
+                <img src={prize.imageUrl} alt="" className="prize-thumb" />
+              ) : (
+                <span className="prize-thumb placeholder">🎁</span>
+              )}
+              <div>
+                <strong>
+                  {prize.name}
+                  {prize.surprise && (
+                    <span className={`surprise-tag ${revealed ? "revealed" : ""}`}>
+                      {revealed ? "🎁 surpresa revelada" : "🎁 surpresa"}
+                    </span>
+                  )}
+                </strong>
+                {prize.description && <p>{prize.description}</p>}
+                {prize.scheduledAt && (
+                  <p className="scheduled">
+                    🗓️{" "}
+                    {prize.scheduledAt.toLocaleString("pt-BR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      timeZone: "America/Sao_Paulo",
+                    })}
+                    {prize.autoDraw && <span className="auto-tag"> · 🤖 Automático</span>}
+                  </p>
+                )}
+                {prize.surprise && !revealed && (
+                  <p className="scheduled">
+                    🔒 Revela em{" "}
+                    {prize.unlockAt
+                      ? prize.unlockAt.toLocaleString("pt-BR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          timeZone: "America/Sao_Paulo",
+                        })
+                      : "data a definir"}
+                  </p>
+                )}
+                {prize.surprise && (
+                  <p className="scheduled">
+                    <a href={`/api/admin/prizes/${prize.id}/notify-export`} className="notify-export-link">
+                      📧 Exportar interessados ({prize._count.notifyRequests})
+                    </a>
+                  </p>
+                )}
+                <div className="prize-actions">
+                  <PrizeEditPanel
+                    prize={{
+                      id: prize.id,
+                      name: prize.name,
+                      description: prize.description,
+                      imageUrl: prize.imageUrl,
+                      scheduledAt: prize.scheduledAt ? prize.scheduledAt.toISOString() : null,
+                      autoDraw: prize.autoDraw,
+                      winMessage: prize.winMessage,
+                      loseMessage: prize.loseMessage,
+                      couponCode: prize.couponCode,
+                      surprise: prize.surprise,
+                      unlockAt: prize.unlockAt ? prize.unlockAt.toISOString() : null,
+                      losePopup: prize.losePopup
+                        ? {
+                            active: prize.losePopup.active,
+                            type: prize.losePopup.type,
+                            title: prize.losePopup.title,
+                            body: prize.losePopup.body,
+                            imageUrl: prize.losePopup.imageUrl,
+                            linkUrl: prize.losePopup.linkUrl,
+                          }
+                        : null,
+                    }}
+                  />
+                  <PrizeDuplicateButton prizeId={prize.id} />
+                </div>
+              </div>
+            </div>
+            <PrizeDrawPanel prize={{ id: prize.id, name: prize.name, status: prize.status }} />
+          </div>
+          );
+        })}
+      </div>
+
       <h2>Aprovações</h2>
       <p className="hint">
         Revise direto por aqui, sem precisar abrir a página de Aprovações — o botão lá em cima
@@ -200,12 +328,12 @@ export default async function EventDashboardPage({ params }: { params: { id: str
       <div className={`approvals-grid ${hasMissions ? "two-col" : ""}`}>
         <div className="approval-panel">
           <h3>📝 Cadastro {signupPendingRows.length > 0 && <span className="count-badge">{signupPendingRows.length}</span>}</h3>
-          <ApprovalQueue participants={signupPendingRows} />
+          <ApprovalQueue participants={signupPendingRows} collapsible pageSize={20} />
         </div>
         {hasMissions && (
           <div className="approval-panel">
             <h3>🎯 Missões {missionPendingRows.length > 0 && <span className="count-badge">{missionPendingRows.length}</span>}</h3>
-            <ApprovalQueue participants={missionPendingRows} />
+            <ApprovalQueue participants={missionPendingRows} collapsible pageSize={20} />
           </div>
         )}
       </div>
@@ -290,71 +418,6 @@ export default async function EventDashboardPage({ params }: { params: { id: str
           </div>
         </>
       )}
-
-      <h2>Prêmios</h2>
-      <p className="hint">A ordem aqui é a mesma que o participante vê em "Seus sorteios".</p>
-      <div className="prizes">
-        {event.prizes.map((prize, i) => (
-          <div key={prize.id} className="prize-row">
-            <PrizeReorderButtons
-              prizeId={prize.id}
-              isFirst={i === 0}
-              isLast={i === event.prizes.length - 1}
-            />
-            <div className="prize-main">
-              {prize.imageUrl ? (
-                <img src={prize.imageUrl} alt="" className="prize-thumb" />
-              ) : (
-                <span className="prize-thumb placeholder">🎁</span>
-              )}
-              <div>
-                <strong>{prize.name}</strong>
-                {prize.description && <p>{prize.description}</p>}
-                {prize.scheduledAt && (
-                  <p className="scheduled">
-                    🗓️{" "}
-                    {prize.scheduledAt.toLocaleString("pt-BR", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      timeZone: "America/Sao_Paulo",
-                    })}
-                    {prize.autoDraw && <span className="auto-tag"> · 🤖 Automático</span>}
-                  </p>
-                )}
-                <div className="prize-actions">
-                  <PrizeEditPanel
-                    prize={{
-                      id: prize.id,
-                      name: prize.name,
-                      description: prize.description,
-                      imageUrl: prize.imageUrl,
-                      scheduledAt: prize.scheduledAt ? prize.scheduledAt.toISOString() : null,
-                      autoDraw: prize.autoDraw,
-                      winMessage: prize.winMessage,
-                      loseMessage: prize.loseMessage,
-                      couponCode: prize.couponCode,
-                      losePopup: prize.losePopup
-                        ? {
-                            active: prize.losePopup.active,
-                            type: prize.losePopup.type,
-                            title: prize.losePopup.title,
-                            body: prize.losePopup.body,
-                            imageUrl: prize.losePopup.imageUrl,
-                            linkUrl: prize.losePopup.linkUrl,
-                          }
-                        : null,
-                    }}
-                  />
-                  <PrizeDuplicateButton prizeId={prize.id} />
-                </div>
-              </div>
-            </div>
-            <PrizeDrawPanel prize={{ id: prize.id, name: prize.name, status: prize.status }} />
-          </div>
-        ))}
-      </div>
 
       <style>{`
         .header {
@@ -598,6 +661,61 @@ export default async function EventDashboardPage({ params }: { params: { id: str
           align-items: flex-start;
           gap: 0.5rem;
           margin-top: 0.6rem;
+        }
+        .prize-chart {
+          max-width: 32rem;
+          margin-bottom: 1.5rem;
+        }
+        .prize-chart-track {
+          display: flex;
+          height: 0.65rem;
+          border-radius: 999px;
+          overflow: hidden;
+          background: var(--bg);
+          border: 1px solid var(--border);
+          margin-bottom: 0.6rem;
+        }
+        .prize-chart-seg.done { background: var(--indigo-600); }
+        .prize-chart-seg.pending { background: rgba(180, 83, 9, 0.4); }
+        .prize-chart-legend {
+          display: flex;
+          gap: 1.25rem;
+          font-size: 0.8rem;
+          color: var(--text-muted);
+        }
+        .prize-chart-legend .dot {
+          display: inline-block;
+          width: 0.55rem;
+          height: 0.55rem;
+          border-radius: 50%;
+          margin-right: 0.35rem;
+        }
+        .prize-chart-legend .dot.done { background: var(--indigo-600); }
+        .prize-chart-legend .dot.pending { background: rgba(180, 83, 9, 0.7); }
+        .surprise-tag {
+          display: inline-block;
+          margin-left: 0.5rem;
+          font-size: 0.68rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+          padding: 0.15rem 0.55rem;
+          border-radius: 999px;
+          background: rgba(232, 182, 70, 0.15);
+          color: #b45309;
+          vertical-align: middle;
+        }
+        .surprise-tag.revealed {
+          background: rgba(22, 163, 74, 0.12);
+          color: #16a34a;
+        }
+        .notify-export-link {
+          color: var(--indigo-600);
+          font-weight: 600;
+          text-decoration: none;
+        }
+        .notify-export-link:hover {
+          text-decoration: underline;
         }
       `}</style>
     </div>

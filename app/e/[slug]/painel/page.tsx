@@ -8,6 +8,7 @@ import { MissionOpportunities } from "@/components/participant/MissionOpportunit
 import { ResponsiveBanner } from "@/components/ResponsiveBanner";
 import { LpBlocksSection } from "@/components/LpBlocksSection";
 import { PresenceHeartbeat } from "@/components/participant/PresenceHeartbeat";
+import { SurprisePrizeTeaser } from "@/components/participant/SurprisePrizeTeaser";
 
 export default async function ParticipantEventPage({ params }: { params: { slug: string } }) {
   const email = await getParticipantEmail();
@@ -362,12 +363,31 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
 
   const myNumbers = visibleParticipants.map((p) => p.raffleNumber);
 
+  // Prêmio "surpresa" ainda não revelado (surprise=true e unlockAt no
+  // futuro, ou nulo = "data a definir") não entra na trilha normal de
+  // prêmios - vira um teaser à parte (ver SurprisePrizeTeaser), sem nome/
+  // imagem, só contador + botão de aviso. Revelação é sempre derivada da
+  // data, nunca lida daqui como um campo próprio.
+  const now = Date.now();
+  const isRevealed = (p: (typeof event.prizes)[number]) =>
+    !p.surprise || (p.unlockAt !== null && p.unlockAt.getTime() <= now);
+  const revealedPrizes = event.prizes.filter(isRevealed);
+  const upcomingSurprises = event.prizes.filter((p) => !isRevealed(p));
+
+  const notifyRequests = upcomingSurprises.length
+    ? await db.prizeNotifyRequest.findMany({
+        where: { prizeId: { in: upcomingSurprises.map((p) => p.id) }, email },
+        select: { prizeId: true },
+      })
+    : [];
+  const requestedPrizeIds = new Set(notifyRequests.map((r) => r.prizeId));
+
   const drawResults = await db.drawResult.findMany({
-    where: { prizeId: { in: event.prizes.map((p) => p.id) }, voided: false },
+    where: { prizeId: { in: revealedPrizes.map((p) => p.id) }, voided: false },
   });
 
   let currentAssigned = false;
-  const steps: PathStep[] = event.prizes.map((prize) => {
+  const steps: PathStep[] = revealedPrizes.map((prize) => {
     const result = drawResults.find((r) => r.prizeId === prize.id);
     if (result) {
       return {
@@ -487,6 +507,15 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
           <PrizePath slug={event.slug} steps={steps} />
         )}
       </section>
+
+      {upcomingSurprises.map((prize) => (
+        <SurprisePrizeTeaser
+          key={prize.id}
+          prizeId={prize.id}
+          unlockAt={prize.unlockAt ? prize.unlockAt.toISOString() : null}
+          alreadyRequested={requestedPrizeIds.has(prize.id)}
+        />
+      ))}
 
       <LpBlocksSection blocks={event.lpBlocks} />
 
