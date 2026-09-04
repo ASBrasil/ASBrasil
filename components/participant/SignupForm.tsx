@@ -55,9 +55,12 @@ export function SignupForm({ slug, fields }: { slug: string; fields: SignupField
         setError(data.error ?? "Não foi possível concluir a inscrição. Tente de novo.");
         return;
       }
-      if (data.awaitingPrerequisite) {
-        // Ainda não tem número nenhum pra mostrar - vai direto pro painel,
-        // onde vai ver as opções de pré-requisito pra escolher.
+      if (data.awaitingPrerequisite || data.needsMissions) {
+        // Ainda não tem número nenhum pra mostrar (awaitingPrerequisite) ou já
+        // tem número mas precisa completar missão obrigatória (needsMissions) -
+        // nos dois casos vai direto pro painel em vez da tela de "confirmado",
+        // porque é lá (MissionGate) que a pessoa vê o que falta fazer. Sem
+        // isso, a maioria fecha a aba achando que já terminou.
         router.push(`/e/${slug}/painel`);
         return;
       }

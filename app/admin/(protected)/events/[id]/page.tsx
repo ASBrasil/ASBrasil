@@ -7,6 +7,8 @@ import { PrizeReorderButtons } from "@/components/admin/PrizeReorderButtons";
 import { PrizeDuplicateButton } from "@/components/admin/PrizeDuplicateButton";
 import { PrizeCreatePanel } from "@/components/admin/PrizeCreatePanel";
 import { ApprovalQueue } from "@/components/admin/ApprovalQueue";
+import { PendingPrerequisitesPanel } from "@/components/admin/PendingPrerequisitesPanel";
+import { CollapsibleBlock } from "@/components/admin/CollapsibleBlock";
 import { startOfTodayBrasilia } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
@@ -133,6 +135,23 @@ export default async function EventDashboardPage({ params }: { params: { id: str
   }
 
   const maxCompletions = Math.max(1, ...missions.map((m) => m.completions.length));
+
+  // Quem já se cadastrou mas ainda não completou missão(ões) obrigatória(s) -
+  // sem isso, a única forma de descobrir "quem falta o quê" era vasculhar a
+  // matriz linha por linha. Vira o destaque de pendências dentro de
+  // Aprovações, com botão pra notificar cada pessoa direto por aqui.
+  const requiredMissions = missions.filter((m) => m.required);
+  const pendingPrerequisiteRows = requiredMissions.length
+    ? eventParticipants
+        .map((ep) => ({
+          email: ep.email,
+          name: ep.name,
+          missing: requiredMissions
+            .filter((m) => !m.completions.some((c) => c.email === ep.email))
+            .map((m) => m.title),
+        }))
+        .filter((row) => row.missing.length > 0)
+    : [];
 
   const drawnCount = event.prizes.filter((p) => p.status === "DRAWN").length;
 
@@ -338,6 +357,10 @@ export default async function EventDashboardPage({ params }: { params: { id: str
         )}
       </div>
 
+      {hasMissions && (
+        <PendingPrerequisitesPanel eventId={event.id} rows={pendingPrerequisiteRows} />
+      )}
+
       {hasMissions && missions.length > 0 && (
         <>
           <h2>Missões</h2>
@@ -368,6 +391,7 @@ export default async function EventDashboardPage({ params }: { params: { id: str
             })}
           </div>
 
+          <CollapsibleBlock title={`Ver matriz detalhada (${eventParticipants.length} participante${eventParticipants.length !== 1 ? "s" : ""})`}>
           <div className="mission-matrix-wrap">
             <table className="mission-matrix">
               <thead>
@@ -416,6 +440,7 @@ export default async function EventDashboardPage({ params }: { params: { id: str
               </tbody>
             </table>
           </div>
+          </CollapsibleBlock>
         </>
       )}
 

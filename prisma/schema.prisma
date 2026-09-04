@@ -136,6 +136,7 @@ model Event {
   prizes                Prize[]
   imports               ImportBatch[]
   presences            Presence[]
+  participantNotices   ParticipantNotice[]
 
   @@index([active])
   @@index([archived])
@@ -158,6 +159,24 @@ model Presence {
 
   @@unique([eventId, email])
   @@index([eventId, lastSeenAt])
+}
+
+// Aviso pontual que o admin dispara pra uma pessoa específica (ex: "você
+// ainda não completou tal missão") a partir do painel de pendências de
+// pré-requisito - vira um pop-up na próxima vez que ela abrir o painel do
+// evento. Não existe envio de e-mail/push aqui: é só um recado que fica
+// esperando na conta dela até ser visto (readAt), já que o sistema não
+// dispara notificação fora do próprio site.
+model ParticipantNotice {
+  id        String    @id @default(cuid())
+  eventId   String
+  event     Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  email     String
+  message   String
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  @@index([eventId, email, readAt])
 }
 
 model Participant {

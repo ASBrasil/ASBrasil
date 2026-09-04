@@ -8,6 +8,7 @@ import { MissionOpportunities } from "@/components/participant/MissionOpportunit
 import { ResponsiveBanner } from "@/components/ResponsiveBanner";
 import { LpBlocksSection } from "@/components/LpBlocksSection";
 import { PresenceHeartbeat } from "@/components/participant/PresenceHeartbeat";
+import { MissionNoticePopup } from "@/components/participant/MissionNoticePopup";
 import { SurprisePrizeTeaser } from "@/components/participant/SurprisePrizeTeaser";
 
 export default async function ParticipantEventPage({ params }: { params: { slug: string } }) {
@@ -56,6 +57,7 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
         }
       >
         <PresenceHeartbeat eventId={event.id} />
+        <MissionNoticePopup eventId={event.id} />
       <ParticipantTopNav eventName={event.name} />
 
         <section className={`hero ${bannerUrl ? "has-banner" : ""}`}>
@@ -243,6 +245,7 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
             }
           >
             <PresenceHeartbeat eventId={event.id} />
+        <MissionNoticePopup eventId={event.id} />
       <ParticipantTopNav eventName={event.name} />
             <MissionGate
               missions={missions.map((m) => ({
@@ -324,6 +327,7 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
         }
       >
         <PresenceHeartbeat eventId={event.id} />
+        <MissionNoticePopup eventId={event.id} />
       <ParticipantTopNav eventName={event.name} />
         <section className={`hero ${bannerUrl ? "has-banner" : ""}`}>
           {bannerUrl && (
@@ -442,6 +446,7 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
       }
     >
       <PresenceHeartbeat eventId={event.id} />
+      <MissionNoticePopup eventId={event.id} />
       <ParticipantTopNav eventName={event.name} />
 
       <section className={`hero ${bannerUrl ? "has-banner" : ""}`}>

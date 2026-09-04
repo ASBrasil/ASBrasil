@@ -50,6 +50,18 @@ export async function POST(req: NextRequest) {
     event.missionMode === "MISSIONS" &&
     (await db.mission.count({ where: { eventId: event.id, grantsExtraTicket: true } })) > 0;
 
+  // Eventos "Com missões" com pelo menos uma missão obrigatória (mesmo sem
+  // gerar número extra) bloqueiam o acesso aos números/resultados no painel
+  // (ver MissionGate) até serem cumpridas - mas isso só funciona se a
+  // pessoa VOLTAR pro painel depois de se cadastrar, e a maioria não volta.
+  // Esse flag manda o cliente já redirecionar pra lá direto após o
+  // cadastro, em vez de mostrar a tela de "inscrição confirmada" - assim
+  // ela já cai direto na tela que pede pra completar cada pré-requisito.
+  const hasRequiredMissions =
+    !hasChoiceMissions &&
+    event.missionMode === "MISSIONS" &&
+    (await db.mission.count({ where: { eventId: event.id, required: true, unlockAt: null } })) > 0;
+
   const fields = (event.signupFields as unknown as SignupField[]) ?? [];
 
   const name = String(form.get("name") ?? "").trim();
@@ -127,6 +139,7 @@ export async function POST(req: NextRequest) {
       raffleNumber: existing.awaitingPrerequisite ? null : existing.raffleNumber,
       pendingApproval: existing.moderationStatus === "PENDING",
       awaitingPrerequisite: existing.awaitingPrerequisite,
+      needsMissions: hasRequiredMissions,
     });
   }
 
@@ -166,5 +179,6 @@ export async function POST(req: NextRequest) {
     raffleNumber: hasChoiceMissions ? null : participant.raffleNumber,
     pendingApproval: needsApproval,
     awaitingPrerequisite: hasChoiceMissions,
+    needsMissions: hasRequiredMissions,
   });
 }
