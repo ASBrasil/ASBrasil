@@ -158,7 +158,7 @@ export default async function EventDashboardPage({ params }: { params: { id: str
       <div className="stats-row">
         <a href={`/admin/events/${event.id}/participants`} className="stat stat-link">
           <strong>{event._count.participants}</strong>
-          <span>Participantes →</span>
+          <span>Números da sorte →</span>
         </a>
         <div className="stat">
           <strong>{event.prizes.length}</strong>

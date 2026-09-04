@@ -71,7 +71,7 @@ export default async function EventPage({ params }: { params: { slug: string } }
           <strong>
             <AnimatedCounter target={event._count.participants} />
           </strong>
-          <span>{event._count.participants === 1 ? "participante" : "participantes"}</span>
+          <span>{event._count.participants === 1 ? "número da sorte" : "números da sorte"}</span>
         </div>
         <div className="stat">
           <strong>
