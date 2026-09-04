@@ -25,17 +25,30 @@ export function CardsCarousel({
   const trackRef = useRef<HTMLDivElement>(null);
   const pausedRef = useRef(false);
   const [manualPause, setManualPause] = useState(false);
+  const [loop, setLoop] = useState(false);
 
   // Duplica a lista pra permitir loop infinito sem "pulo" visível: quando o
   // scroll passa da primeira cópia inteira, volta pro início do mesmo ponto
-  // (como as duas cópias são idênticas, o reset é imperceptível). Sempre
-  // ativo agora - antes só rolava se "autoplay" estivesse marcado no admin,
-  // o que fazia o carrossel parecer travado quando não estava.
-  const loopable = cards.length > 0;
-  const displayCards = loopable ? [...cards, ...cards] : cards;
+  // (como as duas cópias são idênticas, o reset é imperceptível).
+  //
+  // Só ativa quando a lista de fato não cabe inteira na largura visível -
+  // com poucos cards (menos que `visibleCount`), duplicar sempre fazia o
+  // mesmo card aparecer repetido lado a lado sem necessidade de rolagem.
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el || cards.length === 0) {
+      setLoop(false);
+      return;
+    }
+    const singleSetWidth = loop ? el.scrollWidth / 2 : el.scrollWidth;
+    setLoop(singleSetWidth > el.clientWidth + 4);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cards.length]);
+
+  const displayCards = loop ? [...cards, ...cards] : cards;
 
   useEffect(() => {
-    if (!loopable) return;
+    if (!loop) return;
     const el = trackRef.current;
     if (!el) return;
 
@@ -70,7 +83,7 @@ export function CardsCarousel({
       el.removeEventListener("touchstart", onEnter);
       el.removeEventListener("touchend", onLeave);
     };
-  }, [loopable, manualPause]);
+  }, [loop, manualPause]);
 
   function scroll(dir: -1 | 1) {
     const el = trackRef.current;
