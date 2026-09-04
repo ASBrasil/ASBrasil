@@ -9,6 +9,9 @@ interface SignupField {
   label: string;
   required: boolean;
   type?: "text" | "photo";
+  // Só vem preenchido no campo de foto - instrução curta definida pelo admin
+  // dizendo o que a foto deve mostrar (ex: "Print do story marcando @asbrasil").
+  hint?: string;
 }
 
 export function SignupForm({ slug, fields }: { slug: string; fields: SignupField[] }) {
@@ -139,15 +142,18 @@ export function SignupForm({ slug, fields }: { slug: string; fields: SignupField
             {field.required && <span className="required">*</span>}
           </label>
           {field.type === "photo" ? (
-            <label className="photo-input">
-              {files[field.key] ? `📎 ${files[field.key]!.name}` : "📸 Escolher arquivo"}
-              <input
-                type="file"
-                accept="image/*"
-                required={field.required}
-                onChange={(e) => setFiles({ ...files, [field.key]: e.target.files?.[0] ?? null })}
-              />
-            </label>
+            <>
+              {field.hint && <p className="photo-hint">{field.hint}</p>}
+              <label className="photo-input">
+                {files[field.key] ? `📎 ${files[field.key]!.name}` : "📸 Escolher arquivo"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  required={field.required}
+                  onChange={(e) => setFiles({ ...files, [field.key]: e.target.files?.[0] ?? null })}
+                />
+              </label>
+            </>
           ) : (
             <input
               type={field.key === "email" ? "email" : "text"}
@@ -199,6 +205,12 @@ export function SignupForm({ slug, fields }: { slug: string; fields: SignupField
           outline: none;
           border-color: var(--primary);
           box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 30%, transparent);
+        }
+        .photo-hint {
+          margin: -0.2rem 0 0;
+          font-size: 0.8rem;
+          opacity: 0.75;
+          line-height: 1.4;
         }
         .photo-input {
           display: inline-block;

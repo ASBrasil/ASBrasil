@@ -23,6 +23,10 @@ interface SignupFieldConfig {
   label: string;
   required: boolean;
   type?: "text" | "photo";
+  // Só usado no campo de foto - instrução curta mostrada pro participante
+  // junto do botão de upload (ex: "Print do story marcando @asbrasil"),
+  // pra parar de receber foto qualquer sem relação com o que era pedido.
+  hint?: string;
 }
 
 export function ParticipantsStep({
@@ -66,6 +70,7 @@ export function ParticipantsStep({
   // Instagram, Foto), já que os checkboxes voltariam pro padrão genérico
   // em vez de refletir o que está de verdade salvo no evento.
   const existingKeys = new Set((initialSignupFields ?? []).map((f) => f.key));
+  const existingPhotoField = (initialSignupFields ?? []).find((f) => f.key === "photo");
   const [signupExtras, setSignupExtras] = useState({
     phone: existingKeys.has("phone"),
     instagram: existingKeys.has("instagram"),
@@ -73,6 +78,7 @@ export function ParticipantsStep({
     orderNumber: initialSignupFields ? existingKeys.has("orderNumber") : true,
     requireApproval: initialRequireApproval,
   });
+  const [photoHint, setPhotoHint] = useState(existingPhotoField?.hint ?? "");
 
   // --- copy-from-another-event sub-flow ---
   const [events, setEvents] = useState<EventOption[] | null>(null);
@@ -164,7 +170,7 @@ export function ParticipantsStep({
 
   async function enableSignup() {
     setSignupSaving(true);
-    const fields: { key: string; label: string; required: boolean; type?: "text" | "photo" }[] = [
+    const fields: { key: string; label: string; required: boolean; type?: "text" | "photo"; hint?: string }[] = [
       { key: "name", label: "Nome", required: true },
       { key: "email", label: "E-mail", required: true },
     ];
@@ -176,7 +182,13 @@ export function ParticipantsStep({
       fields.push({ key: "orderNumber", label: "Número do pedido", required: false });
     }
     if (signupExtras.photo) {
-      fields.push({ key: "photo", label: "Print/comprovante", required: true, type: "photo" });
+      fields.push({
+        key: "photo",
+        label: "Print/comprovante",
+        required: true,
+        type: "photo",
+        hint: photoHint.trim() || undefined,
+      });
     }
 
     await fetch(`/api/admin/events/${eventId}`, {
@@ -334,6 +346,27 @@ export function ParticipantsStep({
         </div>
 
         {signupExtras.photo && (
+          <div className="photo-hint-box">
+            <label htmlFor="photo-hint-input">
+              <strong>O que a pessoa deve fotografar?</strong>
+              <small>
+                Esse texto aparece pra ela junto do botão de upload, pra parar de receber foto
+                qualquer sem relação com o pedido (ex: &quot;Print do story marcando @asbrasil&quot;
+                ou &quot;Foto do comprovante de compra&quot;).
+              </small>
+            </label>
+            <input
+              id="photo-hint-input"
+              type="text"
+              placeholder="Ex: Print do story marcando @asbrasil"
+              value={photoHint}
+              onChange={(e) => setPhotoHint(e.target.value)}
+              maxLength={200}
+            />
+          </div>
+        )}
+
+        {signupExtras.photo && (
           <label className="approval-row">
             <input
               type="checkbox"
@@ -379,6 +412,33 @@ export function ParticipantsStep({
             border: 1px solid var(--border);
             border-radius: 0.5rem;
             cursor: pointer;
+          }
+          .photo-hint-box {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin: 0 0 1rem;
+            padding: 0.85rem 1rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 0.6rem;
+          }
+          .photo-hint-box label {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+          }
+          .photo-hint-box small {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+          }
+          .photo-hint-box input {
+            padding: 0.55rem 0.7rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            font-size: 0.88rem;
+            background: var(--surface, #fff);
+            color: inherit;
           }
           .approval-row {
             display: flex;
