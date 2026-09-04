@@ -135,10 +135,29 @@ model Event {
   participants         Participant[]
   prizes                Prize[]
   imports               ImportBatch[]
+  presences            Presence[]
 
   @@index([active])
   @@index([archived])
   @@index([archived, order])
+}
+
+// Presença "ao vivo": o painel do participante manda um ping periódico
+// enquanto a aba está aberta (ver PresenceHeartbeat), então essa tabela só
+// guarda o último ping por pessoa+evento - não é histórico, é sempre
+// sobrescrita (upsert). "Online agora" no dashboard do admin = contar quem
+// tem lastSeenAt nos últimos ~90s. Diferente do LoginEvent (que só marca
+// UMA visita, no carregamento da página) - essa aqui reflete presença
+// contínua enquanto a pessoa está de fato com a tela aberta.
+model Presence {
+  id         String   @id @default(cuid())
+  eventId    String
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  email      String
+  lastSeenAt DateTime @default(now())
+
+  @@unique([eventId, email])
+  @@index([eventId, lastSeenAt])
 }
 
 model Participant {

@@ -7,6 +7,7 @@ import { MissionGate } from "@/components/participant/MissionGate";
 import { MissionOpportunities } from "@/components/participant/MissionOpportunities";
 import { ResponsiveBanner } from "@/components/ResponsiveBanner";
 import { LpBlocksSection } from "@/components/LpBlocksSection";
+import { PresenceHeartbeat } from "@/components/participant/PresenceHeartbeat";
 
 export default async function ParticipantEventPage({ params }: { params: { slug: string } }) {
   const email = await getParticipantEmail();
@@ -53,7 +54,8 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
           } as React.CSSProperties
         }
       >
-        <ParticipantTopNav eventName={event.name} />
+        <PresenceHeartbeat eventId={event.id} />
+      <ParticipantTopNav eventName={event.name} />
 
         <section className={`hero ${bannerUrl ? "has-banner" : ""}`}>
           {bannerUrl && (
@@ -239,7 +241,8 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
               } as React.CSSProperties
             }
           >
-            <ParticipantTopNav eventName={event.name} />
+            <PresenceHeartbeat eventId={event.id} />
+      <ParticipantTopNav eventName={event.name} />
             <MissionGate
               missions={missions.map((m) => ({
                 id: m.id,
@@ -319,7 +322,8 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
           } as React.CSSProperties
         }
       >
-        <ParticipantTopNav eventName={event.name} />
+        <PresenceHeartbeat eventId={event.id} />
+      <ParticipantTopNav eventName={event.name} />
         <section className={`hero ${bannerUrl ? "has-banner" : ""}`}>
           {bannerUrl && (
             <>
@@ -417,6 +421,7 @@ export default async function ParticipantEventPage({ params }: { params: { slug:
         } as React.CSSProperties
       }
     >
+      <PresenceHeartbeat eventId={event.id} />
       <ParticipantTopNav eventName={event.name} />
 
       <section className={`hero ${bannerUrl ? "has-banner" : ""}`}>
