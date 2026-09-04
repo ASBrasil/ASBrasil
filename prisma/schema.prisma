@@ -146,6 +146,14 @@ model Participant {
   eventId       String
   event         Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
+  // Qual missão gerou/revelou esse número, quando aplicável (fica null pra
+  // inscrição normal, import ou cadastro manual). Só serve pra fila de
+  // Aprovações saber de qual missão veio o comprovante que ela está
+  // mostrando - onDelete SetNull porque apagar a missão depois não deveria
+  // apagar o ticket que ela já gerou.
+  missionId     String?
+  mission       Mission?          @relation(fields: [missionId], references: [id], onDelete: SetNull)
+
   name          String
   email         String
   phone         String?
@@ -206,6 +214,7 @@ model Participant {
   @@unique([eventId, ticketCode])
   @@unique([eventId, raffleNumber])
   @@index([eventId, email])
+  @@index([missionId])
 }
 
 model Prize {
@@ -412,6 +421,7 @@ model Mission {
   createdAt   DateTime    @default(now())
 
   completions MissionCompletion[]
+  participants Participant[]
 
   @@index([eventId, order])
 }

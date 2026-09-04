@@ -13,6 +13,7 @@ interface QueueParticipant {
   customData: Record<string, string> | null;
   moderationStatus: "PENDING" | "APPROVED" | "REJECTED";
   createdAt: string;
+  missionTitle: string | null;
 }
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
@@ -65,6 +66,7 @@ export function ApprovalQueue({ participants }: { participants: QueueParticipant
                 {STATUS_LABEL[p.moderationStatus].label}
               </span>
             </div>
+            {p.missionTitle && <span className="mission-tag">🎯 Missão: {p.missionTitle}</span>}
             <span className="email">{p.email}</span>
             {p.phone && <span className="detail">📞 {p.phone}</span>}
             {p.customData &&
@@ -179,6 +181,12 @@ export function ApprovalQueue({ participants }: { participants: QueueParticipant
         .detail {
           font-size: 0.82rem;
           color: var(--text-muted);
+        }
+        .mission-tag {
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: var(--indigo-600, #4f5fff);
+          margin: 0.1rem 0 0.15rem;
         }
         .number {
           font-size: 0.8rem;

@@ -74,6 +74,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     });
     if (base) {
       grantPending = mission.requiresApproval;
+      // Quando a missão exige aprovação e é do tipo PHOTO_UPLOAD, o
+      // comprovante que a pessoa acabou de enviar vira o `photoUrl` do
+      // próprio ticket - é isso que a fila de Aprovações mostra pro admin
+      // revisar (antes esse campo nunca era preenchido aqui, então o
+      // comprovante de missão nunca aparecia pra revisão).
+      const proofPhotoUrl = mission.type === "PHOTO_UPLOAD" ? data.photoUrl ?? null : null;
+
       if (base.awaitingPrerequisite) {
         // Primeira missão de escolha que essa pessoa completa nesse
         // evento - revela o número base que já existia escondido, em vez
@@ -84,6 +91,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           data: {
             awaitingPrerequisite: false,
             moderationStatus: mission.requiresApproval ? "PENDING" : "APPROVED",
+            missionId: mission.id,
+            ...(proofPhotoUrl ? { photoUrl: proofPhotoUrl } : {}),
           },
         });
         revealedRaffleNumber = revealed.raffleNumber;
@@ -100,6 +109,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             raffleNumber: newNumber,
             source: ParticipantSource.MISSION,
             moderationStatus: mission.requiresApproval ? "PENDING" : "APPROVED",
+            missionId: mission.id,
+            photoUrl: proofPhotoUrl,
           },
         });
         bonusRaffleNumber = bonus.raffleNumber;

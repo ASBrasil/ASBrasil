@@ -22,12 +22,20 @@ export default async function ApprovalsPage({
   const status = searchParams.status === "all" ? undefined : searchParams.status ?? "PENDING";
 
   const participants = await db.participant.findMany({
-    // Só mostra quem veio pela inscrição pública de verdade - alguém
-    // importado de planilha ou adicionado manualmente pelo admin nunca
-    // passou pela exigência de foto, então aparecer aqui só confunde
-    // (fica "Aprovado" e "Sem foto" por padrão, o que parece um bug mas
-    // não é - só não fazia parte desse fluxo).
-    where: { eventId: event.id, source: "SIGNUP", ...(status ? { moderationStatus: status as any } : {}) },
+    // Mostra quem veio pela inscrição pública (SIGNUP) E quem veio de
+    // missão/pré-requisito (MISSION - números extras liberados ao
+    // completar uma missão que exige aprovação, ou o número base revelado
+    // por uma missão de escolha). Import de planilha e cadastro manual
+    // continuam de fora - nunca passam por essa exigência, então
+    // aparecer aqui só confundiria (ficariam "Aprovado" e "Sem foto" por
+    // padrão, o que parece um bug mas não é - só não fazem parte desse
+    // fluxo).
+    where: {
+      eventId: event.id,
+      source: { in: ["SIGNUP", "MISSION"] },
+      ...(status ? { moderationStatus: status as any } : {}),
+    },
+    include: { mission: { select: { title: true } } },
     orderBy: { createdAt: "desc" },
   });
 
@@ -44,8 +52,9 @@ export default async function ApprovalsPage({
           o sorteio.
         </p>
         <p className="filter-note">
-          Mostra só quem se inscreveu pelo formulário público — importados de planilha e adicionados
-          manualmente não passam por essa etapa, então não aparecem aqui.
+          Mostra inscrições pelo formulário público e números liberados por missões/pré-requisitos
+          que exigem aprovação — importados de planilha e adicionados manualmente não passam por
+          essa etapa, então não aparecem aqui.
         </p>
       </div>
 
@@ -93,6 +102,7 @@ export default async function ApprovalsPage({
           customData: p.customData as Record<string, string> | null,
           moderationStatus: p.moderationStatus,
           createdAt: p.createdAt.toISOString(),
+          missionTitle: p.mission?.title ?? null,
         }))}
       />
 
