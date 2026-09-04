@@ -39,6 +39,63 @@ export default async function ApprovalsPage({
     orderBy: { createdAt: "desc" },
   });
 
+  // Missão obrigatória que NÃO gera número extra (ex: "conte sua
+  // experiência") não cria nenhum Participant/ticket - a aprovação dela
+  // vive só na própria MissionCompletion, então sem isso ela nunca
+  // aparecia aqui mesmo com "Exigir aprovação" ligado na missão.
+  const missionCompletions = await db.missionCompletion.findMany({
+    where: {
+      mission: { eventId: event.id, grantsExtraTicket: false, requiresApproval: true },
+      ...(status ? { moderationStatus: status as any } : {}),
+    },
+    include: { mission: { select: { title: true } } },
+    orderBy: { completedAt: "desc" },
+  });
+  const completionEmails = Array.from(new Set(missionCompletions.map((c) => c.email)));
+  const baseParticipants = completionEmails.length
+    ? await db.participant.findMany({
+        where: { eventId: event.id, email: { in: completionEmails } },
+        select: { email: true, name: true, phone: true, raffleNumber: true },
+      })
+    : [];
+  const baseByEmail = new Map<
+    string,
+    { name: string; phone: string | null; raffleNumber: number }
+  >(baseParticipants.map((p) => [p.email, p]));
+
+  const allRows = [
+    ...participants.map((p) => ({
+      id: p.id,
+      name: p.name,
+      email: p.email,
+      phone: p.phone,
+      raffleNumber: p.raffleNumber,
+      photoUrl: p.photoUrl,
+      customData: p.customData as Record<string, string> | null,
+      moderationStatus: p.moderationStatus,
+      createdAt: p.createdAt.toISOString(),
+      missionTitle: p.mission?.title ?? null,
+      sortKey: p.createdAt.getTime(),
+    })),
+    ...missionCompletions.map((c) => {
+      const base = baseByEmail.get(c.email);
+      return {
+        id: c.id,
+        name: base?.name ?? c.email,
+        email: c.email,
+        phone: base?.phone ?? null,
+        raffleNumber: base?.raffleNumber ?? 0,
+        photoUrl: c.photoUrl,
+        customData: null as Record<string, string> | null,
+        moderationStatus: c.moderationStatus,
+        createdAt: c.completedAt.toISOString(),
+        missionTitle: c.mission.title,
+        kind: "missionCompletion" as const,
+        sortKey: c.completedAt.getTime(),
+      };
+    }),
+  ].sort((a, b) => b.sortKey - a.sortKey);
+
   return (
     <div>
       <Link href={`/admin/events/${event.id}`} className="back">
@@ -52,9 +109,10 @@ export default async function ApprovalsPage({
           o sorteio.
         </p>
         <p className="filter-note">
-          Mostra inscrições pelo formulário público e números liberados por missões/pré-requisitos
-          que exigem aprovação — importados de planilha e adicionados manualmente não passam por
-          essa etapa, então não aparecem aqui.
+          Mostra inscrições pelo formulário público, números liberados por missões que exigem
+          aprovação e missões obrigatórias que exigem aprovação mesmo sem liberar número extra —
+          importados de planilha e adicionados manualmente não passam por essa etapa, então não
+          aparecem aqui.
         </p>
       </div>
 
@@ -91,20 +149,7 @@ export default async function ApprovalsPage({
         </Link>
       </div>
 
-      <ApprovalQueue
-        participants={participants.map((p) => ({
-          id: p.id,
-          name: p.name,
-          email: p.email,
-          phone: p.phone,
-          raffleNumber: p.raffleNumber,
-          photoUrl: p.photoUrl,
-          customData: p.customData as Record<string, string> | null,
-          moderationStatus: p.moderationStatus,
-          createdAt: p.createdAt.toISOString(),
-          missionTitle: p.mission?.title ?? null,
-        }))}
-      />
+      <ApprovalQueue participants={allRows} />
 
       <style>{`
         .back {

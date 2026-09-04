@@ -23,7 +23,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     photoUrl?: string | null;
     quizAnswer?: number | null;
     quizCorrect?: boolean | null;
+    moderationStatus?: "PENDING" | "APPROVED";
   } = { missionId: mission.id, email };
+
+  // Missão que NÃO gera número extra não tem nenhum ticket/Participant pra
+  // carregar a aprovação - se ela exige revisão manual, é o próprio
+  // MissionCompletion que precisa nascer Pendente, senão a conclusão passa
+  // direto sem review nenhuma (e nunca aparece em Aprovações). Missão que
+  // gera ticket continua decidindo isso lá embaixo, no Participant criado/
+  // revelado - aqui fica sempre Aprovado pra ela, só decorativo.
+  data.moderationStatus = !mission.grantsExtraTicket && mission.requiresApproval ? "PENDING" : "APPROVED";
 
   if (mission.type === "PHOTO_UPLOAD") {
     if (!body.photoUrl) {

@@ -86,7 +86,7 @@ export default async function EventDashboardPage({ params }: { params: { id: str
     hasMissions
       ? db.participant.findMany({
           where: { eventId: event.id },
-          select: { email: true, name: true },
+          select: { email: true, name: true, phone: true, raffleNumber: true },
           distinct: ["email"],
           orderBy: { name: "asc" },
         })
@@ -125,13 +125,58 @@ export default async function EventDashboardPage({ params }: { params: { id: str
     missionTitle: p.mission?.title ?? null,
   }));
 
-  // Mapa "missionId:email" -> status do ticket que essa missão gerou,
-  // pra colorir a matriz de missões (completou e está pendente / completou
-  // e já foi aprovado). Missão sem ticket associado (ex: SELF_CHECK sem
-  // grantsExtraTicket) simplesmente não entra nesse mapa - fica só "✓".
+  // Missão obrigatória que NÃO gera número extra (ex: "conte sua
+  // experiência", só um comprovante pra revisar) não cria nenhum
+  // Participant/ticket - antes disso, uma conclusão assim com "Exigir
+  // aprovação" ligado passava direto sem review nenhuma e nunca aparecia
+  // aqui. Agora a própria MissionCompletion carrega moderationStatus, e
+  // isso monta a fila equivalente pra ela, usando um Participant qualquer
+  // já existente da pessoa (eventParticipants) só pra exibir nome/telefone/
+  // número - o comprovante em si (quando PHOTO_UPLOAD) já está na conclusão.
+  const baseParticipantByEmail = new Map<
+    string,
+    { name: string; phone: string | null; raffleNumber: number }
+  >(eventParticipants.map((ep) => [ep.email, ep]));
+  const missionCompletionPendingRows = missions
+    .filter((m) => !m.grantsExtraTicket)
+    .flatMap((m) =>
+      m.completions
+        .filter((c) => c.moderationStatus === "PENDING")
+        .map((c) => {
+          const base = baseParticipantByEmail.get(c.email);
+          return {
+            id: c.id,
+            name: base?.name ?? c.email,
+            email: c.email,
+            phone: base?.phone ?? null,
+            raffleNumber: base?.raffleNumber ?? 0,
+            photoUrl: c.photoUrl,
+            customData: null as Record<string, string> | null,
+            moderationStatus: "PENDING" as const,
+            createdAt: c.completedAt.toISOString(),
+            missionTitle: m.title,
+            kind: "missionCompletion" as const,
+          };
+        })
+    );
+  const combinedMissionPendingRows = [...missionPendingRows, ...missionCompletionPendingRows];
+
+  // Mapa "missionId:email" -> status (do ticket que a missão gerou, OU da
+  // própria conclusão quando ela não gera ticket), pra colorir a matriz de
+  // missões (completou e está pendente / completou e já foi aprovado).
+  // Missão sem ticket E sem exigir aprovação simplesmente não entra nesse
+  // mapa - fica só "✓".
   const ticketStatusByKey = new Map<string, string>();
   for (const t of ticketsByMission) {
     if (t.missionId) ticketStatusByKey.set(`${t.missionId}:${t.email}`, t.moderationStatus);
+  }
+  for (const m of missions) {
+    if (m.grantsExtraTicket) continue;
+    for (const c of m.completions) {
+      if (c.moderationStatus !== "APPROVED") {
+        ticketStatusByKey.set(`${m.id}:${c.email}`, c.moderationStatus);
+      }
+    }
   }
 
   const maxCompletions = Math.max(1, ...missions.map((m) => m.completions.length));
@@ -351,8 +396,8 @@ export default async function EventDashboardPage({ params }: { params: { id: str
         </div>
         {hasMissions && (
           <div className="approval-panel">
-            <h3>🎯 Missões {missionPendingRows.length > 0 && <span className="count-badge">{missionPendingRows.length}</span>}</h3>
-            <ApprovalQueue participants={missionPendingRows} collapsible pageSize={20} />
+            <h3>🎯 Missões {combinedMissionPendingRows.length > 0 && <span className="count-badge">{combinedMissionPendingRows.length}</span>}</h3>
+            <ApprovalQueue participants={combinedMissionPendingRows} collapsible pageSize={20} />
           </div>
         )}
       </div>

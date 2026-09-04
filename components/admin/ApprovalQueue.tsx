@@ -14,6 +14,11 @@ interface QueueParticipant {
   moderationStatus: "PENDING" | "APPROVED" | "REJECTED";
   createdAt: string;
   missionTitle: string | null;
+  // "participant" (padrão, quando omitido) modera um Participant/ticket de
+  // verdade. "missionCompletion" é uma conclusão de missão que NÃO gera
+  // número extra - não existe ticket próprio pra ela, então precisa de uma
+  // rota de moderação diferente (ver /api/admin/mission-completions).
+  kind?: "participant" | "missionCompletion";
 }
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
@@ -42,9 +47,14 @@ export function ApprovalQueue({
   const [expanded, setExpanded] = useState(!collapsible);
   const [page, setPage] = useState(1);
 
-  async function moderate(id: string, status: "APPROVED" | "REJECTED" | "PENDING") {
+  async function moderate(
+    id: string,
+    status: "APPROVED" | "REJECTED" | "PENDING",
+    kind: "participant" | "missionCompletion" = "participant"
+  ) {
     setBusyId(id);
-    await fetch(`/api/admin/participants/${id}/moderate`, {
+    const base = kind === "missionCompletion" ? "/api/admin/mission-completions" : "/api/admin/participants";
+    await fetch(`${base}/${id}/moderate`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
@@ -143,7 +153,7 @@ export function ApprovalQueue({
               <button
                 type="button"
                 className="approve-btn"
-                onClick={() => moderate(p.id, "APPROVED")}
+                onClick={() => moderate(p.id, "APPROVED", p.kind)}
                 disabled={busyId === p.id}
               >
                 {busyId === p.id ? "…" : "✅ Aprovar"}
@@ -151,7 +161,7 @@ export function ApprovalQueue({
               <button
                 type="button"
                 className="reject-btn"
-                onClick={() => moderate(p.id, "REJECTED")}
+                onClick={() => moderate(p.id, "REJECTED", p.kind)}
                 disabled={busyId === p.id}
               >
                 {busyId === p.id ? "…" : "❌ Recusar"}
@@ -163,7 +173,7 @@ export function ApprovalQueue({
               <button
                 type="button"
                 className="reset-btn"
-                onClick={() => moderate(p.id, "PENDING")}
+                onClick={() => moderate(p.id, "PENDING", p.kind)}
                 disabled={busyId === p.id}
               >
                 Voltar pra pendente

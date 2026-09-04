@@ -502,6 +502,16 @@ model MissionCompletion {
   quizAnswer  Int?     // QUIZ - índice escolhido
   quizCorrect Boolean? // QUIZ - se acertou
 
+  // Só é a fonte da verdade quando a missão NÃO gera número extra
+  // (grantsExtraTicket false) - nesse caso não existe nenhum Participant/
+  // ticket criado pra essa conclusão, então sem esse campo uma missão
+  // obrigatória com "Exigir aprovação" (ex: comprovante de uma
+  // experiência) completava na hora, sem revisão nenhuma, e nunca
+  // aparecia em Aprovações. Missões que geram ticket continuam usando
+  // Participant.moderationStatus como fonte da verdade - esse campo fica
+  // sempre APPROVED nesse caso (não é olhado pra elas).
+  moderationStatus ParticipantModerationStatus @default(APPROVED)
+
   completedAt DateTime @default(now())
 
   @@unique([missionId, email])
