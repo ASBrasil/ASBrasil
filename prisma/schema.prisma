@@ -15,6 +15,9 @@ enum ParticipantSource {
   SIGNUP
   MANUAL
   MISSION
+  // Número extra concedido por completar uma fase de jogo (Universo AS)
+  // que exige inscrição no evento - ver GamePhase.grantsExtraTicket.
+  GAME
 }
 
 enum ParticipantModerationStatus {
@@ -137,6 +140,7 @@ model Event {
   imports               ImportBatch[]
   presences            Presence[]
   participantNotices   ParticipantNotice[]
+  games                Game[]
 
   @@index([active])
   @@index([archived])
@@ -516,4 +520,152 @@ model MissionCompletion {
 
   @@unique([missionId, email])
   @@index([missionId])
+}
+
+// ============================================================
+// Universo AS - jogos ligados aos eventos do sorteio
+// ============================================================
+// Qualquer pessoa cadastrada em QUALQUER evento (tem sessão de
+// participante) pode jogar qualquer jogo, independente de estar
+// inscrita no evento daquele jogo especificamente - álbum de
+// figurinhas e XP são livres pra todo mundo do Universo AS. Só o
+// brinde do EVENTO (GamePhase.grantsExtraTicket) exige que a pessoa
+// realmente seja Participant daquele Game.eventId - ver comentário lá.
+
+enum GameType {
+  QUIZ
+  MEMORY
+  RHYTHM
+  HUNT
+  CARDS
+}
+
+// DRAFT: só aparece no admin. TESTING: aparece pro participante, mas só
+// pra quem estiver em GameTester. LIVE: todo mundo do Universo AS vê.
+enum GameVisibility {
+  DRAFT
+  TESTING
+  LIVE
+}
+
+// Perfil único da pessoa no Universo AS, atravessando todos os eventos -
+// chave é o e-mail (mesmo que já identifica a sessão de participante),
+// sem cadastro/login novo nenhum. XP e nível NUNCA ficam guardados aqui -
+// são sempre calculados somando PlayerPhaseProgress.firstScore, pra não
+// existir a possibilidade de um número salvo dessincronizar do progresso
+// real (lição aprendida no protótipo Supabase deste mesmo projeto).
+model UniverseProfile {
+  email       String   @id
+  displayName String?
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+
+  cards       PlayerCard[]
+  progress    PlayerPhaseProgress[]
+}
+
+// Um "lançamento" de jogo, sempre amarrado a um evento do sorteio (é o
+// evento que aparece pra pessoa como o contexto do jogo, e é ele que
+// decide quem pode resgatar o brinde) - não existe jogo "avulso" sem
+// evento.
+model Game {
+  id         String         @id @default(cuid())
+  eventId    String
+  event      Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  slug       String         @unique
+  name       String
+  type       GameType
+  theme      Json           @default("{}")
+  visibility GameVisibility @default(DRAFT)
+
+  createdAt  DateTime       @default(now())
+
+  phases     GamePhase[]
+
+  @@index([eventId])
+}
+
+model GamePhase {
+  id     String @id @default(cuid())
+  gameId String
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  order   Int      @default(0)
+  type    GameType
+  title   String
+  // Formato livre por tipo: QUIZ = {question, options[], correctIndex};
+  // MEMORY = {pairs[]}; RHYTHM = {pattern}; HUNT = {targets[]}. Cada tipo
+  // de jogo lê só o formato que sabe interpretar.
+  content Json
+  points  Int      @default(10)
+
+  rewardCardId String?
+  rewardCard   GameCard? @relation(fields: [rewardCardId], references: [id], onDelete: SetNull)
+
+  // Quando true, completar essa fase concede um número extra no sorteio
+  // do evento (Game.eventId) - igual ParticipantSource.GAME - MAS só pra
+  // quem já é Participant daquele evento. Quem joga sem estar inscrito
+  // ganha XP e o card normalmente (o álbum é livre pra todo mundo do
+  // Universo AS); só esse brinde do evento exige inscrição.
+  grantsExtraTicket Boolean @default(false)
+
+  completions PlayerPhaseProgress[]
+
+  @@index([gameId, order])
+}
+
+// Catálogo compartilhado do "álbum de figurinhas" do Universo AS - não
+// pertence a um Game específico de propósito, pra sobreviver mesmo que o
+// jogo/evento de origem seja arquivado depois. Cresce a cada evento que
+// lança fases com prêmio de card novo.
+model GameCard {
+  id          String   @id @default(cuid())
+  name        String
+  rarity      String   @default("comum")
+  imageUrl    String?
+  description String?
+  createdAt   DateTime @default(now())
+
+  phases GamePhase[]
+  owners PlayerCard[]
+}
+
+model PlayerCard {
+  id         String          @id @default(cuid())
+  email      String
+  profile    UniverseProfile @relation(fields: [email], references: [email], onDelete: Cascade)
+  cardId     String
+  card       GameCard        @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  obtainedAt DateTime        @default(now())
+
+  @@unique([email, cardId])
+  @@index([cardId])
+}
+
+// Só a primeira tentativa pontua (firstScore) pro ranking/XP - joga de
+// novo "por diversão" depois não altera nada, mesmo padrão já usado em
+// Participant/Mission pra impedir a pessoa de inflar a própria pontuação.
+model PlayerPhaseProgress {
+  id      String          @id @default(cuid())
+  email   String
+  profile UniverseProfile @relation(fields: [email], references: [email], onDelete: Cascade)
+  phaseId String
+  phase   GamePhase       @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+
+  completed  Boolean @default(false)
+  firstScore Int     @default(0)
+  attempts   Int     @default(0)
+
+  @@unique([email, phaseId])
+  @@index([phaseId])
+}
+
+// Lista global de testadores - enquanto um Game está em TESTING, só quem
+// está aqui consegue ver/jogar ele como participante (admin sempre vê
+// tudo, independente disso). Deliberadamente global (não por jogo) pra
+// manter simples - você e quem mais for ajudar a testar entram uma vez só.
+model GameTester {
+  email     String   @id
+  createdAt DateTime @default(now())
 }

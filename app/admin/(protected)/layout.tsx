@@ -14,6 +14,7 @@ export default function AdminLayout({ children }: PropsWithChildren) {
           <a href="/admin/events">Eventos</a>
           <a href="/admin/events/new">Novo evento</a>
           <a href="/admin/acessos">Acessos</a>
+          <a href="/admin/jogos">🎮 Jogos (Universo AS)</a>
           <a href="/admin/popup">Pop-up de aviso</a>
           <a href="/admin/destaques">Destaques do login</a>
         </nav>
