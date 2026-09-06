@@ -37,7 +37,6 @@ export default async function JogosPage() {
           visibility: g.visibility,
           eventName: g.event.name,
           phaseCount: g.phases.length,
-          theme: g.theme as { primaryColor?: string; secondaryColor?: string } | null,
         }))}
         events={events}
       />
