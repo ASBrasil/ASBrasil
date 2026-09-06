@@ -16,6 +16,7 @@ interface GameRow {
   visibility: GameVisibility;
   eventName: string;
   phaseCount: number;
+  theme?: { primaryColor?: string; secondaryColor?: string } | null;
 }
 
 const TYPE_LABEL: Record<GameType, string> = {
@@ -73,6 +74,7 @@ export function GameManager({
             visibility: g.visibility,
             eventName: g.event?.name ?? "",
             phaseCount: g.phases?.length ?? 0,
+            theme: g.theme ?? null,
           }))
         )
       );
@@ -169,6 +171,14 @@ export function GameManager({
       <div className="list">
         {games.map((game) => (
           <Link key={game.id} href={`/admin/jogos/${game.id}`} className="row">
+            <span
+              className="swatch"
+              style={{
+                background: `linear-gradient(160deg, ${game.theme?.primaryColor || "#3B55E6"}, ${
+                  game.theme?.secondaryColor || "#0c2a5b"
+                })`,
+              }}
+            />
             <div className="info">
               <div className="badges">
                 <span className={`vis-badge ${game.visibility.toLowerCase()}`}>
@@ -237,6 +247,12 @@ export function GameManager({
         }
         .row:hover {
           border-color: var(--indigo-600);
+        }
+        .swatch {
+          width: 0.5rem;
+          align-self: stretch;
+          border-radius: 999px;
+          flex-shrink: 0;
         }
         .info {
           min-width: 0;
