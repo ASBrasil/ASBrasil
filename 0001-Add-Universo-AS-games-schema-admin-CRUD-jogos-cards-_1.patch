@@ -1,0 +1,2206 @@
+From 8b1fa35bbad8665945eca27b07f22aedd8e42522 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 6 Sep 2026 03:47:50 +0000
+Subject: [PATCH] Add Universo AS games: schema + admin CRUD (jogos, cards,
+ testadores)
+
+Fase 1 do plano combinado: modelos Prisma (Game sempre ligado a um
+Event, GamePhase, GameCard como album compartilhado, PlayerCard,
+PlayerPhaseProgress, UniverseProfile, GameTester) + telas de admin
+pra criar jogos em DRAFT, cadastrar fases de quiz, gerenciar o
+catalogo de cartas e a lista de testadores. Nada visivel pro
+participante ainda - so aparece quando o admin mudar o jogo pra
+TESTING/LIVE.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_0171QHdFfBm18o5YD5AZX1Z5
+---
+ app/admin/(protected)/jogos/[id]/page.tsx     |  69 +++
+ app/admin/(protected)/jogos/cards/page.tsx    |  39 ++
+ app/admin/(protected)/jogos/page.tsx          |  51 ++
+ .../(protected)/jogos/testadores/page.tsx     |  34 ++
+ app/admin/(protected)/layout.tsx              |   1 +
+ app/api/admin/game-cards/[id]/route.ts        |  26 +
+ app/api/admin/game-cards/route.ts             |  30 +
+ app/api/admin/game-testers/[email]/route.ts   |  10 +
+ app/api/admin/game-testers/route.ts           |  27 +
+ .../games/[id]/phases/[phaseId]/route.ts      |  31 +
+ app/api/admin/games/[id]/phases/route.ts      |  38 ++
+ app/api/admin/games/[id]/route.ts             |  36 ++
+ app/api/admin/games/route.ts                  |  48 ++
+ components/admin/GameCardManager.tsx          | 263 +++++++++
+ components/admin/GameManager.tsx              | 297 ++++++++++
+ components/admin/GamePhaseManager.tsx         | 546 ++++++++++++++++++
+ components/admin/GameTesterManager.tsx        | 137 +++++
+ components/admin/GamesSubNav.tsx              |  39 ++
+ .../migration.sql                             | 131 +++++
+ prisma/schema.prisma                          | 152 +++++
+ 20 files changed, 2005 insertions(+)
+ create mode 100644 app/admin/(protected)/jogos/[id]/page.tsx
+ create mode 100644 app/admin/(protected)/jogos/cards/page.tsx
+ create mode 100644 app/admin/(protected)/jogos/page.tsx
+ create mode 100644 app/admin/(protected)/jogos/testadores/page.tsx
+ create mode 100644 app/api/admin/game-cards/[id]/route.ts
+ create mode 100644 app/api/admin/game-cards/route.ts
+ create mode 100644 app/api/admin/game-testers/[email]/route.ts
+ create mode 100644 app/api/admin/game-testers/route.ts
+ create mode 100644 app/api/admin/games/[id]/phases/[phaseId]/route.ts
+ create mode 100644 app/api/admin/games/[id]/phases/route.ts
+ create mode 100644 app/api/admin/games/[id]/route.ts
+ create mode 100644 app/api/admin/games/route.ts
+ create mode 100644 components/admin/GameCardManager.tsx
+ create mode 100644 components/admin/GameManager.tsx
+ create mode 100644 components/admin/GamePhaseManager.tsx
+ create mode 100644 components/admin/GameTesterManager.tsx
+ create mode 100644 components/admin/GamesSubNav.tsx
+ create mode 100644 prisma/migrations/20260906120000_universo_as_games/migration.sql
+
+diff --git a/app/admin/(protected)/jogos/[id]/page.tsx b/app/admin/(protected)/jogos/[id]/page.tsx
+new file mode 100644
+index 0000000..fbed2bc
+--- /dev/null
++++ b/app/admin/(protected)/jogos/[id]/page.tsx
+@@ -0,0 +1,69 @@
++import { db } from "@/lib/db";
++import { notFound } from "next/navigation";
++import Link from "next/link";
++import { GamePhaseManager } from "@/components/admin/GamePhaseManager";
++
++export const dynamic = "force-dynamic";
++
++export default async function GameDetailPage({ params }: { params: { id: string } }) {
++  const game = await db.game.findUnique({
++    where: { id: params.id },
++    include: {
++      event: { select: { name: true, slug: true } },
++      phases: { orderBy: { order: "asc" } },
++    },
++  });
++  if (!game) notFound();
++
++  const cards = await db.gameCard.findMany({
++    select: { id: true, name: true, rarity: true },
++    orderBy: { name: "asc" },
++  });
++
++  return (
++    <div>
++      <Link href="/admin/jogos" className="back">
++        ← Voltar pros jogos
++      </Link>
++
++      <div className="header">
++        <h1>{game.name}</h1>
++        <p className="subtitle">
++          Evento: <strong>{game.event.name}</strong> · slug: <code>{game.slug}</code>
++        </p>
++      </div>
++
++      <GamePhaseManager
++        gameId={game.id}
++        visibility={game.visibility}
++        phases={game.phases.map((p: any) => ({
++          id: p.id,
++          order: p.order,
++          title: p.title,
++          content: p.content,
++          points: p.points,
++          rewardCardId: p.rewardCardId,
++          grantsExtraTicket: p.grantsExtraTicket,
++        }))}
++        cards={cards}
++      />
++
++      <style>{`
++        .back {
++          color: var(--indigo-600);
++          text-decoration: none;
++          font-size: 0.85rem;
++        }
++        .header { margin: 1rem 0 1.5rem; max-width: 42rem; }
++        h1 { margin: 0 0 0.4rem; font-family: var(--font-display, inherit); }
++        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin: 0; }
++        code {
++          background: var(--bg);
++          padding: 0.1rem 0.4rem;
++          border-radius: 0.3rem;
++          font-size: 0.85rem;
++        }
++      `}</style>
++    </div>
++  );
++}
+diff --git a/app/admin/(protected)/jogos/cards/page.tsx b/app/admin/(protected)/jogos/cards/page.tsx
+new file mode 100644
+index 0000000..22d8562
+--- /dev/null
++++ b/app/admin/(protected)/jogos/cards/page.tsx
+@@ -0,0 +1,39 @@
++import { db } from "@/lib/db";
++import { GameCardManager } from "@/components/admin/GameCardManager";
++import { GamesSubNav } from "@/components/admin/GamesSubNav";
++
++export const dynamic = "force-dynamic";
++
++export default async function GameCardsPage() {
++  const cards = await db.gameCard.findMany({ orderBy: { createdAt: "desc" } });
++
++  return (
++    <div>
++      <div className="header">
++        <h1>🎴 Álbum de figurinhas — Universo AS</h1>
++        <p className="subtitle">
++          Catálogo único e compartilhado entre todos os jogos e eventos - cresce a cada jogo
++          lançado, e o jogador mantém a coleção pra sempre no perfil do Universo AS.
++        </p>
++      </div>
++
++      <GamesSubNav active="cards" />
++
++      <GameCardManager
++        cards={cards.map((c) => ({
++          id: c.id,
++          name: c.name,
++          rarity: c.rarity,
++          imageUrl: c.imageUrl,
++          description: c.description,
++        }))}
++      />
++
++      <style>{`
++        .header { margin-bottom: 1rem; max-width: 42rem; }
++        h1 { margin: 0 0 0.4rem; font-family: var(--font-display, inherit); }
++        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin: 0; line-height: 1.5; }
++      `}</style>
++    </div>
++  );
++}
+diff --git a/app/admin/(protected)/jogos/page.tsx b/app/admin/(protected)/jogos/page.tsx
+new file mode 100644
+index 0000000..6855d43
+--- /dev/null
++++ b/app/admin/(protected)/jogos/page.tsx
+@@ -0,0 +1,51 @@
++import { db } from "@/lib/db";
++import Link from "next/link";
++import { GameManager } from "@/components/admin/GameManager";
++import { GamesSubNav } from "@/components/admin/GamesSubNav";
++
++export const dynamic = "force-dynamic";
++
++export default async function JogosPage() {
++  const [games, events] = await Promise.all([
++    db.game.findMany({
++      include: { event: { select: { name: true, slug: true } }, phases: { select: { id: true } } },
++      orderBy: { createdAt: "desc" },
++    }),
++    db.event.findMany({ select: { id: true, name: true }, orderBy: { startAt: "desc" } }),
++  ]);
++
++  return (
++    <div>
++      <div className="header">
++        <h1>🎮 Universo AS — Jogos</h1>
++        <p className="subtitle">
++          Cada jogo nasce em <strong>Rascunho</strong> (só o admin vê) e só fica visível pra
++          participantes de verdade quando você mudar pra Teste (com testadores) ou Ao vivo.
++          Qualquer pessoa do Universo AS pode jogar, mas só quem está inscrito no evento do jogo
++          pode receber o brinde configurado numa fase.
++        </p>
++      </div>
++
++      <GamesSubNav active="jogos" />
++
++      <GameManager
++        games={games.map((g) => ({
++          id: g.id,
++          slug: g.slug,
++          name: g.name,
++          type: g.type,
++          visibility: g.visibility,
++          eventName: g.event.name,
++          phaseCount: g.phases.length,
++        }))}
++        events={events}
++      />
++
++      <style>{`
++        .header { margin-bottom: 1rem; max-width: 42rem; }
++        h1 { margin: 0 0 0.4rem; font-family: var(--font-display, inherit); }
++        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin: 0; line-height: 1.5; }
++      `}</style>
++    </div>
++  );
++}
+diff --git a/app/admin/(protected)/jogos/testadores/page.tsx b/app/admin/(protected)/jogos/testadores/page.tsx
+new file mode 100644
+index 0000000..b47f294
+--- /dev/null
++++ b/app/admin/(protected)/jogos/testadores/page.tsx
+@@ -0,0 +1,34 @@
++import { db } from "@/lib/db";
++import { GameTesterManager } from "@/components/admin/GameTesterManager";
++import { GamesSubNav } from "@/components/admin/GamesSubNav";
++
++export const dynamic = "force-dynamic";
++
++export default async function GameTestersPage() {
++  const testers = await db.gameTester.findMany({ orderBy: { createdAt: "desc" } });
++
++  return (
++    <div>
++      <div className="header">
++        <h1>🧪 Testadores — Universo AS</h1>
++        <p className="subtitle">
++          Enquanto um jogo está em <strong>Teste</strong>, só os e-mails desta lista conseguem ver
++          e jogar ele como participante - todo mundo mais continua sem ver nada, como se a aba não
++          existisse. Como admin, você sempre consegue abrir qualquer jogo, mesmo sem estar aqui.
++        </p>
++      </div>
++
++      <GamesSubNav active="testadores" />
++
++      <GameTesterManager
++        testers={testers.map((t) => ({ email: t.email, createdAt: t.createdAt.toISOString() }))}
++      />
++
++      <style>{`
++        .header { margin-bottom: 1rem; max-width: 42rem; }
++        h1 { margin: 0 0 0.4rem; font-family: var(--font-display, inherit); }
++        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin: 0; line-height: 1.5; }
++      `}</style>
++    </div>
++  );
++}
+diff --git a/app/admin/(protected)/layout.tsx b/app/admin/(protected)/layout.tsx
+index 6add192..5e94a56 100644
+--- a/app/admin/(protected)/layout.tsx
++++ b/app/admin/(protected)/layout.tsx
+@@ -14,6 +14,7 @@ export default function AdminLayout({ children }: PropsWithChildren) {
+           <a href="/admin/events">Eventos</a>
+           <a href="/admin/events/new">Novo evento</a>
+           <a href="/admin/acessos">Acessos</a>
++          <a href="/admin/jogos">🎮 Jogos (Universo AS)</a>
+           <a href="/admin/popup">Pop-up de aviso</a>
+           <a href="/admin/destaques">Destaques do login</a>
+         </nav>
+diff --git a/app/api/admin/game-cards/[id]/route.ts b/app/api/admin/game-cards/[id]/route.ts
+new file mode 100644
+index 0000000..4c80dd3
+--- /dev/null
++++ b/app/api/admin/game-cards/[id]/route.ts
+@@ -0,0 +1,26 @@
++import { NextRequest, NextResponse } from "next/server";
++import { db } from "@/lib/db";
++import { requireAdmin } from "@/lib/auth";
++
++export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
++  await requireAdmin();
++  const body = await req.json();
++
++  const data: Record<string, unknown> = {};
++  if (body.name !== undefined) data.name = body.name;
++  if (body.rarity !== undefined) data.rarity = body.rarity;
++  if (body.imageUrl !== undefined) data.imageUrl = body.imageUrl || null;
++  if (body.description !== undefined) data.description = body.description || null;
++
++  const card = await db.gameCard.update({ where: { id: params.id }, data });
++  return NextResponse.json({ card });
++}
++
++export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
++  await requireAdmin();
++  // Se algum GamePhase apontar essa carta como recompensa, o campo dele
++  // vira null (rewardCardId onDelete: SetNull) - a fase não fica quebrada,
++  // só some a recompensa configurada.
++  await db.gameCard.delete({ where: { id: params.id } });
++  return NextResponse.json({ ok: true });
++}
+diff --git a/app/api/admin/game-cards/route.ts b/app/api/admin/game-cards/route.ts
+new file mode 100644
+index 0000000..e91c8c0
+--- /dev/null
++++ b/app/api/admin/game-cards/route.ts
+@@ -0,0 +1,30 @@
++import { NextRequest, NextResponse } from "next/server";
++import { db } from "@/lib/db";
++import { requireAdmin } from "@/lib/auth";
++
++export async function GET() {
++  await requireAdmin();
++  const cards = await db.gameCard.findMany({ orderBy: { createdAt: "desc" } });
++  return NextResponse.json({ cards });
++}
++
++export async function POST(req: NextRequest) {
++  await requireAdmin();
++  const body = await req.json();
++
++  const { name } = body;
++  if (!name) {
++    return NextResponse.json({ error: "name é obrigatório" }, { status: 400 });
++  }
++
++  const card = await db.gameCard.create({
++    data: {
++      name,
++      rarity: body.rarity || "comum",
++      imageUrl: body.imageUrl || null,
++      description: body.description || null,
++    },
++  });
++
++  return NextResponse.json({ card }, { status: 201 });
++}
+diff --git a/app/api/admin/game-testers/[email]/route.ts b/app/api/admin/game-testers/[email]/route.ts
+new file mode 100644
+index 0000000..13c8eb6
+--- /dev/null
++++ b/app/api/admin/game-testers/[email]/route.ts
+@@ -0,0 +1,10 @@
++import { NextRequest, NextResponse } from "next/server";
++import { db } from "@/lib/db";
++import { requireAdmin } from "@/lib/auth";
++
++export async function DELETE(_req: NextRequest, { params }: { params: { email: string } }) {
++  await requireAdmin();
++  const email = decodeURIComponent(params.email);
++  await db.gameTester.delete({ where: { email } });
++  return NextResponse.json({ ok: true });
++}
+diff --git a/app/api/admin/game-testers/route.ts b/app/api/admin/game-testers/route.ts
+new file mode 100644
+index 0000000..85721a8
+--- /dev/null
++++ b/app/api/admin/game-testers/route.ts
+@@ -0,0 +1,27 @@
++import { NextRequest, NextResponse } from "next/server";
++import { db } from "@/lib/db";
++import { requireAdmin } from "@/lib/auth";
++
++export async function GET() {
++  await requireAdmin();
++  const testers = await db.gameTester.findMany({ orderBy: { createdAt: "desc" } });
++  return NextResponse.json({ testers });
++}
++
++export async function POST(req: NextRequest) {
++  await requireAdmin();
++  const body = await req.json();
++
++  const email = (body.email || "").trim().toLowerCase();
++  if (!email) {
++    return NextResponse.json({ error: "email é obrigatório" }, { status: 400 });
++  }
++
++  const tester = await db.gameTester.upsert({
++    where: { email },
++    update: {},
++    create: { email },
++  });
++
++  return NextResponse.json({ tester }, { status: 201 });
++}
+diff --git a/app/api/admin/games/[id]/phases/[phaseId]/route.ts b/app/api/admin/games/[id]/phases/[phaseId]/route.ts
+new file mode 100644
+index 0000000..42f4fd2
+--- /dev/null
++++ b/app/api/admin/games/[id]/phases/[phaseId]/route.ts
+@@ -0,0 +1,31 @@
++import { NextRequest, NextResponse } from "next/server";
++import { db } from "@/lib/db";
++import { requireAdmin } from "@/lib/auth";
++
++export async function PATCH(
++  _req: NextRequest,
++  { params }: { params: { id: string; phaseId: string } }
++) {
++  await requireAdmin();
++  const body = await _req.json();
++
++  const data: Record<string, unknown> = {};
++  if (body.title !== undefined) data.title = body.title;
++  if (body.content !== undefined) data.content = body.content;
++  if (body.points !== undefined) data.points = body.points;
++  if (body.rewardCardId !== undefined) data.rewardCardId = body.rewardCardId || null;
++  if (body.grantsExtraTicket !== undefined) data.grantsExtraTicket = !!body.grantsExtraTicket;
++  if (body.order !== undefined) data.order = body.order;
++
++  const phase = await db.gamePhase.update({ where: { id: params.phaseId }, data });
++  return NextResponse.json({ phase });
++}
++
++export async function DELETE(
++  _req: NextRequest,
++  { params }: { params: { id: string; phaseId: string } }
++) {
++  await requireAdmin();
++  await db.gamePhase.delete({ where: { id: params.phaseId } });
++  return NextResponse.json({ ok: true });
++}
+diff --git a/app/api/admin/games/[id]/phases/route.ts b/app/api/admin/games/[id]/phases/route.ts
+new file mode 100644
+index 0000000..e1ed68d
+--- /dev/null
++++ b/app/api/admin/games/[id]/phases/route.ts
+@@ -0,0 +1,38 @@
++import { NextRequest, NextResponse } from "next/server";
++import { db } from "@/lib/db";
++import { requireAdmin } from "@/lib/auth";
++
++export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
++  await requireAdmin();
++  const body = await req.json();
++
++  const { title, content, points, rewardCardId, grantsExtraTicket } = body;
++  if (!title || !content) {
++    return NextResponse.json({ error: "title e content são obrigatórios" }, { status: 400 });
++  }
++
++  const game = await db.game.findUnique({ where: { id: params.id }, include: { phases: true } });
++  if (!game) return NextResponse.json({ error: "Jogo não encontrado" }, { status: 404 });
++
++  const nextOrder = game.phases.length
++    ? Math.max(...game.phases.map((p: { order: number }) => p.order)) + 1
++    : 0;
++
++  const phase = await db.gamePhase.create({
++    data: {
++      gameId: game.id,
++      order: nextOrder,
++      // Fase 1 só tem QUIZ - o tipo da fase segue o tipo do jogo por
++      // enquanto (memória/ritmo/caça entram depois, cada um com seu
++      // formato de content e componente de jogo próprio).
++      type: game.type,
++      title,
++      content,
++      points: typeof points === "number" ? points : 10,
++      rewardCardId: rewardCardId || null,
++      grantsExtraTicket: !!grantsExtraTicket,
++    },
++  });
++
++  return NextResponse.json({ phase }, { status: 201 });
++}
+diff --git a/app/api/admin/games/[id]/route.ts b/app/api/admin/games/[id]/route.ts
+new file mode 100644
+index 0000000..11639c4
+--- /dev/null
++++ b/app/api/admin/games/[id]/route.ts
+@@ -0,0 +1,36 @@
++import { NextRequest, NextResponse } from "next/server";
++import { db } from "@/lib/db";
++import { requireAdmin } from "@/lib/auth";
++
++const VALID_VISIBILITY = ["DRAFT", "TESTING", "LIVE"];
++
++export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
++  await requireAdmin();
++  const body = await req.json();
++
++  const data: Record<string, unknown> = {};
++  if (body.name !== undefined) data.name = body.name;
++  if (body.theme !== undefined) data.theme = body.theme;
++  if (body.visibility !== undefined) {
++    if (!VALID_VISIBILITY.includes(body.visibility)) {
++      return NextResponse.json(
++        { error: `visibility deve ser um de: ${VALID_VISIBILITY.join(", ")}` },
++        { status: 400 }
++      );
++    }
++    data.visibility = body.visibility;
++  }
++
++  const game = await db.game.update({ where: { id: params.id }, data });
++  return NextResponse.json({ game });
++}
++
++export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
++  await requireAdmin();
++  // Cascade apaga fases junto (GamePhase.gameId onDelete: Cascade) - mas
++  // não mexe no álbum de figurinhas (GameCard é catálogo compartilhado,
++  // sobrevive mesmo que o jogo de origem seja excluído) nem no progresso
++  // já registrado do jogador continua contando pro XP dele.
++  await db.game.delete({ where: { id: params.id } });
++  return NextResponse.json({ ok: true });
++}
+diff --git a/app/api/admin/games/route.ts b/app/api/admin/games/route.ts
+new file mode 100644
+index 0000000..580335c
+--- /dev/null
++++ b/app/api/admin/games/route.ts
+@@ -0,0 +1,48 @@
++import { NextRequest, NextResponse } from "next/server";
++import { db } from "@/lib/db";
++import { requireAdmin } from "@/lib/auth";
++
++const VALID_TYPES = ["QUIZ", "MEMORY", "RHYTHM", "HUNT", "CARDS"];
++
++export async function GET() {
++  await requireAdmin();
++  const games = await db.game.findMany({
++    include: { event: { select: { name: true, slug: true } }, phases: { select: { id: true } } },
++    orderBy: { createdAt: "desc" },
++  });
++  return NextResponse.json({ games });
++}
++
++export async function POST(req: NextRequest) {
++  await requireAdmin();
++  const body = await req.json();
++
++  const { eventId, slug, name, type } = body;
++  if (!eventId || !slug || !name || !type) {
++    return NextResponse.json(
++      { error: "eventId, slug, name e type são obrigatórios" },
++      { status: 400 }
++    );
++  }
++  if (!VALID_TYPES.includes(type)) {
++    return NextResponse.json({ error: `type deve ser um de: ${VALID_TYPES.join(", ")}` }, { status: 400 });
++  }
++
++  const event = await db.event.findUnique({ where: { id: eventId } });
++  if (!event) {
++    return NextResponse.json({ error: "Evento não encontrado" }, { status: 404 });
++  }
++
++  const slugTaken = await db.game.findUnique({ where: { slug } });
++  if (slugTaken) {
++    return NextResponse.json({ error: "Esse slug já está em uso por outro jogo" }, { status: 409 });
++  }
++
++  // Todo jogo novo nasce em DRAFT - só o admin vê, ninguém de fora enxerga
++  // a aba nem sabe que existe até virar TESTING/LIVE.
++  const game = await db.game.create({
++    data: { eventId, slug, name, type, visibility: "DRAFT" },
++  });
++
++  return NextResponse.json({ game }, { status: 201 });
++}
+diff --git a/components/admin/GameCardManager.tsx b/components/admin/GameCardManager.tsx
+new file mode 100644
+index 0000000..ad61fe1
+--- /dev/null
++++ b/components/admin/GameCardManager.tsx
+@@ -0,0 +1,263 @@
++"use client";
++
++import { useState } from "react";
++import { useRouter } from "next/navigation";
++import { Button, Field, Input } from "@/components/ui/primitives";
++import { ImageUpload } from "@/components/admin/ImageUpload";
++
++interface GameCard {
++  id: string;
++  name: string;
++  rarity: string;
++  imageUrl: string | null;
++  description: string | null;
++}
++
++const EMPTY_FORM = {
++  name: "",
++  rarity: "comum",
++  imageUrl: null as string | null,
++  description: "",
++};
++
++export function GameCardManager({ cards: initialCards }: { cards: GameCard[] }) {
++  const router = useRouter();
++  const [cards, setCards] = useState(initialCards);
++  const [creating, setCreating] = useState(false);
++  const [editingId, setEditingId] = useState<string | null>(null);
++
++  function refresh() {
++    router.refresh();
++    fetch("/api/admin/game-cards")
++      .then((r) => r.json())
++      .then((d) => setCards(d.cards ?? []));
++  }
++
++  return (
++    <div className="wrap">
++      {!creating && <Button onClick={() => setCreating(true)}>+ Nova carta</Button>}
++
++      {creating && (
++        <div className="card">
++          <CardFormFields
++            initial={EMPTY_FORM}
++            onCancel={() => setCreating(false)}
++            onSave={async (form) => {
++              await fetch("/api/admin/game-cards", {
++                method: "POST",
++                headers: { "Content-Type": "application/json" },
++                body: JSON.stringify(form),
++              });
++              setCreating(false);
++              refresh();
++            }}
++            saveLabel="Criar carta"
++          />
++        </div>
++      )}
++
++      <div className="grid">
++        {cards.map((card) => (
++          <div key={card.id} className="card">
++            {editingId === card.id ? (
++              <CardFormFields
++                initial={{
++                  name: card.name,
++                  rarity: card.rarity,
++                  imageUrl: card.imageUrl,
++                  description: card.description ?? "",
++                }}
++                onCancel={() => setEditingId(null)}
++                onSave={async (form) => {
++                  await fetch(`/api/admin/game-cards/${card.id}`, {
++                    method: "PATCH",
++                    headers: { "Content-Type": "application/json" },
++                    body: JSON.stringify(form),
++                  });
++                  setEditingId(null);
++                  refresh();
++                }}
++                saveLabel="Salvar alterações"
++              />
++            ) : (
++              <div className="preview-card">
++                {card.imageUrl ? (
++                  <img src={card.imageUrl} alt={card.name} className="thumb" />
++                ) : (
++                  <div className="thumb placeholder">🎴</div>
++                )}
++                <p className="name">{card.name}</p>
++                <span className="rarity">{card.rarity}</span>
++                <div className="actions">
++                  <button type="button" className="edit-btn" onClick={() => setEditingId(card.id)}>
++                    ✏️ Editar
++                  </button>
++                  <button
++                    type="button"
++                    className="delete-btn"
++                    onClick={async () => {
++                      if (!confirm("Excluir essa carta? Ela some do álbum de quem já tinha.")) return;
++                      await fetch(`/api/admin/game-cards/${card.id}`, { method: "DELETE" });
++                      refresh();
++                    }}
++                  >
++                    Excluir
++                  </button>
++                </div>
++              </div>
++            )}
++          </div>
++        ))}
++        {cards.length === 0 && !creating && <p className="empty">Nenhuma carta criada ainda.</p>}
++      </div>
++
++      <style jsx>{`
++        .wrap {
++          max-width: 52rem;
++        }
++        .card {
++          background: var(--surface);
++          border: 1px solid var(--border);
++          border-radius: 0.75rem;
++          padding: 1.1rem 1.25rem;
++        }
++        .grid {
++          display: grid;
++          grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
++          gap: 0.75rem;
++          margin-top: 1rem;
++        }
++        .preview-card {
++          display: flex;
++          flex-direction: column;
++        }
++        .thumb {
++          width: 100%;
++          aspect-ratio: 1 / 1;
++          object-fit: cover;
++          border-radius: 0.5rem;
++          margin-bottom: 0.6rem;
++        }
++        .thumb.placeholder {
++          display: flex;
++          align-items: center;
++          justify-content: center;
++          background: var(--bg);
++          font-size: 2rem;
++        }
++        .name {
++          margin: 0 0 0.2rem;
++          font-weight: 600;
++          font-size: 0.9rem;
++        }
++        .rarity {
++          font-size: 0.72rem;
++          font-weight: 600;
++          color: var(--text-muted);
++          text-transform: uppercase;
++          margin-bottom: 0.6rem;
++        }
++        .actions {
++          display: flex;
++          gap: 0.4rem;
++        }
++        .edit-btn,
++        .delete-btn {
++          font-size: 0.75rem;
++          font-weight: 600;
++          padding: 0.35rem 0.65rem;
++          border-radius: 999px;
++          border: 1px solid var(--border);
++          background: none;
++          color: var(--text-muted);
++          cursor: pointer;
++        }
++        .delete-btn {
++          color: #c0392b;
++        }
++        .empty {
++          color: var(--text-muted);
++          font-size: 0.9rem;
++        }
++      `}</style>
++    </div>
++  );
++}
++
++function CardFormFields({
++  initial,
++  onSave,
++  onCancel,
++  saveLabel,
++}: {
++  initial: typeof EMPTY_FORM;
++  onSave: (form: typeof EMPTY_FORM) => Promise<void>;
++  onCancel: () => void;
++  saveLabel: string;
++}) {
++  const [form, setForm] = useState(initial);
++  const [saving, setSaving] = useState(false);
++
++  const canSave = form.name.trim().length > 0;
++
++  return (
++    <div>
++      <Field label="Nome da carta" required>
++        <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
++      </Field>
++      <Field label="Raridade" hint="Texto livre, ex: comum, raro, épico, lendário.">
++        <Input value={form.rarity} onChange={(e) => setForm({ ...form, rarity: e.target.value })} />
++      </Field>
++      <ImageUpload
++        label="Imagem da carta"
++        value={form.imageUrl}
++        onChange={(url) => setForm({ ...form, imageUrl: url })}
++        folder="game-cards"
++        aspectRatio="1 / 1"
++      />
++      <Field label="Descrição" hint="Opcional.">
++        <textarea
++          className="textarea"
++          rows={3}
++          value={form.description}
++          onChange={(e) => setForm({ ...form, description: e.target.value })}
++        />
++      </Field>
++      <div className="form-actions">
++        <Button variant="ghost" onClick={onCancel} disabled={saving}>
++          Cancelar
++        </Button>
++        <Button
++          onClick={async () => {
++            setSaving(true);
++            await onSave(form);
++            setSaving(false);
++          }}
++          disabled={!canSave || saving}
++        >
++          {saving ? "Salvando…" : saveLabel}
++        </Button>
++      </div>
++
++      <style jsx>{`
++        .textarea {
++          width: 100%;
++          box-sizing: border-box;
++          padding: 0.7rem 0.9rem;
++          border-radius: 0.6rem;
++          border: 1px solid var(--border);
++          font-size: 0.9rem;
++          font-family: inherit;
++          resize: vertical;
++          background: var(--surface);
++          color: var(--text);
++        }
++        .form-actions {
++          display: flex;
++          gap: 0.6rem;
++          margin-top: 0.5rem;
++        }
++      `}</style>
++    </div>
++  );
++}
+diff --git a/components/admin/GameManager.tsx b/components/admin/GameManager.tsx
+new file mode 100644
+index 0000000..fd4f0fd
+--- /dev/null
++++ b/components/admin/GameManager.tsx
+@@ -0,0 +1,297 @@
++"use client";
++
++import { useState } from "react";
++import { useRouter } from "next/navigation";
++import Link from "next/link";
++import { Button, Field, Input } from "@/components/ui/primitives";
++
++type GameType = "QUIZ" | "MEMORY" | "RHYTHM" | "HUNT" | "CARDS";
++type GameVisibility = "DRAFT" | "TESTING" | "LIVE";
++
++interface GameRow {
++  id: string;
++  slug: string;
++  name: string;
++  type: GameType;
++  visibility: GameVisibility;
++  eventName: string;
++  phaseCount: number;
++}
++
++const TYPE_LABEL: Record<GameType, string> = {
++  QUIZ: "Quiz",
++  MEMORY: "Memória",
++  RHYTHM: "Ritmo",
++  HUNT: "Caça",
++  CARDS: "Cards",
++};
++
++const VISIBILITY_LABEL: Record<GameVisibility, string> = {
++  DRAFT: "Rascunho",
++  TESTING: "Teste",
++  LIVE: "Ao vivo",
++};
++
++function slugify(text: string) {
++  return text
++    .normalize("NFD")
++    .replace(/[\u0300-\u036f]/g, "")
++    .toLowerCase()
++    .replace(/[^a-z0-9]+/g, "-")
++    .replace(/(^-|-$)/g, "");
++}
++
++export function GameManager({
++  games: initialGames,
++  events,
++}: {
++  games: GameRow[];
++  events: { id: string; name: string }[];
++}) {
++  const router = useRouter();
++  const [games, setGames] = useState(initialGames);
++  const [creating, setCreating] = useState(false);
++  const [eventId, setEventId] = useState(events[0]?.id ?? "");
++  const [name, setName] = useState("");
++  const [slug, setSlug] = useState("");
++  const [slugTouched, setSlugTouched] = useState(false);
++  const [type, setType] = useState<GameType>("QUIZ");
++  const [saving, setSaving] = useState(false);
++  const [error, setError] = useState<string | null>(null);
++
++  function refresh() {
++    router.refresh();
++    fetch("/api/admin/games")
++      .then((r) => r.json())
++      .then((d) =>
++        setGames(
++          (d.games ?? []).map((g: any) => ({
++            id: g.id,
++            slug: g.slug,
++            name: g.name,
++            type: g.type,
++            visibility: g.visibility,
++            eventName: g.event?.name ?? "",
++            phaseCount: g.phases?.length ?? 0,
++          }))
++        )
++      );
++  }
++
++  async function createGame() {
++    setError(null);
++    if (!eventId) {
++      setError("Escolha o evento do jogo.");
++      return;
++    }
++    if (!name.trim() || !slug.trim()) {
++      setError("Preencha nome e slug.");
++      return;
++    }
++    setSaving(true);
++    const res = await fetch("/api/admin/games", {
++      method: "POST",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify({ eventId, name: name.trim(), slug: slug.trim(), type }),
++    });
++    setSaving(false);
++    if (!res.ok) {
++      const body = await res.json().catch(() => ({}));
++      setError(body.error || "Não deu pra criar o jogo.");
++      return;
++    }
++    setCreating(false);
++    setName("");
++    setSlug("");
++    setSlugTouched(false);
++    setType("QUIZ");
++    refresh();
++  }
++
++  return (
++    <div className="wrap">
++      {!creating && <Button onClick={() => setCreating(true)}>+ Novo jogo</Button>}
++
++      {creating && (
++        <div className="card form">
++          <Field label="Evento" required hint="O jogo fica sempre amarrado a um evento do sorteio.">
++            <select value={eventId} onChange={(e) => setEventId(e.target.value)}>
++              {events.length === 0 && <option value="">Nenhum evento cadastrado</option>}
++              {events.map((ev) => (
++                <option key={ev.id} value={ev.id}>
++                  {ev.name}
++                </option>
++              ))}
++            </select>
++          </Field>
++          <Field label="Nome do jogo" required>
++            <Input
++              value={name}
++              onChange={(e) => {
++                setName(e.target.value);
++                if (!slugTouched) setSlug(slugify(e.target.value));
++              }}
++              placeholder="Ex: Quiz AS Brasil"
++            />
++          </Field>
++          <Field label="Slug" required hint="Usado na URL do jogo - só letras minúsculas, números e hífen.">
++            <Input
++              value={slug}
++              onChange={(e) => {
++                setSlug(slugify(e.target.value));
++                setSlugTouched(true);
++              }}
++              placeholder="quiz-as-brasil"
++            />
++          </Field>
++          <Field label="Tipo">
++            <select value={type} onChange={(e) => setType(e.target.value as GameType)}>
++              {Object.entries(TYPE_LABEL).map(([value, label]) => (
++                <option key={value} value={value} disabled={value !== "QUIZ"}>
++                  {label}
++                  {value !== "QUIZ" ? " (em breve)" : ""}
++                </option>
++              ))}
++            </select>
++          </Field>
++          {error && <p className="error">{error}</p>}
++          <div className="form-actions">
++            <Button variant="ghost" onClick={() => setCreating(false)} disabled={saving}>
++              Cancelar
++            </Button>
++            <Button onClick={createGame} disabled={saving}>
++              {saving ? "Criando…" : "Criar jogo"}
++            </Button>
++          </div>
++        </div>
++      )}
++
++      <div className="list">
++        {games.map((game) => (
++          <Link key={game.id} href={`/admin/jogos/${game.id}`} className="row">
++            <div className="info">
++              <div className="badges">
++                <span className={`vis-badge ${game.visibility.toLowerCase()}`}>
++                  {VISIBILITY_LABEL[game.visibility]}
++                </span>
++                <span className="type-badge">{TYPE_LABEL[game.type]}</span>
++              </div>
++              <p className="name">{game.name}</p>
++              <p className="meta">
++                {game.eventName} · {game.phaseCount} {game.phaseCount === 1 ? "fase" : "fases"}
++              </p>
++            </div>
++            <span className="arrow">Gerenciar →</span>
++          </Link>
++        ))}
++        {games.length === 0 && !creating && <p className="empty">Nenhum jogo criado ainda.</p>}
++      </div>
++
++      <style jsx>{`
++        .wrap {
++          max-width: 42rem;
++        }
++        .card {
++          background: var(--surface);
++          border: 1px solid var(--border);
++          border-radius: 0.75rem;
++          padding: 1.1rem 1.25rem;
++        }
++        .form {
++          margin-bottom: 1rem;
++        }
++        select {
++          width: 100%;
++          padding: 0.6rem 0.7rem;
++          border-radius: 0.5rem;
++          border: 1px solid var(--border);
++          background: var(--surface);
++          color: var(--text);
++        }
++        .error {
++          color: #c0392b;
++          font-size: 0.85rem;
++          margin: 0 0 0.75rem;
++        }
++        .form-actions {
++          display: flex;
++          gap: 0.6rem;
++        }
++        .list {
++          display: flex;
++          flex-direction: column;
++          gap: 0.75rem;
++          margin-top: 1rem;
++        }
++        .row {
++          display: flex;
++          justify-content: space-between;
++          align-items: center;
++          gap: 1rem;
++          background: var(--surface);
++          border: 1px solid var(--border);
++          border-radius: 0.75rem;
++          padding: 1rem 1.25rem;
++          text-decoration: none;
++          color: inherit;
++        }
++        .row:hover {
++          border-color: var(--indigo-600);
++        }
++        .info {
++          min-width: 0;
++        }
++        .badges {
++          display: flex;
++          gap: 0.4rem;
++          margin-bottom: 0.4rem;
++        }
++        .vis-badge {
++          font-size: 0.7rem;
++          font-weight: 700;
++          border-radius: 999px;
++          padding: 0.15rem 0.6rem;
++        }
++        .vis-badge.draft {
++          background: rgba(107, 114, 128, 0.15);
++          color: #4b5563;
++        }
++        .vis-badge.testing {
++          background: rgba(180, 83, 9, 0.15);
++          color: #b45309;
++        }
++        .vis-badge.live {
++          background: rgba(22, 163, 74, 0.15);
++          color: #16a34a;
++        }
++        .type-badge {
++          font-size: 0.7rem;
++          font-weight: 600;
++          background: var(--bg);
++          border-radius: 999px;
++          padding: 0.15rem 0.6rem;
++          color: var(--text-muted);
++        }
++        .name {
++          margin: 0 0 0.2rem;
++          font-weight: 600;
++        }
++        .meta {
++          margin: 0;
++          font-size: 0.8rem;
++          color: var(--text-muted);
++        }
++        .arrow {
++          font-size: 0.8rem;
++          font-weight: 600;
++          color: var(--indigo-600);
++          flex-shrink: 0;
++        }
++        .empty {
++          color: var(--text-muted);
++          font-size: 0.9rem;
++        }
++      `}</style>
++    </div>
++  );
++}
+diff --git a/components/admin/GamePhaseManager.tsx b/components/admin/GamePhaseManager.tsx
+new file mode 100644
+index 0000000..d38ea6a
+--- /dev/null
++++ b/components/admin/GamePhaseManager.tsx
+@@ -0,0 +1,546 @@
++"use client";
++
++import { useState } from "react";
++import { useRouter } from "next/navigation";
++import { Button, Field, Input } from "@/components/ui/primitives";
++
++type Visibility = "DRAFT" | "TESTING" | "LIVE";
++
++interface QuizContent {
++  question: string;
++  options: string[];
++  correctIndex: number;
++}
++
++interface Phase {
++  id: string;
++  order: number;
++  title: string;
++  content: QuizContent;
++  points: number;
++  rewardCardId: string | null;
++  grantsExtraTicket: boolean;
++}
++
++interface CardOption {
++  id: string;
++  name: string;
++  rarity: string;
++}
++
++const VISIBILITY_STEPS: { value: Visibility; label: string; hint: string }[] = [
++  { value: "DRAFT", label: "Rascunho", hint: "Só o admin vê e joga." },
++  { value: "TESTING", label: "Teste", hint: "Aparece só pra quem está na lista de testadores." },
++  { value: "LIVE", label: "Ao vivo", hint: "Aparece pra qualquer participante do Universo AS." },
++];
++
++const EMPTY_DRAFT = {
++  title: "",
++  question: "",
++  optionsText: "",
++  correctIndex: 0,
++  points: 10,
++  rewardCardId: "",
++  grantsExtraTicket: false,
++};
++
++export function GamePhaseManager({
++  gameId,
++  visibility: initialVisibility,
++  phases: initialPhases,
++  cards,
++}: {
++  gameId: string;
++  visibility: Visibility;
++  phases: Phase[];
++  cards: CardOption[];
++}) {
++  const router = useRouter();
++  const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
++  const [phases, setPhases] = useState(initialPhases);
++  const [changingVisibility, setChangingVisibility] = useState(false);
++  const [creating, setCreating] = useState(phases.length === 0);
++  const [editingId, setEditingId] = useState<string | null>(null);
++  const [draft, setDraft] = useState(EMPTY_DRAFT);
++  const [saving, setSaving] = useState(false);
++  const [error, setError] = useState<string | null>(null);
++  const [deletingId, setDeletingId] = useState<string | null>(null);
++
++  function refreshPhases() {
++    router.refresh();
++  }
++
++  async function changeVisibility(next: Visibility) {
++    setChangingVisibility(true);
++    await fetch(`/api/admin/games/${gameId}`, {
++      method: "PATCH",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify({ visibility: next }),
++    });
++    setVisibility(next);
++    setChangingVisibility(false);
++    router.refresh();
++  }
++
++  function draftFromPhase(p: Phase) {
++    return {
++      title: p.title,
++      question: p.content?.question ?? "",
++      optionsText: (p.content?.options ?? []).join("\n"),
++      correctIndex: p.content?.correctIndex ?? 0,
++      points: p.points,
++      rewardCardId: p.rewardCardId ?? "",
++      grantsExtraTicket: p.grantsExtraTicket,
++    };
++  }
++
++  function validate(): string | null {
++    if (!draft.title.trim()) return "Escreva um título pra fase.";
++    if (!draft.question.trim()) return "Escreva a pergunta do quiz.";
++    const options = draft.optionsText
++      .split("\n")
++      .map((s) => s.trim())
++      .filter(Boolean);
++    if (options.length < 2) return "Escreva pelo menos 2 opções de resposta, uma por linha.";
++    if (draft.correctIndex < 0 || draft.correctIndex >= options.length) {
++      return "Escolha qual opção é a correta.";
++    }
++    return null;
++  }
++
++  async function savePhase(phaseId?: string) {
++    const err = validate();
++    if (err) {
++      setError(err);
++      return;
++    }
++    setError(null);
++    setSaving(true);
++
++    const options = draft.optionsText
++      .split("\n")
++      .map((s) => s.trim())
++      .filter(Boolean);
++
++    const body = {
++      title: draft.title.trim(),
++      content: { question: draft.question.trim(), options, correctIndex: draft.correctIndex },
++      points: Number(draft.points) || 0,
++      rewardCardId: draft.rewardCardId || null,
++      grantsExtraTicket: draft.grantsExtraTicket,
++    };
++
++    const url = phaseId
++      ? `/api/admin/games/${gameId}/phases/${phaseId}`
++      : `/api/admin/games/${gameId}/phases`;
++    const res = await fetch(url, {
++      method: phaseId ? "PATCH" : "POST",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify(body),
++    });
++    setSaving(false);
++    if (!res.ok) {
++      const b = await res.json().catch(() => ({}));
++      setError(b.error || "Não deu pra salvar a fase.");
++      return;
++    }
++    setCreating(false);
++    setEditingId(null);
++    setDraft(EMPTY_DRAFT);
++    refreshPhases();
++  }
++
++  async function deletePhase(phaseId: string) {
++    if (!confirm("Excluir essa fase? O progresso já registrado dos jogadores é perdido.")) return;
++    setDeletingId(phaseId);
++    await fetch(`/api/admin/games/${gameId}/phases/${phaseId}`, { method: "DELETE" });
++    setDeletingId(null);
++    refreshPhases();
++  }
++
++  return (
++    <div className="wrap">
++      <div className="card visibility-card">
++        <p className="section-title">Estágio de liberação</p>
++        <div className="steps">
++          {VISIBILITY_STEPS.map((step) => (
++            <button
++              key={step.value}
++              type="button"
++              className={`step ${visibility === step.value ? "active" : ""}`}
++              disabled={changingVisibility}
++              onClick={() => changeVisibility(step.value)}
++            >
++              <strong>{step.label}</strong>
++              <span>{step.hint}</span>
++            </button>
++          ))}
++        </div>
++      </div>
++
++      <div className="section-header">
++        <p className="section-title">Fases (quiz)</p>
++        {!creating && !editingId && (
++          <Button
++            onClick={() => {
++              setDraft(EMPTY_DRAFT);
++              setCreating(true);
++            }}
++          >
++            + Nova fase
++          </Button>
++        )}
++      </div>
++
++      {creating && (
++        <PhaseForm
++          draft={draft}
++          setDraft={setDraft}
++          cards={cards}
++          error={error}
++          saving={saving}
++          onCancel={() => {
++            setCreating(false);
++            setError(null);
++          }}
++          onSave={() => savePhase()}
++          saveLabel="Criar fase"
++        />
++      )}
++
++      <div className="list">
++        {phases.map((phase) =>
++          editingId === phase.id ? (
++            <PhaseForm
++              key={phase.id}
++              draft={draft}
++              setDraft={setDraft}
++              cards={cards}
++              error={error}
++              saving={saving}
++              onCancel={() => {
++                setEditingId(null);
++                setError(null);
++              }}
++              onSave={() => savePhase(phase.id)}
++              saveLabel="Salvar alterações"
++            />
++          ) : (
++            <div key={phase.id} className="card phase-row">
++              <div className="info">
++                <p className="title">
++                  {phase.order + 1}. {phase.title}
++                </p>
++                <p className="meta">
++                  {phase.points} pts
++                  {phase.rewardCardId && ` · 🎴 concede card`}
++                  {phase.grantsExtraTicket && ` · 🎟️ número extra pra quem está no evento`}
++                </p>
++              </div>
++              <div className="actions">
++                <button
++                  type="button"
++                  className="edit-btn"
++                  onClick={() => {
++                    setDraft(draftFromPhase(phase));
++                    setEditingId(phase.id);
++                    setCreating(false);
++                    setError(null);
++                  }}
++                >
++                  ✏️ Editar
++                </button>
++                <button
++                  type="button"
++                  className="delete-btn"
++                  disabled={deletingId === phase.id}
++                  onClick={() => deletePhase(phase.id)}
++                >
++                  Excluir
++                </button>
++              </div>
++            </div>
++          )
++        )}
++        {phases.length === 0 && !creating && <p className="empty">Nenhuma fase criada ainda.</p>}
++      </div>
++
++      <style jsx>{`
++        .wrap {
++          max-width: 42rem;
++        }
++        .card {
++          background: var(--surface);
++          border: 1px solid var(--border);
++          border-radius: 0.75rem;
++          padding: 1.1rem 1.25rem;
++        }
++        .visibility-card {
++          margin-bottom: 1.75rem;
++        }
++        .section-title {
++          font-size: 0.85rem;
++          font-weight: 700;
++          margin: 0 0 0.75rem;
++        }
++        .steps {
++          display: flex;
++          gap: 0.6rem;
++          flex-wrap: wrap;
++        }
++        .step {
++          flex: 1;
++          min-width: 9rem;
++          display: flex;
++          flex-direction: column;
++          gap: 0.25rem;
++          text-align: left;
++          padding: 0.7rem 0.9rem;
++          border-radius: 0.6rem;
++          border: 1px solid var(--border);
++          background: var(--bg);
++          cursor: pointer;
++          color: var(--text-muted);
++        }
++        .step strong {
++          color: var(--text);
++          font-size: 0.85rem;
++        }
++        .step span {
++          font-size: 0.75rem;
++        }
++        .step.active {
++          border-color: var(--indigo-600);
++          background: rgba(79, 70, 229, 0.08);
++        }
++        .step.active strong {
++          color: var(--indigo-600);
++        }
++        .section-header {
++          display: flex;
++          justify-content: space-between;
++          align-items: center;
++          margin-bottom: 0.75rem;
++        }
++        .list {
++          display: flex;
++          flex-direction: column;
++          gap: 0.75rem;
++        }
++        .phase-row {
++          display: flex;
++          justify-content: space-between;
++          align-items: flex-start;
++          gap: 1rem;
++          flex-wrap: wrap;
++        }
++        .info {
++          min-width: 0;
++          flex: 1;
++        }
++        .title {
++          margin: 0 0 0.3rem;
++          font-weight: 600;
++          font-size: 0.92rem;
++        }
++        .meta {
++          margin: 0;
++          font-size: 0.8rem;
++          color: var(--text-muted);
++        }
++        .actions {
++          display: flex;
++          gap: 0.5rem;
++          flex-shrink: 0;
++        }
++        .edit-btn,
++        .delete-btn {
++          font-size: 0.78rem;
++          font-weight: 600;
++          padding: 0.4rem 0.8rem;
++          border-radius: 999px;
++          border: 1px solid var(--border);
++          background: none;
++          color: var(--text-muted);
++          cursor: pointer;
++        }
++        .edit-btn:hover {
++          border-color: var(--indigo-600);
++          color: var(--text);
++        }
++        .delete-btn {
++          color: #c0392b;
++        }
++        .delete-btn:hover {
++          border-color: #c0392b;
++        }
++        .empty {
++          color: var(--text-muted);
++          font-size: 0.9rem;
++        }
++      `}</style>
++    </div>
++  );
++}
++
++function PhaseForm({
++  draft,
++  setDraft,
++  cards,
++  error,
++  saving,
++  onCancel,
++  onSave,
++  saveLabel,
++}: {
++  draft: typeof EMPTY_DRAFT;
++  setDraft: (d: typeof EMPTY_DRAFT) => void;
++  cards: CardOption[];
++  error: string | null;
++  saving: boolean;
++  onCancel: () => void;
++  onSave: () => void;
++  saveLabel: string;
++}) {
++  const options = draft.optionsText
++    .split("\n")
++    .map((s) => s.trim())
++    .filter(Boolean);
++
++  return (
++    <div className="form-card">
++      <Field label="Título da fase" required>
++        <Input
++          value={draft.title}
++          onChange={(e) => setDraft({ ...draft, title: e.target.value })}
++          placeholder="Ex: Fase 1 - Curiosidades AS Brasil"
++        />
++      </Field>
++      <Field label="Pergunta" required>
++        <textarea
++          className="textarea"
++          rows={2}
++          value={draft.question}
++          onChange={(e) => setDraft({ ...draft, question: e.target.value })}
++          placeholder="Ex: Em que ano a AS Brasil foi fundada?"
++        />
++      </Field>
++      <Field label="Opções de resposta" required hint="Uma por linha, pelo menos 2.">
++        <textarea
++          className="textarea"
++          rows={4}
++          value={draft.optionsText}
++          onChange={(e) => setDraft({ ...draft, optionsText: e.target.value })}
++          placeholder={"2010\n2015\n2018"}
++        />
++      </Field>
++      {options.length > 0 && (
++        <Field label="Qual é a correta?" required>
++          <select
++            value={draft.correctIndex}
++            onChange={(e) => setDraft({ ...draft, correctIndex: Number(e.target.value) })}
++          >
++            {options.map((opt, i) => (
++              <option key={i} value={i}>
++                {opt}
++              </option>
++            ))}
++          </select>
++        </Field>
++      )}
++      <Field label="Pontos">
++        <Input
++          type="number"
++          value={draft.points}
++          onChange={(e) => setDraft({ ...draft, points: Number(e.target.value) })}
++        />
++      </Field>
++      <Field
++        label="Card de recompensa"
++        hint="Opcional - o jogador ganha esse card do álbum ao completar a fase."
++      >
++        <select
++          value={draft.rewardCardId}
++          onChange={(e) => setDraft({ ...draft, rewardCardId: e.target.value })}
++        >
++          <option value="">Nenhum</option>
++          {cards.map((c) => (
++            <option key={c.id} value={c.id}>
++              {c.name} ({c.rarity})
++            </option>
++          ))}
++        </select>
++      </Field>
++      <label className="checkbox">
++        <input
++          type="checkbox"
++          checked={draft.grantsExtraTicket}
++          onChange={(e) => setDraft({ ...draft, grantsExtraTicket: e.target.checked })}
++        />
++        <span>
++          Concede número extra no sorteio do evento (só pra quem já está inscrito no evento)
++        </span>
++      </label>
++      {error && <p className="error">{error}</p>}
++      <div className="form-actions">
++        <Button variant="ghost" onClick={onCancel} disabled={saving}>
++          Cancelar
++        </Button>
++        <Button onClick={onSave} disabled={saving}>
++          {saving ? "Salvando…" : saveLabel}
++        </Button>
++      </div>
++
++      <style jsx>{`
++        .form-card {
++          background: var(--surface);
++          border: 1px solid var(--border);
++          border-radius: 0.75rem;
++          padding: 1.1rem 1.25rem;
++          margin-bottom: 0.75rem;
++        }
++        select {
++          width: 100%;
++          padding: 0.6rem 0.7rem;
++          border-radius: 0.5rem;
++          border: 1px solid var(--border);
++          background: var(--surface);
++          color: var(--text);
++        }
++        .textarea {
++          width: 100%;
++          box-sizing: border-box;
++          padding: 0.7rem 0.9rem;
++          border-radius: 0.6rem;
++          border: 1px solid var(--border);
++          font-size: 0.9rem;
++          font-family: inherit;
++          resize: vertical;
++          background: var(--surface);
++          color: var(--text);
++        }
++        .checkbox {
++          display: flex;
++          align-items: flex-start;
++          gap: 0.5rem;
++          font-size: 0.85rem;
++          color: var(--text-muted);
++          margin-bottom: 1rem;
++          cursor: pointer;
++        }
++        .checkbox input {
++          margin-top: 0.2rem;
++        }
++        .error {
++          color: #c0392b;
++          font-size: 0.85rem;
++          margin: 0 0 0.75rem;
++        }
++        .form-actions {
++          display: flex;
++          gap: 0.6rem;
++        }
++      `}</style>
++    </div>
++  );
++}
+diff --git a/components/admin/GameTesterManager.tsx b/components/admin/GameTesterManager.tsx
+new file mode 100644
+index 0000000..57dbaa8
+--- /dev/null
++++ b/components/admin/GameTesterManager.tsx
+@@ -0,0 +1,137 @@
++"use client";
++
++import { useState } from "react";
++import { Button, Field, Input } from "@/components/ui/primitives";
++
++interface Tester {
++  email: string;
++  createdAt: string;
++}
++
++export function GameTesterManager({ testers: initialTesters }: { testers: Tester[] }) {
++  const [testers, setTesters] = useState(initialTesters);
++  const [email, setEmail] = useState("");
++  const [saving, setSaving] = useState(false);
++  const [error, setError] = useState<string | null>(null);
++
++  function refresh() {
++    fetch("/api/admin/game-testers")
++      .then((r) => r.json())
++      .then((d) => setTesters(d.testers ?? []));
++  }
++
++  async function addTester() {
++    const trimmed = email.trim().toLowerCase();
++    if (!trimmed) return;
++    setError(null);
++    setSaving(true);
++    const res = await fetch("/api/admin/game-testers", {
++      method: "POST",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify({ email: trimmed }),
++    });
++    setSaving(false);
++    if (!res.ok) {
++      const b = await res.json().catch(() => ({}));
++      setError(b.error || "Não deu pra adicionar.");
++      return;
++    }
++    setEmail("");
++    refresh();
++  }
++
++  return (
++    <div className="wrap">
++      <div className="card">
++        <Field label="Adicionar testador" hint="O e-mail precisa ser o mesmo usado pra ver os números no sorteio.">
++          <div className="add-row">
++            <Input
++              value={email}
++              onChange={(e) => setEmail(e.target.value)}
++              placeholder="pessoa@email.com"
++              onKeyDown={(e) => e.key === "Enter" && addTester()}
++            />
++            <Button onClick={addTester} disabled={saving || !email.trim()}>
++              {saving ? "Adicionando…" : "Adicionar"}
++            </Button>
++          </div>
++        </Field>
++        {error && <p className="error">{error}</p>}
++      </div>
++
++      <div className="list">
++        {testers.map((tester) => (
++          <div key={tester.email} className="row">
++            <span className="email">{tester.email}</span>
++            <button
++              type="button"
++              className="delete-btn"
++              onClick={async () => {
++                await fetch(`/api/admin/game-testers/${encodeURIComponent(tester.email)}`, {
++                  method: "DELETE",
++                });
++                refresh();
++              }}
++            >
++              Remover
++            </button>
++          </div>
++        ))}
++        {testers.length === 0 && <p className="empty">Nenhum testador adicionado ainda.</p>}
++      </div>
++
++      <style jsx>{`
++        .wrap {
++          max-width: 32rem;
++        }
++        .card {
++          background: var(--surface);
++          border: 1px solid var(--border);
++          border-radius: 0.75rem;
++          padding: 1.1rem 1.25rem;
++          margin-bottom: 1rem;
++        }
++        .add-row {
++          display: flex;
++          gap: 0.5rem;
++        }
++        .error {
++          color: #c0392b;
++          font-size: 0.85rem;
++          margin: 0.5rem 0 0;
++        }
++        .list {
++          display: flex;
++          flex-direction: column;
++          gap: 0.5rem;
++        }
++        .row {
++          display: flex;
++          justify-content: space-between;
++          align-items: center;
++          background: var(--surface);
++          border: 1px solid var(--border);
++          border-radius: 0.6rem;
++          padding: 0.6rem 0.9rem;
++        }
++        .email {
++          font-size: 0.88rem;
++        }
++        .delete-btn {
++          font-size: 0.75rem;
++          font-weight: 600;
++          padding: 0.3rem 0.7rem;
++          border-radius: 999px;
++          border: 1px solid var(--border);
++          background: none;
++          color: #c0392b;
++          cursor: pointer;
++        }
++        .empty {
++          color: var(--text-muted);
++          font-size: 0.9rem;
++        }
++      `}</style>
++    </div>
++  );
++}
+diff --git a/components/admin/GamesSubNav.tsx b/components/admin/GamesSubNav.tsx
+new file mode 100644
+index 0000000..af7d15f
+--- /dev/null
++++ b/components/admin/GamesSubNav.tsx
+@@ -0,0 +1,39 @@
++import Link from "next/link";
++
++const TABS = [
++  { key: "jogos", href: "/admin/jogos", label: "Jogos" },
++  { key: "cards", href: "/admin/jogos/cards", label: "Álbum de figurinhas" },
++  { key: "testadores", href: "/admin/jogos/testadores", label: "Testadores" },
++] as const;
++
++export function GamesSubNav({ active }: { active: (typeof TABS)[number]["key"] }) {
++  return (
++    <div className="tabs">
++      {TABS.map((tab) => (
++        <Link key={tab.key} href={tab.href} className={`tab ${active === tab.key ? "active" : ""}`}>
++          {tab.label}
++        </Link>
++      ))}
++      <style>{`
++        .tabs {
++          display: flex;
++          gap: 0.5rem;
++          margin-bottom: 1.5rem;
++          border-bottom: 1px solid var(--border);
++        }
++        .tab {
++          text-decoration: none;
++          color: var(--text-muted);
++          font-size: 0.85rem;
++          font-weight: 600;
++          padding: 0.6rem 0.9rem;
++          border-bottom: 2px solid transparent;
++        }
++        .tab.active {
++          color: var(--indigo-600);
++          border-bottom-color: var(--indigo-600);
++        }
++      `}</style>
++    </div>
++  );
++}
+diff --git a/prisma/migrations/20260906120000_universo_as_games/migration.sql b/prisma/migrations/20260906120000_universo_as_games/migration.sql
+new file mode 100644
+index 0000000..dd8aa55
+--- /dev/null
++++ b/prisma/migrations/20260906120000_universo_as_games/migration.sql
+@@ -0,0 +1,131 @@
++-- AlterEnum
++ALTER TYPE "ParticipantSource" ADD VALUE 'GAME';
++
++-- CreateEnum
++CREATE TYPE "GameType" AS ENUM ('QUIZ', 'MEMORY', 'RHYTHM', 'HUNT', 'CARDS');
++
++-- CreateEnum
++CREATE TYPE "GameVisibility" AS ENUM ('DRAFT', 'TESTING', 'LIVE');
++
++-- CreateTable
++CREATE TABLE "UniverseProfile" (
++    "email" TEXT NOT NULL,
++    "displayName" TEXT,
++    "avatarUrl" TEXT,
++    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
++
++    CONSTRAINT "UniverseProfile_pkey" PRIMARY KEY ("email")
++);
++
++-- CreateTable
++CREATE TABLE "Game" (
++    "id" TEXT NOT NULL,
++    "eventId" TEXT NOT NULL,
++    "slug" TEXT NOT NULL,
++    "name" TEXT NOT NULL,
++    "type" "GameType" NOT NULL,
++    "theme" JSONB NOT NULL DEFAULT '{}',
++    "visibility" "GameVisibility" NOT NULL DEFAULT 'DRAFT',
++    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
++
++    CONSTRAINT "Game_pkey" PRIMARY KEY ("id")
++);
++
++-- CreateTable
++CREATE TABLE "GamePhase" (
++    "id" TEXT NOT NULL,
++    "gameId" TEXT NOT NULL,
++    "order" INTEGER NOT NULL DEFAULT 0,
++    "type" "GameType" NOT NULL,
++    "title" TEXT NOT NULL,
++    "content" JSONB NOT NULL,
++    "points" INTEGER NOT NULL DEFAULT 10,
++    "rewardCardId" TEXT,
++    "grantsExtraTicket" BOOLEAN NOT NULL DEFAULT false,
++
++    CONSTRAINT "GamePhase_pkey" PRIMARY KEY ("id")
++);
++
++-- CreateTable
++CREATE TABLE "GameCard" (
++    "id" TEXT NOT NULL,
++    "name" TEXT NOT NULL,
++    "rarity" TEXT NOT NULL DEFAULT 'comum',
++    "imageUrl" TEXT,
++    "description" TEXT,
++    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
++
++    CONSTRAINT "GameCard_pkey" PRIMARY KEY ("id")
++);
++
++-- CreateTable
++CREATE TABLE "PlayerCard" (
++    "id" TEXT NOT NULL,
++    "email" TEXT NOT NULL,
++    "cardId" TEXT NOT NULL,
++    "obtainedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
++
++    CONSTRAINT "PlayerCard_pkey" PRIMARY KEY ("id")
++);
++
++-- CreateTable
++CREATE TABLE "PlayerPhaseProgress" (
++    "id" TEXT NOT NULL,
++    "email" TEXT NOT NULL,
++    "phaseId" TEXT NOT NULL,
++    "completed" BOOLEAN NOT NULL DEFAULT false,
++    "firstScore" INTEGER NOT NULL DEFAULT 0,
++    "attempts" INTEGER NOT NULL DEFAULT 0,
++
++    CONSTRAINT "PlayerPhaseProgress_pkey" PRIMARY KEY ("id")
++);
++
++-- CreateTable
++CREATE TABLE "GameTester" (
++    "email" TEXT NOT NULL,
++    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
++
++    CONSTRAINT "GameTester_pkey" PRIMARY KEY ("email")
++);
++
++-- CreateIndex
++CREATE UNIQUE INDEX "Game_slug_key" ON "Game"("slug");
++
++-- CreateIndex
++CREATE INDEX "Game_eventId_idx" ON "Game"("eventId");
++
++-- CreateIndex
++CREATE INDEX "GamePhase_gameId_order_idx" ON "GamePhase"("gameId", "order");
++
++-- CreateIndex
++CREATE UNIQUE INDEX "PlayerCard_email_cardId_key" ON "PlayerCard"("email", "cardId");
++
++-- CreateIndex
++CREATE INDEX "PlayerCard_cardId_idx" ON "PlayerCard"("cardId");
++
++-- CreateIndex
++CREATE UNIQUE INDEX "PlayerPhaseProgress_email_phaseId_key" ON "PlayerPhaseProgress"("email", "phaseId");
++
++-- CreateIndex
++CREATE INDEX "PlayerPhaseProgress_phaseId_idx" ON "PlayerPhaseProgress"("phaseId");
++
++-- AddForeignKey
++ALTER TABLE "Game" ADD CONSTRAINT "Game_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "Event"("id") ON DELETE CASCADE ON UPDATE CASCADE;
++
++-- AddForeignKey
++ALTER TABLE "GamePhase" ADD CONSTRAINT "GamePhase_gameId_fkey" FOREIGN KEY ("gameId") REFERENCES "Game"("id") ON DELETE CASCADE ON UPDATE CASCADE;
++
++-- AddForeignKey
++ALTER TABLE "GamePhase" ADD CONSTRAINT "GamePhase_rewardCardId_fkey" FOREIGN KEY ("rewardCardId") REFERENCES "GameCard"("id") ON DELETE SET NULL ON UPDATE CASCADE;
++
++-- AddForeignKey
++ALTER TABLE "PlayerCard" ADD CONSTRAINT "PlayerCard_email_fkey" FOREIGN KEY ("email") REFERENCES "UniverseProfile"("email") ON DELETE CASCADE ON UPDATE CASCADE;
++
++-- AddForeignKey
++ALTER TABLE "PlayerCard" ADD CONSTRAINT "PlayerCard_cardId_fkey" FOREIGN KEY ("cardId") REFERENCES "GameCard"("id") ON DELETE CASCADE ON UPDATE CASCADE;
++
++-- AddForeignKey
++ALTER TABLE "PlayerPhaseProgress" ADD CONSTRAINT "PlayerPhaseProgress_email_fkey" FOREIGN KEY ("email") REFERENCES "UniverseProfile"("email") ON DELETE CASCADE ON UPDATE CASCADE;
++
++-- AddForeignKey
++ALTER TABLE "PlayerPhaseProgress" ADD CONSTRAINT "PlayerPhaseProgress_phaseId_fkey" FOREIGN KEY ("phaseId") REFERENCES "GamePhase"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+diff --git a/prisma/schema.prisma b/prisma/schema.prisma
+index 1659870..4843173 100644
+--- a/prisma/schema.prisma
++++ b/prisma/schema.prisma
+@@ -15,6 +15,9 @@ enum ParticipantSource {
+   SIGNUP
+   MANUAL
+   MISSION
++  // Número extra concedido por completar uma fase de jogo (Universo AS)
++  // que exige inscrição no evento - ver GamePhase.grantsExtraTicket.
++  GAME
+ }
+ 
+ enum ParticipantModerationStatus {
+@@ -137,6 +140,7 @@ model Event {
+   imports               ImportBatch[]
+   presences            Presence[]
+   participantNotices   ParticipantNotice[]
++  games                Game[]
+ 
+   @@index([active])
+   @@index([archived])
+@@ -517,3 +521,151 @@ model MissionCompletion {
+   @@unique([missionId, email])
+   @@index([missionId])
+ }
++
++// ============================================================
++// Universo AS - jogos ligados aos eventos do sorteio
++// ============================================================
++// Qualquer pessoa cadastrada em QUALQUER evento (tem sessão de
++// participante) pode jogar qualquer jogo, independente de estar
++// inscrita no evento daquele jogo especificamente - álbum de
++// figurinhas e XP são livres pra todo mundo do Universo AS. Só o
++// brinde do EVENTO (GamePhase.grantsExtraTicket) exige que a pessoa
++// realmente seja Participant daquele Game.eventId - ver comentário lá.
++
++enum GameType {
++  QUIZ
++  MEMORY
++  RHYTHM
++  HUNT
++  CARDS
++}
++
++// DRAFT: só aparece no admin. TESTING: aparece pro participante, mas só
++// pra quem estiver em GameTester. LIVE: todo mundo do Universo AS vê.
++enum GameVisibility {
++  DRAFT
++  TESTING
++  LIVE
++}
++
++// Perfil único da pessoa no Universo AS, atravessando todos os eventos -
++// chave é o e-mail (mesmo que já identifica a sessão de participante),
++// sem cadastro/login novo nenhum. XP e nível NUNCA ficam guardados aqui -
++// são sempre calculados somando PlayerPhaseProgress.firstScore, pra não
++// existir a possibilidade de um número salvo dessincronizar do progresso
++// real (lição aprendida no protótipo Supabase deste mesmo projeto).
++model UniverseProfile {
++  email       String   @id
++  displayName String?
++  avatarUrl   String?
++  createdAt   DateTime @default(now())
++
++  cards       PlayerCard[]
++  progress    PlayerPhaseProgress[]
++}
++
++// Um "lançamento" de jogo, sempre amarrado a um evento do sorteio (é o
++// evento que aparece pra pessoa como o contexto do jogo, e é ele que
++// decide quem pode resgatar o brinde) - não existe jogo "avulso" sem
++// evento.
++model Game {
++  id         String         @id @default(cuid())
++  eventId    String
++  event      Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
++
++  slug       String         @unique
++  name       String
++  type       GameType
++  theme      Json           @default("{}")
++  visibility GameVisibility @default(DRAFT)
++
++  createdAt  DateTime       @default(now())
++
++  phases     GamePhase[]
++
++  @@index([eventId])
++}
++
++model GamePhase {
++  id     String @id @default(cuid())
++  gameId String
++  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
++
++  order   Int      @default(0)
++  type    GameType
++  title   String
++  // Formato livre por tipo: QUIZ = {question, options[], correctIndex};
++  // MEMORY = {pairs[]}; RHYTHM = {pattern}; HUNT = {targets[]}. Cada tipo
++  // de jogo lê só o formato que sabe interpretar.
++  content Json
++  points  Int      @default(10)
++
++  rewardCardId String?
++  rewardCard   GameCard? @relation(fields: [rewardCardId], references: [id], onDelete: SetNull)
++
++  // Quando true, completar essa fase concede um número extra no sorteio
++  // do evento (Game.eventId) - igual ParticipantSource.GAME - MAS só pra
++  // quem já é Participant daquele evento. Quem joga sem estar inscrito
++  // ganha XP e o card normalmente (o álbum é livre pra todo mundo do
++  // Universo AS); só esse brinde do evento exige inscrição.
++  grantsExtraTicket Boolean @default(false)
++
++  completions PlayerPhaseProgress[]
++
++  @@index([gameId, order])
++}
++
++// Catálogo compartilhado do "álbum de figurinhas" do Universo AS - não
++// pertence a um Game específico de propósito, pra sobreviver mesmo que o
++// jogo/evento de origem seja arquivado depois. Cresce a cada evento que
++// lança fases com prêmio de card novo.
++model GameCard {
++  id          String   @id @default(cuid())
++  name        String
++  rarity      String   @default("comum")
++  imageUrl    String?
++  description String?
++  createdAt   DateTime @default(now())
++
++  phases GamePhase[]
++  owners PlayerCard[]
++}
++
++model PlayerCard {
++  id         String          @id @default(cuid())
++  email      String
++  profile    UniverseProfile @relation(fields: [email], references: [email], onDelete: Cascade)
++  cardId     String
++  card       GameCard        @relation(fields: [cardId], references: [id], onDelete: Cascade)
++  obtainedAt DateTime        @default(now())
++
++  @@unique([email, cardId])
++  @@index([cardId])
++}
++
++// Só a primeira tentativa pontua (firstScore) pro ranking/XP - joga de
++// novo "por diversão" depois não altera nada, mesmo padrão já usado em
++// Participant/Mission pra impedir a pessoa de inflar a própria pontuação.
++model PlayerPhaseProgress {
++  id      String          @id @default(cuid())
++  email   String
++  profile UniverseProfile @relation(fields: [email], references: [email], onDelete: Cascade)
++  phaseId String
++  phase   GamePhase       @relation(fields: [phaseId], references: [id], onDelete: Cascade)
++
++  completed  Boolean @default(false)
++  firstScore Int     @default(0)
++  attempts   Int     @default(0)
++
++  @@unique([email, phaseId])
++  @@index([phaseId])
++}
++
++// Lista global de testadores - enquanto um Game está em TESTING, só quem
++// está aqui consegue ver/jogar ele como participante (admin sempre vê
++// tudo, independente disso). Deliberadamente global (não por jogo) pra
++// manter simples - você e quem mais for ajudar a testar entram uma vez só.
++model GameTester {
++  email     String   @id
++  createdAt DateTime @default(now())
++}
+-- 
+2.43.0
+
