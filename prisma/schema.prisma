@@ -628,6 +628,7 @@ model Game {
   createdAt  DateTime       @default(now())
 
   phases     GamePhase[]
+  unlockCards GameCard[] @relation("GameUnlockCards")
 
   @@index([eventId])
 }
@@ -674,8 +675,16 @@ model GameCard {
   description String?
   createdAt   DateTime @default(now())
 
+  unlockEventId String?
+  unlockEvent   Event?   @relation("EventUnlockCards", fields: [unlockEventId], references: [id], onDelete: SetNull)
+  unlockGameId  String?
+  unlockGame    Game?    @relation("GameUnlockCards", fields: [unlockGameId], references: [id], onDelete: SetNull)
+
   phases GamePhase[]
   owners PlayerCard[]
+
+  @@index([unlockEventId])
+  @@index([unlockGameId])
 }
 
 model PlayerCard {

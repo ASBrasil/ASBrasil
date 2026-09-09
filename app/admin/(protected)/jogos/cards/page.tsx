@@ -5,7 +5,18 @@ import { GamesSubNav } from "@/components/admin/GamesSubNav";
 export const dynamic = "force-dynamic";
 
 export default async function GameCardsPage() {
-  const cards = await db.gameCard.findMany({ orderBy: { createdAt: "desc" } });
+  const [cards, events, games] = await Promise.all([
+    db.gameCard.findMany({ orderBy: { createdAt: "desc" } }),
+    db.event.findMany({
+      where: { archived: false },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+    db.game.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, event: { select: { name: true } } },
+    }),
+  ]);
 
   return (
     <div>
@@ -20,13 +31,17 @@ export default async function GameCardsPage() {
       <GamesSubNav active="cards" />
 
       <GameCardManager
-        cards={cards.map((c) => ({
+        cards={cards.map((c: (typeof cards)[number]) => ({
           id: c.id,
           name: c.name,
           rarity: c.rarity,
           imageUrl: c.imageUrl,
           description: c.description,
+          unlockEventId: c.unlockEventId,
+          unlockGameId: c.unlockGameId,
         }))}
+        events={events}
+        games={games.map((g: (typeof games)[number]) => ({ id: g.id, name: `${g.name} (${g.event.name})` }))}
       />
 
       <style>{`

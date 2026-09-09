@@ -4,6 +4,7 @@ import { getParticipantEmail } from "@/lib/participant-session";
 import { getSessionAdminId } from "@/lib/auth";
 import { generateNumberPool } from "@/lib/raffle";
 import { normalizeQuizQuestions } from "@/lib/games";
+import { grantGamePerfectCards } from "@/lib/cards";
 import { ParticipantSource } from "@prisma/client";
 
 export async function POST(req: NextRequest, { params }: { params: { phaseId: string } }) {
@@ -121,6 +122,13 @@ export async function POST(req: NextRequest, { params }: { params: { phaseId: st
       extraTicketNumber = bonus.raffleNumber;
     }
   }
+
+  // Figurinha automática de "100% do jogo" - checa TODAS as fases do jogo
+  // toda vez que uma é concluída (idempotente, e barato quando o jogo não
+  // tem nenhuma carta configurada pra esse gatilho - ver lib/cards.ts).
+  await grantGamePerfectCards(phase.game.id, email).catch((err) =>
+    console.error("Falha ao conceder figurinha de 100% do jogo:", err)
+  );
 
   return NextResponse.json({
     correctCount,

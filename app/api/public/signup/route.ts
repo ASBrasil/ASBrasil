@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { generateNumberPool } from "@/lib/raffle";
 import { createParticipantSession } from "@/lib/participant-session";
+import { grantEventUnlockCards } from "@/lib/cards";
 import { put } from "@vercel/blob";
 import { compressImage } from "@/lib/image";
 import { randomUUID } from "node:crypto";
@@ -134,6 +135,12 @@ export async function POST(req: NextRequest) {
   });
   if (existing) {
     await createParticipantSession(emailRaw);
+    // Cobre o caso de uma carta ter sido configurada pra esse evento DEPOIS
+    // que essa pessoa já tinha se inscrito - toda vez que ela reabre o link
+    // de inscrição, tenta de novo (upsert, sem duplicar quem já ganhou).
+    await grantEventUnlockCards(event.id, emailRaw).catch((err) =>
+      console.error("Falha ao conceder figurinha de inscrição:", err)
+    );
     return NextResponse.json({
       alreadyRegistered: true,
       raffleNumber: existing.awaitingPrerequisite ? null : existing.raffleNumber,
@@ -174,6 +181,12 @@ export async function POST(req: NextRequest) {
   });
 
   await createParticipantSession(emailRaw);
+  // Figurinha automática de "participei desse sorteio" - só concede se
+  // algum card do álbum tiver esse evento configurado como gatilho; não faz
+  // nada (e não atrasa a resposta de forma visível) pra eventos sem isso.
+  await grantEventUnlockCards(event.id, emailRaw).catch((err) =>
+    console.error("Falha ao conceder figurinha de inscrição:", err)
+  );
 
   return NextResponse.json({
     raffleNumber: hasChoiceMissions ? null : participant.raffleNumber,
