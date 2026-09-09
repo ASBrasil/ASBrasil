@@ -97,6 +97,7 @@ export function EventsCarousel({ children }: { children: React.ReactNode[] }) {
           overflowX: "auto",
           scrollbarWidth: "none",
           paddingBottom: "0.25rem",
+          cursor: showArrows ? "grab" : undefined,
         }}
       >
         {displayChildren.map((child, i) => (
@@ -105,6 +106,41 @@ export function EventsCarousel({ children }: { children: React.ReactNode[] }) {
           </div>
         ))}
       </div>
+
+      {/* Sinaliza visualmente que dá pra rolar mais pro lado - sem isso,
+          numa lista comprida sem as setas visíveis ainda (ex: assim que a
+          página carrega, antes do hover), não fica óbvio que tem mais
+          conteúdo depois da borda. */}
+      {showArrows && (
+        <>
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: "0.25rem",
+              left: 0,
+              width: "2rem",
+              background: "linear-gradient(90deg, #05070f, transparent)",
+              pointerEvents: "none",
+              zIndex: 1,
+            }}
+          />
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: "0.25rem",
+              right: 0,
+              width: "2rem",
+              background: "linear-gradient(270deg, #05070f, transparent)",
+              pointerEvents: "none",
+              zIndex: 1,
+            }}
+          />
+        </>
+      )}
 
       {showArrows && (
         <>

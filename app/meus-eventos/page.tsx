@@ -7,6 +7,8 @@ import { TicketBreakdown } from "@/components/TicketBreakdown";
 import { EventsCarousel } from "@/components/participant/EventsCarousel";
 import { ParticipantTopNav } from "@/components/participant/ParticipantTopNav";
 import { HeroBanner, type HeroSlide } from "@/components/participant/HeroBanner";
+import { ExperienceExplorer } from "@/components/participant/ExperienceExplorer";
+import { getEventStatus, getExperienceStatus, STATUS_DOT, STATUS_LABEL } from "@/lib/event-status";
 
 export default async function MeusEventosPage() {
   const email = await getParticipantEmail();
@@ -56,7 +58,16 @@ export default async function MeusEventosPage() {
         name: true,
         subtitle: true,
         theme: true,
-        events: { where: { archived: false }, select: { id: true } },
+        events: {
+          where: { archived: false },
+          select: {
+            id: true,
+            active: true,
+            startAt: true,
+            endAt: true,
+            prizes: { select: { status: true } },
+          },
+        },
       },
     }),
   ]);
@@ -125,10 +136,19 @@ export default async function MeusEventosPage() {
   // toda (não faz sentido mostrar "12.483 participantes" na home de alguém).
   const totalParticipacoes = rows.length;
   const totalSorteios = participations.length;
+  // Monta só os campos que o Client Component (ExperienceExplorer) precisa -
+  // sem o array "events" cru (com Date de startAt/endAt), que só serve pra
+  // calcular progresso/status aqui no servidor e não precisa atravessar pro
+  // cliente.
   const experienciasComProgresso = experiences.map((exp) => ({
-    ...exp,
+    id: exp.id,
+    slug: exp.slug,
+    name: exp.name,
+    subtitle: exp.subtitle,
+    theme: exp.theme,
     totalEventos: exp.events.length,
     meusEventos: exp.events.filter((e) => myEventIds.has(e.id)).length,
+    status: getExperienceStatus(exp.events),
   }));
 
   const discoverableAll = globalEvents.filter((e) => !myEventIds.has(e.id));
@@ -174,23 +194,7 @@ export default async function MeusEventosPage() {
           )}
         </div>
 
-        {experiences.length > 0 && (
-          <>
-            <div className="section-heading">
-              <span className="eyebrow">Explore por experiência</span>
-              <h2>Experiências</h2>
-              <p className="subtitle small">
-                Todos os sorteios de um mesmo evento reunidos aqui, com o Universo AS e o ranking
-                daquele evento.
-              </p>
-            </div>
-            <EventsCarousel>
-              {experienciasComProgresso.map((exp) => (
-                <ExperienceCard key={exp.id} experience={exp} />
-              ))}
-            </EventsCarousel>
-          </>
-        )}
+        {experiences.length > 0 && <ExperienceExplorer experiences={experienciasComProgresso} />}
 
         {ativos.length === 0 && historico.length === 0 && discoverable.length === 0 && discoverableDrawn.length === 0 ? (
           <p className="empty">Nenhuma campanha encontrada para esse e-mail.</p>
@@ -286,8 +290,14 @@ export default async function MeusEventosPage() {
         }
 
         /* Cartões de evento (EventCard, DiscoverCard, ExperienceCard) - num
-           bloco só, já que 'style jsx' exige Client Component e essa página
-           inteira é Server Component (busca dados direto do banco). */
+           bloco só (aplica também no ExperienceCard, que mora num Client
+           Component à parte, porque essas classes fazem parte do CSS
+           global da página - 'style jsx' exige Client Component e essa
+           página inteira é Server Component, buscando dados direto do
+           banco). Título/subtítulo cortados em N linhas com altura
+           reservada e botão sempre no rodapé - assim os cards do carrossel
+           ficam com a mesma altura mesmo quando um nome é bem mais comprido
+           que o outro (ex: "BTS World Tour ARIRANG" vs "Stray Kids"). */
         .card {
           position: relative;
           text-decoration: none;
@@ -296,7 +306,9 @@ export default async function MeusEventosPage() {
           border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 1rem;
           overflow: hidden;
-          display: block;
+          display: flex;
+          flex-direction: column;
+          height: 100%;
           transition: border-color 0.15s;
         }
         .card:hover {
@@ -373,6 +385,9 @@ export default async function MeusEventosPage() {
         }
         .info {
           padding: 1rem 1.25rem 1.25rem;
+          display: flex;
+          flex-direction: column;
+          flex: 1;
         }
         .exp-progress {
           display: flex;
@@ -380,7 +395,7 @@ export default async function MeusEventosPage() {
           gap: 0.6rem;
           margin: 0.5rem 0 0.7rem;
         }
-        .exp-dots { display: flex; gap: 0.3rem; }
+        .exp-dots { display: flex; gap: 0.3rem; flex-shrink: 0; }
         .exp-dots .dot {
           width: 0.45rem;
           height: 0.45rem;
@@ -393,10 +408,14 @@ export default async function MeusEventosPage() {
         .exp-progress-label {
           font-size: 0.74rem;
           color: rgba(255, 255, 255, 0.55);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .cta-btn {
           display: inline-flex;
           align-items: center;
+          align-self: flex-start;
           gap: 0.35rem;
           font-size: 0.78rem;
           font-weight: 700;
@@ -404,6 +423,7 @@ export default async function MeusEventosPage() {
           background: #fff;
           border-radius: 999px;
           padding: 0.42rem 0.95rem;
+          margin-top: auto;
         }
         .campaign {
           font-size: 0.75rem;
@@ -411,18 +431,52 @@ export default async function MeusEventosPage() {
           letter-spacing: 0.05em;
           color: #8b9aff;
         }
+        /* Limita a 2 linhas com altura sempre reservada pra esse tanto -
+           títulos curtos ("Stray Kids") e longos ("BTS World Tour ARIRANG")
+           terminam com a mesma altura de card. */
         .info h3 {
           margin: 0.25rem 0 0.5rem;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          line-height: 1.3;
+          min-height: 2.6em;
         }
+        .exp-subtitle {
+          margin: 0 0 0.6rem;
+          font-size: 0.82rem;
+          color: rgba(255, 255, 255, 0.6);
+          display: -webkit-box;
+          -webkit-line-clamp: 1;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          min-height: 1.3em;
+        }
+        .status-badge {
+          position: absolute;
+          z-index: 1;
+          background: rgba(0, 0, 0, 0.5);
+          color: #fff;
+          font-size: 0.65rem;
+          font-weight: 700;
+          padding: 0.22rem 0.55rem;
+          border-radius: 999px;
+          white-space: nowrap;
+        }
+        .status-badge-tl { top: 0.6rem; left: 0.6rem; }
+        .status-badge-tr { top: 0.6rem; right: 0.6rem; }
         .number {
           font-size: 0.8rem;
           color: rgba(255, 255, 255, 0.6);
           font-family: monospace;
         }
         .cta {
+          display: inline-block;
           font-size: 0.8rem;
           color: #8b9aff;
           font-weight: 600;
+          margin-top: auto;
         }
       `}</style>
     </main>
@@ -434,7 +488,17 @@ function EventCard({
   tickets,
   muted,
 }: {
-  event: { id: string; slug: string; name: string; campaign: string | null; theme: unknown; prizes?: { status: string }[] };
+  event: {
+    id: string;
+    slug: string;
+    name: string;
+    campaign: string | null;
+    theme: unknown;
+    active: boolean;
+    startAt: Date | null;
+    endAt: Date | null;
+    prizes?: { status: string }[];
+  };
   tickets: { name: string; number: number }[];
   muted?: boolean;
 }) {
@@ -442,10 +506,17 @@ function EventCard({
   const primary = theme?.colors?.primary ?? "#4F5FFF";
   const bannerUrl = theme?.bannerUrl as string | undefined;
   const hasDrawn = (event.prizes ?? []).some((p) => p.status === "DRAWN");
+  const status = getEventStatus(event);
 
   return (
     <Link href={`/e/${event.slug}/painel`} className={`card ${muted ? "muted" : ""}`}>
-      {hasDrawn && <span className="drawn-badge">🎉 Sorteado</span>}
+      {hasDrawn ? (
+        <span className="drawn-badge">🎉 Sorteado</span>
+      ) : (
+        <span className="status-badge status-badge-tr">
+          {STATUS_DOT[status]} {STATUS_LABEL[status]}
+        </span>
+      )}
       {bannerUrl ? (
         <img src={bannerUrl} alt="" className="banner-img" />
       ) : (
@@ -468,16 +539,32 @@ function DiscoverCard({
   event,
   drawn,
 }: {
-  event: { id: string; slug: string; name: string; campaign: string | null; theme: unknown; vip: boolean };
+  event: {
+    id: string;
+    slug: string;
+    name: string;
+    campaign: string | null;
+    theme: unknown;
+    vip: boolean;
+    active: boolean;
+    startAt: Date | null;
+    endAt: Date | null;
+  };
   drawn?: boolean;
 }) {
   const theme = event.theme as any;
   const primary = theme?.colors?.primary ?? "#4F5FFF";
   const bannerUrl = theme?.bannerUrl as string | undefined;
+  // "drawn" já vem calculado (com base nos prêmios) lá de cima - evita
+  // recalcular aqui sem os dados de prêmio, que esse card não recebe.
+  const status = drawn ? "encerrada" : getEventStatus(event);
 
   return (
     <Link href={`/e/${event.slug}/painel`} className={`card ${event.vip ? "vip" : ""} ${drawn ? "muted" : ""}`}>
       {event.vip && !drawn && <span className="vip-badge">💎 VIP</span>}
+      <span className="status-badge status-badge-tl">
+        {STATUS_DOT[status]} {STATUS_LABEL[status]}
+      </span>
       {bannerUrl ? (
         <img src={bannerUrl} alt="" className="banner-img" />
       ) : (
@@ -492,49 +579,3 @@ function DiscoverCard({
   );
 }
 
-function ExperienceCard({
-  experience,
-}: {
-  experience: {
-    id: string;
-    slug: string;
-    name: string;
-    subtitle: string | null;
-    theme: unknown;
-    totalEventos: number;
-    meusEventos: number;
-  };
-}) {
-  const theme = experience.theme as any;
-  const primary = theme?.primaryColor || "#3B55E6";
-  const secondary = theme?.secondaryColor || "#0c2a5b";
-  const bannerUrl = theme?.backgroundImageUrl as string | undefined;
-
-  return (
-    <Link href={`/eventos/${experience.slug}`} className="card exp-card">
-      <span className="exp-badge">Experiência</span>
-      {bannerUrl ? (
-        <img src={bannerUrl} alt="" className="banner-img" />
-      ) : (
-        <div className="banner" style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})` }} />
-      )}
-      <div className="info">
-        <h3>{experience.name}</h3>
-        {experience.subtitle && <p className="number">{experience.subtitle}</p>}
-        <div className="exp-progress">
-          <span className="exp-dots">
-            {Array.from({ length: experience.totalEventos }).map((_, i) => (
-              <span key={i} className={`dot ${i < experience.meusEventos ? "filled" : ""}`} />
-            ))}
-          </span>
-          <span className="exp-progress-label">
-            {experience.meusEventos > 0
-              ? `Você participou de ${experience.meusEventos}`
-              : `${experience.totalEventos} ${experience.totalEventos === 1 ? "sorteio" : "sorteios"}`}
-          </span>
-        </div>
-        <span className="cta-btn">Ver experiência →</span>
-      </div>
-    </Link>
-  );
-}

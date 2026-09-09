@@ -58,14 +58,19 @@ export default async function ExperienceLandingPage({ params }: { params: { slug
     <main className="page">
       <ParticipantTopNav />
 
-      <div
-        className="hero"
-        style={{
-          background: bannerUrl
-            ? `linear-gradient(0deg, rgba(0,0,0,.6), rgba(0,0,0,.1)), url(${bannerUrl}) center/cover`
-            : `linear-gradient(135deg, ${primary}, ${secondary})`,
-        }}
-      >
+      {/* Mesma técnica de corte do banner da home (HeroBanner): proporção
+          fixa (16:7 no desktop, 4:3 no celular) em vez de altura definida
+          pelo padding/texto - assim a MESMA imagem enviada no admin
+          (Experience.theme.backgroundImageUrl) fica cortada do mesmo jeito
+          aqui e na home, em vez de aparecer cortada de forma diferente em
+          cada lugar. */}
+      <div className="hero">
+        {bannerUrl ? (
+          <img src={bannerUrl} alt="" className="hero-bg" />
+        ) : (
+          <div className="hero-bg-fallback" style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})` }} />
+        )}
+        <div className="hero-scrim" />
         <div className="hero-inner">
           <Link href="/meus-eventos" className="back-link">
             ← Eventos
@@ -149,9 +154,39 @@ export default async function ExperienceLandingPage({ params }: { params: { slug
         }
         .hero {
           position: relative;
-          padding: 3rem 2rem 2.5rem;
+          width: 100%;
+          overflow: hidden;
+          aspect-ratio: 16 / 7;
         }
-        .hero-inner { max-width: 64rem; margin: 0 auto; position: relative; }
+        @media (max-width: 640px) {
+          .hero { aspect-ratio: 4 / 3; }
+        }
+        .hero-bg {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          object-position: center;
+          z-index: 0;
+        }
+        .hero-bg-fallback { position: absolute; inset: 0; z-index: 0; }
+        .hero-scrim {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(0deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.2) 55%, transparent 80%);
+          z-index: 1;
+        }
+        .hero-inner {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 2;
+          max-width: 64rem;
+          margin: 0 auto;
+          padding: clamp(1.4rem, 4vw, 2.75rem) clamp(1.2rem, 4vw, 3rem) clamp(1.6rem, 4vw, 2.5rem);
+        }
         .back-link {
           display: inline-block;
           color: rgba(255, 255, 255, 0.85);
