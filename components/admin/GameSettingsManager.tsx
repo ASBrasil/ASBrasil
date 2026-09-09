@@ -4,13 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Field, Input } from "@/components/ui/primitives";
 
-/**
- * Editar nome/slug e excluir o jogo inteiro - faltava na tela de detalhe,
- * que só tinha edição de tema e das fases. Evento e tipo do jogo não têm
- * edição aqui de propósito: mudar o evento de um jogo que já tem progresso
- * registrado (PlayerPhaseProgress, tickets extras concedidos) é uma
- * operação arriscada o suficiente pra não expor num formulário casual.
- */
 export function GameSettingsManager({
   gameId,
   name: initialName,

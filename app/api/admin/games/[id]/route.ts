@@ -41,8 +41,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const game = await db.game.update({ where: { id: params.id }, data });
     return NextResponse.json({ game });
   } catch (err: any) {
-    // Slug duplicado (constraint única) - mensagem melhor que o erro cru do
-    // Prisma, igual já é feito em outras rotas de slug (evento, experiência).
     if (err?.code === "P2002") {
       return NextResponse.json({ error: "Já existe um jogo com esse slug." }, { status: 409 });
     }
@@ -52,10 +50,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   await requireAdmin();
-  // Cascade apaga fases junto (GamePhase.gameId onDelete: Cascade) - mas
-  // não mexe no álbum de figurinhas (GameCard é catálogo compartilhado,
-  // sobrevive mesmo que o jogo de origem seja excluído) nem no progresso
-  // já registrado do jogador continua contando pro XP dele.
   await db.game.delete({ where: { id: params.id } });
   return NextResponse.json({ ok: true });
 }
