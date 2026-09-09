@@ -4,10 +4,9 @@ import { db } from "@/lib/db";
 import { getParticipantEmail } from "@/lib/participant-session";
 import { AnnouncementPopup } from "@/components/participant/AnnouncementPopup";
 import { TicketBreakdown } from "@/components/TicketBreakdown";
-import { HeroCarousel } from "@/components/HeroCarousel";
 import { EventsCarousel } from "@/components/participant/EventsCarousel";
 import { ParticipantTopNav } from "@/components/participant/ParticipantTopNav";
-import { ExperienceHeroCarousel } from "@/components/participant/ExperienceHeroCarousel";
+import { HeroBanner, type HeroSlide } from "@/components/participant/HeroBanner";
 
 export default async function MeusEventosPage() {
   const email = await getParticipantEmail();
@@ -45,7 +44,9 @@ export default async function MeusEventosPage() {
     }),
     // Experiências publicadas com pelo menos um sorteio ainda não arquivado
     // - agrupam vários sorteios do mesmo evento (ex: os 3 sorteios de Oreo
-    // do BTS aparecem juntos como uma experiência "BTS").
+    // do BTS aparecem juntos como uma experiência "BTS"). Busca os IDs dos
+    // eventos (não só a contagem) pra dar pra calcular, mais abaixo, quantos
+    // desses a própria pessoa já participa - vira o indicador de progresso.
     db.experience.findMany({
       where: { active: true, events: { some: { archived: false } } },
       orderBy: [{ order: "asc" }, { createdAt: "desc" }],
@@ -55,36 +56,45 @@ export default async function MeusEventosPage() {
         name: true,
         subtitle: true,
         theme: true,
-        _count: { select: { events: true } },
+        events: { where: { archived: false }, select: { id: true } },
       },
     }),
   ]);
 
-  const heroEvents = heroEventsRaw.map((e) => {
-    const theme = e.theme as any;
-    return {
-      id: e.id,
-      slug: e.slug,
-      name: e.name,
-      campaign: e.campaign,
-      vip: e.vip,
-      bannerUrl: (theme?.bannerUrl as string | undefined) ?? null,
-      primary: theme?.colors?.primary ?? "#4F5FFF",
-    };
-  });
-
-  const experienceSlides = experiences.map((exp) => {
-    const theme = exp.theme as any;
-    return {
-      id: exp.id,
-      slug: exp.slug,
-      name: exp.name,
-      subtitle: exp.subtitle,
-      bannerUrl: (theme?.backgroundImageUrl as string | undefined) ?? null,
-      primary: theme?.primaryColor || "#3B55E6",
-      secondary: theme?.secondaryColor || "#0c2a5b",
-    };
-  });
+  // Um carrossel só no topo, misturando Experiências e sorteios em destaque
+  // (Event.heroFeatured) - antes eram dois carrosséis empilhados (um
+  // edge-to-edge, outro encaixotado logo abaixo), dando impressão de dois
+  // banners brigando pela atenção. Experiências vêm primeiro.
+  const heroSlides: HeroSlide[] = [
+    ...experiences.map((exp) => {
+      const theme = exp.theme as any;
+      return {
+        id: exp.id,
+        href: `/eventos/${exp.slug}`,
+        badge: "Experiência",
+        name: exp.name,
+        subtitle: exp.subtitle,
+        ctaLabel: "Ver experiência →",
+        bannerUrl: (theme?.backgroundImageUrl as string | undefined) ?? null,
+        primary: theme?.primaryColor || "#3B55E6",
+        secondary: theme?.secondaryColor || "#0c2a5b",
+      };
+    }),
+    ...heroEventsRaw.map((e) => {
+      const theme = e.theme as any;
+      return {
+        id: e.id,
+        href: `/e/${e.slug}/painel`,
+        badge: e.campaign ?? null,
+        name: e.name,
+        subtitle: null,
+        ctaLabel: "Ver sorteio →",
+        bannerUrl: (theme?.bannerUrl as string | undefined) ?? null,
+        primary: theme?.colors?.primary ?? "#4F5FFF",
+        vip: e.vip,
+      };
+    }),
+  ];
 
   const byEvent = new Map<
     string,
@@ -110,6 +120,17 @@ export default async function MeusEventosPage() {
   );
 
   const myEventIds = new Set(participations.map((p) => p.event.id));
+
+  // Resumo no topo da página - números da própria pessoa, não da plataforma
+  // toda (não faz sentido mostrar "12.483 participantes" na home de alguém).
+  const totalParticipacoes = rows.length;
+  const totalSorteios = participations.length;
+  const experienciasComProgresso = experiences.map((exp) => ({
+    ...exp,
+    totalEventos: exp.events.length,
+    meusEventos: exp.events.filter((e) => myEventIds.has(e.id)).length,
+  }));
+
   const discoverableAll = globalEvents.filter((e) => !myEventIds.has(e.id));
   // "Mais sorteios" só mostra o que ainda não foi sorteado - assim que sai
   // o primeiro resultado, o evento migra sozinho pra "Resultados".
@@ -122,32 +143,49 @@ export default async function MeusEventosPage() {
 
       <ParticipantTopNav />
 
-      {/* Banner de ponta a ponta das Experiências - fica entre a barra de
-          menu e o resto do conteúdo. Um futuro "ticker" de atividade
-          (ranking/conquistas passando) pode entrar aqui embaixo depois. */}
-      <ExperienceHeroCarousel slides={experienceSlides} />
+      {/* Banner de ponta a ponta - fica entre a barra de menu e o resto do
+          conteúdo, misturando Experiências e sorteios em destaque num só
+          carrossel. Um futuro "ticker" de atividade (ranking/conquistas
+          passando) pode entrar aqui embaixo depois. */}
+      <HeroBanner slides={heroSlides} />
 
       <section className="content">
-        {heroEvents.length > 0 && <HeroCarousel events={heroEvents} />}
-
         <div className="page-heading">
           <span className="eyebrow">Meus sorteios</span>
-          <h1>Seus eventos</h1>
-          <p className="subtitle">Escolha uma campanha para ver seus números e os sorteios.</p>
+          <h1>Suas experiências</h1>
+          <p className="subtitle">Acompanhe seus sorteios, números e conquistas em cada evento.</p>
+          {totalSorteios > 0 && (
+            <div className="stats-row">
+              <div className="stat">
+                <strong>{totalParticipacoes}</strong>
+                <span>{totalParticipacoes === 1 ? "participação" : "participações"}</span>
+              </div>
+              <div className="stat">
+                <strong>{totalSorteios}</strong>
+                <span>{totalSorteios === 1 ? "sorteio" : "sorteios"}</span>
+              </div>
+              {experiences.length > 0 && (
+                <div className="stat">
+                  <strong>{experiences.length}</strong>
+                  <span>{experiences.length === 1 ? "experiência" : "experiências"}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {experiences.length > 0 && (
           <>
             <div className="section-heading">
-              <span className="eyebrow">Organizado por evento</span>
+              <span className="eyebrow">Explore por experiência</span>
               <h2>Experiências</h2>
               <p className="subtitle small">
-                Vários sorteios do mesmo evento, agrupados num só lugar, com o Universo AS e o
-                ranking daquele evento.
+                Todos os sorteios de um mesmo evento reunidos aqui, com o Universo AS e o ranking
+                daquele evento.
               </p>
             </div>
             <EventsCarousel>
-              {experiences.map((exp) => (
+              {experienciasComProgresso.map((exp) => (
                 <ExperienceCard key={exp.id} experience={exp} />
               ))}
             </EventsCarousel>
@@ -216,8 +254,16 @@ export default async function MeusEventosPage() {
           font-family: system-ui, sans-serif;
           color: #f5f6fa;
         }
-        .content { max-width: 64rem; margin: 0 auto; padding: 3.5rem 2rem 6rem; }
-        .page-heading { max-width: 32rem; margin-bottom: 3rem; }
+        .content { max-width: 64rem; margin: 0 auto; padding: 2.5rem 2rem 6rem; }
+        .page-heading { max-width: 34rem; margin-bottom: 2rem; }
+        .stats-row { display: flex; gap: 1.75rem; margin-top: 1.4rem; flex-wrap: wrap; }
+        .stat { display: flex; flex-direction: column; }
+        .stat strong {
+          font-family: "Sora", system-ui, sans-serif;
+          font-size: 1.4rem;
+          line-height: 1.2;
+        }
+        .stat span { font-size: 0.76rem; color: rgba(255, 255, 255, 0.55); }
         .eyebrow {
           display: block;
           font-size: 0.72rem;
@@ -228,7 +274,7 @@ export default async function MeusEventosPage() {
           margin-bottom: 0.6rem;
         }
         h1 { margin: 0 0 0.6rem; font-family: "Sora", system-ui, sans-serif; font-size: clamp(1.8rem, 3.5vw, 2.4rem); }
-        .section-heading { margin: 4.5rem 0 1.75rem; }
+        .section-heading { margin: 3.25rem 0 1.75rem; }
         h2 { margin: 0; font-family: "Sora", system-ui, sans-serif; font-size: 1.4rem; }
         .subtitle { color: rgba(255, 255, 255, 0.6); margin: 0; line-height: 1.6; }
         .subtitle.small { margin-top: 0.4rem; font-size: 0.9rem; }
@@ -315,8 +361,49 @@ export default async function MeusEventosPage() {
           object-fit: cover;
           display: block;
         }
+        /* Card de Experiência é o carro-chefe dessa tela - mais alto e com
+           mais respiro que os cards de sorteio avulso, pra parecer mesmo
+           uma campanha em destaque, não só mais um item na lista. */
+        .card.exp-card .banner,
+        .card.exp-card .banner-img {
+          height: 9rem;
+        }
+        .card.exp-card .info {
+          padding: 1.1rem 1.35rem 1.35rem;
+        }
         .info {
           padding: 1rem 1.25rem 1.25rem;
+        }
+        .exp-progress {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          margin: 0.5rem 0 0.7rem;
+        }
+        .exp-dots { display: flex; gap: 0.3rem; }
+        .exp-dots .dot {
+          width: 0.45rem;
+          height: 0.45rem;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.18);
+        }
+        .exp-dots .dot.filled {
+          background: #8b9aff;
+        }
+        .exp-progress-label {
+          font-size: 0.74rem;
+          color: rgba(255, 255, 255, 0.55);
+        }
+        .cta-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          font-size: 0.78rem;
+          font-weight: 700;
+          color: #12121a;
+          background: #fff;
+          border-radius: 999px;
+          padding: 0.42rem 0.95rem;
         }
         .campaign {
           font-size: 0.75rem;
@@ -414,7 +501,8 @@ function ExperienceCard({
     name: string;
     subtitle: string | null;
     theme: unknown;
-    _count: { events: number };
+    totalEventos: number;
+    meusEventos: number;
   };
 }) {
   const theme = experience.theme as any;
@@ -423,7 +511,7 @@ function ExperienceCard({
   const bannerUrl = theme?.backgroundImageUrl as string | undefined;
 
   return (
-    <Link href={`/eventos/${experience.slug}`} className="card">
+    <Link href={`/eventos/${experience.slug}`} className="card exp-card">
       <span className="exp-badge">Experiência</span>
       {bannerUrl ? (
         <img src={bannerUrl} alt="" className="banner-img" />
@@ -433,9 +521,19 @@ function ExperienceCard({
       <div className="info">
         <h3>{experience.name}</h3>
         {experience.subtitle && <p className="number">{experience.subtitle}</p>}
-        <span className="cta">
-          {experience._count.events} {experience._count.events === 1 ? "sorteio" : "sorteios"} · Ver tudo →
-        </span>
+        <div className="exp-progress">
+          <span className="exp-dots">
+            {Array.from({ length: experience.totalEventos }).map((_, i) => (
+              <span key={i} className={`dot ${i < experience.meusEventos ? "filled" : ""}`} />
+            ))}
+          </span>
+          <span className="exp-progress-label">
+            {experience.meusEventos > 0
+              ? `Você participou de ${experience.meusEventos}`
+              : `${experience.totalEventos} ${experience.totalEventos === 1 ? "sorteio" : "sorteios"}`}
+          </span>
+        </div>
+        <span className="cta-btn">Ver experiência →</span>
       </div>
     </Link>
   );

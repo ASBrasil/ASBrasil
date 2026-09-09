@@ -87,18 +87,21 @@ export function ParticipantTopNav({ eventName }: { eventName?: string }) {
             {link.label}
           </Link>
         ))}
-        <a
-          href="https://app.asbrasil.tur.br/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="secondary-link"
-        >
-          Minhas reservas ↗
-        </a>
       </nav>
 
       <div className="right">
         {eventName && <span className="current">{eventName}</span>}
+        {/* Separado dos links do sistema de sorteios porque é outro produto
+            (app de reservas) - misturado junto com Vencedores/Meu perfil
+            dava a impressão de pertencer a este sistema. */}
+        <a
+          href="https://app.asbrasil.tur.br/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="reservas-link"
+        >
+          Minhas reservas ↗
+        </a>
         <form action="/api/public/session" method="post">
           <button className="logout">Sair</button>
         </form>
@@ -172,6 +175,18 @@ export function ParticipantTopNav({ eventName }: { eventName?: string }) {
           text-overflow: ellipsis;
           white-space: nowrap;
         }
+        .reservas-link {
+          color: inherit;
+          text-decoration: none;
+          font-size: 0.76rem;
+          font-weight: 600;
+          opacity: 0.6;
+          white-space: nowrap;
+          transition: opacity 0.15s;
+        }
+        .reservas-link:hover {
+          opacity: 0.9;
+        }
         .logout {
           background: none;
           border: 1px solid rgba(255, 255, 255, 0.2);
@@ -213,6 +228,9 @@ export function ParticipantTopNav({ eventName }: { eventName?: string }) {
             flex-shrink: 0;
           }
           .current {
+            display: none;
+          }
+          .reservas-link {
             display: none;
           }
         }

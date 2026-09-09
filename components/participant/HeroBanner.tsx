@@ -3,30 +3,35 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-export interface ExperienceHeroSlide {
+export interface HeroSlide {
   id: string;
-  slug: string;
+  href: string;
+  badge: string | null;
   name: string;
   subtitle: string | null;
+  ctaLabel: string;
   bannerUrl: string | null;
   primary: string;
-  secondary: string;
+  secondary?: string;
+  vip?: boolean;
 }
 
 /**
- * Banner de ponta a ponta (edge-to-edge) mostrado na home do participante,
- * entre a barra de navegação e o resto do conteúdo - uma experiência por
- * slide, trocando sozinho. Usa o MESMO mecanismo de crossfade (slides
- * absolutos, opacidade) do <HeroCarousel> antigo, em vez de flex+transform -
- * fica ADITIVO a ele (esse aqui é só das Experiences; o antigo continua
- * igual, mostrando sorteios com heroFeatured=true).
+ * Banner único de ponta a ponta na home do participante. Antes existiam DOIS
+ * carrosséis empilhados aqui - um edge-to-edge (Experiências) e outro
+ * "encaixotado" logo abaixo (sorteios em destaque via Event.heroFeatured),
+ * dando a impressão de dois banners disputando atenção. Esse componente
+ * substitui os dois: mistura Experiências e sorteios em destaque num só
+ * carrossel, no tamanho do banner de Experiências (edge-to-edge) com o
+ * layout de conteúdo do banner antigo (texto sem coluna estreita, ocupando
+ * a largura toda do slide) - que foi o que o Paulo preferiu.
  */
-export function ExperienceHeroCarousel({ slides }: { slides: ExperienceHeroSlide[] }) {
+export function HeroBanner({ slides }: { slides: HeroSlide[] }) {
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
     if (slides.length <= 1) return;
-    const t = setInterval(() => setIndex((i) => (i + 1) % slides.length), 5000);
+    const t = setInterval(() => setIndex((i) => (i + 1) % slides.length), 6000);
     return () => clearInterval(t);
   }, [slides.length]);
 
@@ -37,7 +42,7 @@ export function ExperienceHeroCarousel({ slides }: { slides: ExperienceHeroSlide
       {slides.map((slide, i) => (
         <Link
           key={slide.id}
-          href={`/eventos/${slide.slug}`}
+          href={slide.href}
           className="slide"
           style={{
             position: "absolute",
@@ -57,15 +62,20 @@ export function ExperienceHeroCarousel({ slides }: { slides: ExperienceHeroSlide
           ) : (
             <div
               className="bg-fallback"
-              style={{ background: `linear-gradient(135deg, ${slide.primary}, ${slide.secondary})` }}
+              style={{
+                background: slide.secondary
+                  ? `linear-gradient(135deg, ${slide.primary}, ${slide.secondary})`
+                  : slide.primary,
+              }}
             />
           )}
           <div className="scrim" />
+          {slide.vip && <span className="vip-badge">💎 VIP</span>}
           <div className="content">
-            <span className="badge">Experiência</span>
+            {slide.badge && <span className="badge">{slide.badge}</span>}
             <h2>{slide.name}</h2>
             {slide.subtitle && <p>{slide.subtitle}</p>}
-            <span className="hero-cta">Ver experiência →</span>
+            <span className="hero-cta">{slide.ctaLabel}</span>
           </div>
         </Link>
       ))}
@@ -89,7 +99,16 @@ export function ExperienceHeroCarousel({ slides }: { slides: ExperienceHeroSlide
           position: relative;
           width: 100%;
           overflow: hidden;
-          height: clamp(15rem, 30vw, 24rem);
+          /* Proporção fixa em vez de altura em vw - assim o corte da imagem
+             de fundo é previsível (sempre a mesma razão largura/altura),
+             em vez de variar com a largura da tela. Uma imagem só, com o
+             assunto principal centralizado, funciona nas duas. */
+          aspect-ratio: 16 / 7;
+        }
+        @media (max-width: 640px) {
+          .hero-banner {
+            aspect-ratio: 4 / 3;
+          }
         }
         .slide {
           text-decoration: none;
@@ -100,6 +119,7 @@ export function ExperienceHeroCarousel({ slides }: { slides: ExperienceHeroSlide
           width: 100%;
           height: 100%;
           object-fit: cover;
+          object-position: center;
           z-index: 0;
         }
         .bg-fallback {
@@ -110,14 +130,27 @@ export function ExperienceHeroCarousel({ slides }: { slides: ExperienceHeroSlide
         .scrim {
           position: absolute;
           inset: 0;
-          background: linear-gradient(0deg, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0.15) 55%, transparent 80%);
+          background: linear-gradient(0deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.2) 55%, transparent 80%);
           z-index: 1;
+        }
+        .vip-badge {
+          position: absolute;
+          top: 1.1rem;
+          right: 1.25rem;
+          z-index: 3;
+          background: linear-gradient(135deg, #e8b646, #c9962f);
+          color: #12121a;
+          font-size: 0.72rem;
+          font-weight: 700;
+          padding: 0.3rem 0.8rem;
+          border-radius: 999px;
+          box-shadow: 0 0.2rem 0.6rem rgba(0, 0, 0, 0.3);
         }
         .content {
           position: relative;
           z-index: 2;
-          max-width: 34rem;
-          padding: clamp(1.6rem, 4vw, 3rem);
+          width: 100%;
+          padding: clamp(1.4rem, 4vw, 2.75rem) clamp(1.2rem, 4vw, 3rem) clamp(1.6rem, 4vw, 2.5rem);
         }
         .badge {
           display: inline-block;
@@ -132,17 +165,17 @@ export function ExperienceHeroCarousel({ slides }: { slides: ExperienceHeroSlide
           margin-bottom: 0.9rem;
         }
         .content h2 {
-          margin: 0 0 0.5rem;
+          margin: 0 0 0.4rem;
           color: #fff;
           font-family: "Sora", system-ui, sans-serif;
-          font-size: clamp(1.5rem, 3.4vw, 2.35rem);
+          font-size: clamp(1.5rem, 3.6vw, 2.35rem);
           line-height: 1.2;
         }
         .content p {
           margin: 0 0 1.1rem;
           color: rgba(255, 255, 255, 0.85);
-          font-size: 0.92rem;
-          max-width: 28rem;
+          font-size: 0.9rem;
+          max-width: 34rem;
         }
         .hero-cta {
           display: inline-flex;
