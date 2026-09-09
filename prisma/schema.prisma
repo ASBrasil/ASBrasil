@@ -234,6 +234,13 @@ model Participant {
   missionId     String?
   mission       Mission?          @relation(fields: [missionId], references: [id], onDelete: SetNull)
 
+  // Igual missionId acima, mas pra número extra concedido por completar uma
+  // fase de jogo do Universo AS com 100% de aproveitamento
+  // (GamePhase.grantsExtraTicket) - também SetNull, apagar a fase depois
+  // não deveria apagar o ticket que ela já gerou.
+  gamePhaseId   String?
+  gamePhase     GamePhase?        @relation(fields: [gamePhaseId], references: [id], onDelete: SetNull)
+
   name          String
   email         String
   phone         String?
@@ -648,7 +655,8 @@ model GamePhase {
   // Universo AS); só esse brinde do evento exige inscrição.
   grantsExtraTicket Boolean @default(false)
 
-  completions PlayerPhaseProgress[]
+  completions  PlayerPhaseProgress[]
+  participants Participant[]
 
   @@index([gameId, order])
 }
