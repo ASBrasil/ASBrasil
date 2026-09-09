@@ -1,52 +1,61 @@
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import Link from "next/link";
-import { GameManager } from "@/components/admin/GameManager";
-import { GamesSubNav } from "@/components/admin/GamesSubNav";
+import { requireAdmin } from "@/lib/auth";
 
-export const dynamic = "force-dynamic";
+const VALID_VISIBILITY = ["DRAFT", "TESTING", "LIVE"];
+const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
-export default async function JogosPage() {
-  const [games, events] = await Promise.all([
-    db.game.findMany({
-      include: { event: { select: { name: true, slug: true } }, phases: { select: { id: true } } },
-      orderBy: { createdAt: "desc" },
-    }),
-    db.event.findMany({ select: { id: true, name: true }, orderBy: { startAt: "desc" } }),
-  ]);
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  await requireAdmin();
+  const body = await req.json();
 
-  return (
-    <div>
-      <div className="header">
-        <h1>🎮 Universo AS — Jogos</h1>
-        <p className="subtitle">
-          Cada jogo nasce em <strong>Rascunho</strong> (só o admin vê) e só fica visível pra
-          participantes de verdade quando você mudar pra Teste (com testadores) ou Ao vivo.
-          Qualquer pessoa do Universo AS pode jogar, mas só quem está inscrito no evento do jogo
-          pode receber o brinde configurado numa fase.
-        </p>
-      </div>
+  const data: Record<string, unknown> = {};
+  if (body.name !== undefined) {
+    if (typeof body.name !== "string" || !body.name.trim()) {
+      return NextResponse.json({ error: "Nome não pode ficar em branco." }, { status: 400 });
+    }
+    data.name = body.name.trim();
+  }
+  if (body.slug !== undefined) {
+    const slug = typeof body.slug === "string" ? body.slug.trim() : "";
+    if (!SLUG_RE.test(slug)) {
+      return NextResponse.json(
+        { error: "Slug inválido - só letras minúsculas, números e hífen." },
+        { status: 400 }
+      );
+    }
+    data.slug = slug;
+  }
+  if (body.theme !== undefined) data.theme = body.theme;
+  if (body.visibility !== undefined) {
+    if (!VALID_VISIBILITY.includes(body.visibility)) {
+      return NextResponse.json(
+        { error: `visibility deve ser um de: ${VALID_VISIBILITY.join(", ")}` },
+        { status: 400 }
+      );
+    }
+    data.visibility = body.visibility;
+  }
 
-      <GamesSubNav active="jogos" />
+  try {
+    const game = await db.game.update({ where: { id: params.id }, data });
+    return NextResponse.json({ game });
+  } catch (err: any) {
+    // Slug duplicado (constraint única) - mensagem melhor que o erro cru do
+    // Prisma, igual já é feito em outras rotas de slug (evento, experiência).
+    if (err?.code === "P2002") {
+      return NextResponse.json({ error: "Já existe um jogo com esse slug." }, { status: 409 });
+    }
+    throw err;
+  }
+}
 
-      <GameManager
-        games={games.map((g) => ({
-          id: g.id,
-          slug: g.slug,
-          name: g.name,
-          type: g.type,
-          visibility: g.visibility,
-          eventName: g.event.name,
-          phaseCount: g.phases.length,
-          theme: g.theme as { primaryColor?: string; secondaryColor?: string } | null,
-        }))}
-        events={events}
-      />
-
-      <style>{`
-        .header { margin-bottom: 1rem; max-width: 42rem; }
-        h1 { margin: 0 0 0.4rem; font-family: var(--font-display, inherit); }
-        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin: 0; line-height: 1.5; }
-      `}</style>
-    </div>
-  );
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  await requireAdmin();
+  // Cascade apaga fases junto (GamePhase.gameId onDelete: Cascade) - mas
+  // não mexe no álbum de figurinhas (GameCard é catálogo compartilhado,
+  // sobrevive mesmo que o jogo de origem seja excluído) nem no progresso
+  // já registrado do jogador continua contando pro XP dele.
+  await db.game.delete({ where: { id: params.id } });
+  return NextResponse.json({ ok: true });
 }
