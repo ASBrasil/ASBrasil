@@ -123,7 +123,7 @@ export function ParticipantTopNav({ eventName }: { eventName?: string }) {
         {/* Separado dos links do sistema de sorteios porque é outro produto
             (app de reservas) - misturado junto com Vencedores/Meu perfil
             dava a impressão de pertencer a este sistema. */}
-        <a
+        
           href="https://app.asbrasil.tur.br/"
           target="_blank"
           rel="noopener noreferrer"
@@ -153,29 +153,46 @@ export function ParticipantTopNav({ eventName }: { eventName?: string }) {
 
       {menuOpen && (
         <div className="mobile-menu">
-          {allLinks.map((link) => {
-            const active = pathname === link.href || pathname?.startsWith(link.href + "/");
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`mobile-link ${active ? "active" : ""}`}
-                onClick={() => setMenuOpen(false)}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
-          <a
+          {/* Card em destaque, mesmo padrão visual da referência (app de
+              reservas): ícone circular + título + descrição num fundo com
+              gradiente, pra puxar o olho pra ação mais "externa" do menu -
+              em vez de misturar com a lista de navegação comum. */}
+          
             href="https://app.asbrasil.tur.br/"
             target="_blank"
             rel="noopener noreferrer"
-            className="mobile-link"
+            className="feature-card"
           >
-            Minhas reservas ↗
+            <span className="feature-icon" aria-hidden>
+              🎫
+            </span>
+            <span className="feature-text">
+              <strong>Minhas reservas</strong>
+              <small>Ver seu histórico no app de reservas ↗</small>
+            </span>
           </a>
+
+          <nav className="mobile-links">
+            {allLinks.map((link) => {
+              const active = pathname === link.href || pathname?.startsWith(link.href + "/");
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`mobile-link ${active ? "active" : ""}`}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {link.label}
+                  <span className="arrow" aria-hidden>
+                    →
+                  </span>
+                </Link>
+              );
+            })}
+          </nav>
+
           <form action="/api/public/session" method="post">
-            <button className="mobile-link mobile-logout">Sair</button>
+            <button className="mobile-logout">Sair</button>
           </form>
         </div>
       )}
@@ -350,33 +367,102 @@ export function ParticipantTopNav({ eventName }: { eventName?: string }) {
           .mobile-menu {
             display: flex;
             flex-direction: column;
-            gap: 0.4rem;
             grid-column: 1 / -1;
-            padding-top: 0.75rem;
+            padding-top: 1rem;
             margin-top: 0.75rem;
             border-top: 1px solid rgba(255, 255, 255, 0.1);
           }
+          /* Card em destaque - gradiente + ícone circular, mesmo padrão da
+             referência (app de reservas), pra separar visualmente a ação
+             "externa" do resto da navegação. */
+          .feature-card {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            text-decoration: none;
+            color: #fff;
+            background: linear-gradient(
+              135deg,
+              color-mix(in srgb, var(--primary, #4f5fff) 55%, transparent),
+              color-mix(in srgb, var(--primary, #4f5fff) 18%, transparent)
+            );
+            border: 1px solid color-mix(in srgb, var(--primary, #4f5fff) 45%, transparent);
+            border-radius: 1rem;
+            padding: 0.9rem 1.05rem;
+            margin-bottom: 1rem;
+          }
+          .feature-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.5rem;
+            height: 2.5rem;
+            flex-shrink: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.16);
+            font-size: 1.15rem;
+          }
+          .feature-text {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+            min-width: 0;
+          }
+          .feature-text strong {
+            font-size: 0.9rem;
+            font-weight: 700;
+          }
+          .feature-text small {
+            font-size: 0.73rem;
+            font-weight: 500;
+            opacity: 0.75;
+          }
+          /* Lista de navegação: texto puro + seta, separados por uma linha
+             fina - sem caixinha/borda em cada item, é isso que deixa de
+             parecer "pilha de retângulos" e passa a parecer uma lista de
+             verdade, como na referência. */
+          .mobile-links {
+            display: flex;
+            flex-direction: column;
+          }
           .mobile-link {
-            display: block;
-            width: 100%;
-            text-align: left;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
             color: #fff;
             text-decoration: none;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 0.6rem;
-            padding: 0.75rem 1rem;
-            font-size: 0.88rem;
-            font-weight: 600;
-            cursor: pointer;
+            padding: 0.85rem 0.15rem;
+            font-size: 0.92rem;
+            font-weight: 700;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          }
+          .mobile-link:last-child {
+            border-bottom: none;
+          }
+          .mobile-link .arrow {
+            opacity: 0.35;
+            font-weight: 400;
+            transition: transform 0.15s, opacity 0.15s;
           }
           .mobile-link.active {
-            background: linear-gradient(135deg, var(--primary, #4f5fff), color-mix(in srgb, var(--primary, #4f5fff) 100%, black 28%));
-            border-color: transparent;
-            color: #12121a;
+            color: var(--primary, #4f5fff);
+          }
+          .mobile-link.active .arrow {
+            opacity: 1;
+            transform: translateX(2px);
           }
           .mobile-logout {
+            width: 100%;
+            margin-top: 1rem;
+            background: none;
+            border: 1px solid rgba(255, 128, 128, 0.35);
             color: #ff8080;
+            border-radius: 0.7rem;
+            padding: 0.75rem;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
           }
         }
       `}</style>
