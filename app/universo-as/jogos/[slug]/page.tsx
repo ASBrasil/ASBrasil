@@ -23,7 +23,12 @@ export default async function PlayGamePage({ params }: { params: { slug: string 
   if (!game) notFound();
 
   const isTester = email ? await db.gameTester.findUnique({ where: { email } }) : null;
-  const allowed = game.visibility === "LIVE" || !!adminId || (game.visibility === "TESTING" && !!isTester);
+  // LIVE é aberto pra todo mundo; TESTING e DRAFT só pra quem está na lista
+  // de testadores ou é admin.
+  const allowed =
+    game.visibility === "LIVE" ||
+    !!adminId ||
+    ((game.visibility === "TESTING" || game.visibility === "DRAFT") && !!isTester);
   // Jogo em DRAFT/TESTING pra quem não pode ver: trata como se não
   // existisse, em vez de mostrar um "sem permissão" que entrega que ali
   // tem algo escondido.

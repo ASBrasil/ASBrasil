@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 export interface ExperienceHeroSlide {
@@ -16,67 +16,69 @@ export interface ExperienceHeroSlide {
 /**
  * Banner de ponta a ponta (edge-to-edge) mostrado na home do participante,
  * entre a barra de navegação e o resto do conteúdo - uma experiência por
- * slide, trocando sozinho. Fica ADITIVO ao <HeroCarousel> antigo (esse aqui
- * é só das Experiences; o antigo continua igual, mostrando sorteios com
- * heroFeatured=true).
+ * slide, trocando sozinho. Usa o MESMO mecanismo de crossfade (slides
+ * absolutos, opacidade) do <HeroCarousel> antigo, em vez de flex+transform -
+ * fica ADITIVO a ele (esse aqui é só das Experiences; o antigo continua
+ * igual, mostrando sorteios com heroFeatured=true).
  */
 export function ExperienceHeroCarousel({ slides }: { slides: ExperienceHeroSlide[] }) {
   const [index, setIndex] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  function start() {
-    stop();
-    if (slides.length <= 1) return;
-    timerRef.current = setInterval(() => {
-      setIndex((i) => (i + 1) % slides.length);
-    }, 5000);
-  }
-  function stop() {
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = null;
-  }
 
   useEffect(() => {
-    start();
-    return stop;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (slides.length <= 1) return;
+    const t = setInterval(() => setIndex((i) => (i + 1) % slides.length), 5000);
+    return () => clearInterval(t);
   }, [slides.length]);
 
   if (slides.length === 0) return null;
 
   return (
-    <div className="hero-banner" onMouseEnter={stop} onMouseLeave={start}>
-      <div className="hero-track" style={{ transform: `translateX(-${index * 100}%)` }}>
-        {slides.map((slide) => (
-          <Link
-            key={slide.id}
-            href={`/eventos/${slide.slug}`}
-            className="hero-slide"
-            style={{
-              background: slide.bannerUrl
-                ? `url(${slide.bannerUrl}) center/cover`
-                : `linear-gradient(135deg, ${slide.primary}, ${slide.secondary})`,
-            }}
-          >
-            <div className="hero-content">
-              <span className="badge">Experiência</span>
-              <h2>{slide.name}</h2>
-              {slide.subtitle && <p>{slide.subtitle}</p>}
-              <span className="hero-cta">Ver experiência →</span>
-            </div>
-          </Link>
-        ))}
-      </div>
+    <div className="hero-banner">
+      {slides.map((slide, i) => (
+        <Link
+          key={slide.id}
+          href={`/eventos/${slide.slug}`}
+          className="slide"
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "flex-end",
+            textDecoration: "none",
+            opacity: i === index ? 1 : 0,
+            pointerEvents: i === index ? "auto" : "none",
+            transition: "opacity 0.8s ease",
+          }}
+          aria-hidden={i !== index}
+          tabIndex={i === index ? 0 : -1}
+        >
+          {slide.bannerUrl ? (
+            <img src={slide.bannerUrl} alt="" className="bg" />
+          ) : (
+            <div
+              className="bg-fallback"
+              style={{ background: `linear-gradient(135deg, ${slide.primary}, ${slide.secondary})` }}
+            />
+          )}
+          <div className="scrim" />
+          <div className="content">
+            <span className="badge">Experiência</span>
+            <h2>{slide.name}</h2>
+            {slide.subtitle && <p>{slide.subtitle}</p>}
+            <span className="hero-cta">Ver experiência →</span>
+          </div>
+        </Link>
+      ))}
 
       {slides.length > 1 && (
-        <div className="hero-dots">
+        <div className="dots">
           {slides.map((slide, i) => (
             <button
               key={slide.id}
               type="button"
-              className={`hero-dot ${i === index ? "active" : ""}`}
-              aria-label={`Ver ${slide.name}`}
+              className={i === index ? "active" : ""}
               onClick={() => setIndex(i)}
+              aria-label={`Ver ${slide.name}`}
             />
           ))}
         </div>
@@ -89,32 +91,33 @@ export function ExperienceHeroCarousel({ slides }: { slides: ExperienceHeroSlide
           overflow: hidden;
           height: clamp(15rem, 30vw, 24rem);
         }
-        .hero-track {
-          display: flex;
-          height: 100%;
-          width: 100%;
-          transition: transform 0.65s cubic-bezier(0.65, 0, 0.35, 1);
-        }
-        .hero-slide {
-          flex: 0 0 100%;
-          height: 100%;
-          position: relative;
-          display: flex;
-          align-items: flex-end;
-          padding: clamp(1.6rem, 4vw, 3rem);
-          overflow: hidden;
+        .slide {
           text-decoration: none;
         }
-        .hero-slide::after {
-          content: "";
+        .bg {
           position: absolute;
           inset: 0;
-          background: linear-gradient(0deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.1) 55%, transparent 75%);
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          z-index: 0;
         }
-        .hero-content {
-          position: relative;
+        .bg-fallback {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+        }
+        .scrim {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(0deg, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0.15) 55%, transparent 80%);
           z-index: 1;
+        }
+        .content {
+          position: relative;
+          z-index: 2;
           max-width: 34rem;
+          padding: clamp(1.6rem, 4vw, 3rem);
         }
         .badge {
           display: inline-block;
@@ -128,15 +131,16 @@ export function ExperienceHeroCarousel({ slides }: { slides: ExperienceHeroSlide
           padding: 0.28rem 0.7rem;
           margin-bottom: 0.9rem;
         }
-        .hero-content :global(h2) {
+        .content h2 {
+          margin: 0 0 0.5rem;
           color: #fff;
           font-family: "Sora", system-ui, sans-serif;
           font-size: clamp(1.5rem, 3.4vw, 2.35rem);
-          margin: 0 0 0.5rem;
+          line-height: 1.2;
         }
-        .hero-content :global(p) {
-          color: rgba(255, 255, 255, 0.85);
+        .content p {
           margin: 0 0 1.1rem;
+          color: rgba(255, 255, 255, 0.85);
           font-size: 0.92rem;
           max-width: 28rem;
         }
@@ -151,15 +155,15 @@ export function ExperienceHeroCarousel({ slides }: { slides: ExperienceHeroSlide
           border-radius: 999px;
           padding: 0.55rem 1.15rem;
         }
-        .hero-dots {
+        .dots {
           position: absolute;
           right: clamp(1.2rem, 3vw, 2.2rem);
           bottom: 1.3rem;
-          z-index: 2;
+          z-index: 3;
           display: flex;
           gap: 0.4rem;
         }
-        .hero-dot {
+        .dots button {
           width: 0.5rem;
           height: 0.5rem;
           padding: 0;
@@ -169,7 +173,7 @@ export function ExperienceHeroCarousel({ slides }: { slides: ExperienceHeroSlide
           cursor: pointer;
           transition: width 0.2s, background 0.2s;
         }
-        .hero-dot.active {
+        .dots button.active {
           width: 1.5rem;
           border-radius: 999px;
           background: #fff;

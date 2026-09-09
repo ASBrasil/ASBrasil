@@ -16,9 +16,14 @@ export default async function UniversoAsPage() {
 
   const isTester = email ? await db.gameTester.findUnique({ where: { email } }) : null;
 
+  // LIVE é público pra qualquer pessoa do Universo AS - é o objetivo do
+  // recurso. TESTING e DRAFT (jogo ainda não anunciado/em construção) só
+  // pra quem está na lista de testadores ou é admin - participante comum
+  // nunca vê rascunho.
   const visibilities: string[] = ["LIVE"];
-  if (adminId || isTester) visibilities.push("TESTING");
-  if (adminId) visibilities.push("DRAFT");
+  if (adminId || isTester) {
+    visibilities.push("TESTING", "DRAFT");
+  }
 
   const [games, cards, ownedCards, ranking] = await Promise.all([
     db.game.findMany({

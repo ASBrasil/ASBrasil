@@ -17,10 +17,9 @@ export async function POST(req: NextRequest, { params }: { params: { phaseId: st
   if (!phase) return NextResponse.json({ error: "Fase não encontrada" }, { status: 404 });
 
   const adminId = await getSessionAdminId();
-  if (phase.game.visibility === "DRAFT" && !adminId) {
-    return NextResponse.json({ error: "Esse jogo ainda não está disponível." }, { status: 403 });
-  }
-  if (phase.game.visibility === "TESTING" && !adminId) {
+  // DRAFT e TESTING (jogo ainda não anunciado) só pra quem está na lista de
+  // testadores ou é admin - LIVE é o único aberto pra qualquer participante.
+  if ((phase.game.visibility === "DRAFT" || phase.game.visibility === "TESTING") && !adminId) {
     const isTester = await db.gameTester.findUnique({ where: { email } });
     if (!isTester) {
       return NextResponse.json({ error: "Esse jogo ainda não está disponível pra você." }, { status: 403 });

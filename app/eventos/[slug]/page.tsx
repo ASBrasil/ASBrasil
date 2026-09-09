@@ -29,9 +29,12 @@ export default async function ExperienceLandingPage({ params }: { params: { slug
   if (!experience.active && !adminId) notFound();
 
   const isTester = email ? await db.gameTester.findUnique({ where: { email } }) : null;
+  // LIVE é público; TESTING e DRAFT só pra testadores/admin - participante
+  // comum nunca vê rascunho, mesmo dentro da experiência dele.
   const visibilities: string[] = ["LIVE"];
-  if (adminId || isTester) visibilities.push("TESTING");
-  if (adminId) visibilities.push("DRAFT");
+  if (adminId || isTester) {
+    visibilities.push("TESTING", "DRAFT");
+  }
 
   const [games, ranking] = await Promise.all([
     db.game.findMany({
