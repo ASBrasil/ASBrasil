@@ -178,6 +178,7 @@ model Event {
   imports               ImportBatch[]
   presences            Presence[]
   participantNotices   ParticipantNotice[]
+  unlockCards          GameCard[] @relation("EventUnlockCards")
   games                Game[]
 
   @@index([active])

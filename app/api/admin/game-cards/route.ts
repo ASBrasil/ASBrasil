@@ -17,12 +17,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "name é obrigatório" }, { status: 400 });
   }
 
+  // unlockEventId e unlockGameId são mutuamente exclusivos - se vier os
+  // dois (não devia, a UI não permite), o evento tem prioridade.
+  const unlockEventId = body.unlockEventId || null;
+  const unlockGameId = unlockEventId ? null : body.unlockGameId || null;
+
   const card = await db.gameCard.create({
     data: {
       name,
       rarity: body.rarity || "comum",
       imageUrl: body.imageUrl || null,
       description: body.description || null,
+      unlockEventId,
+      unlockGameId,
     },
   });
 

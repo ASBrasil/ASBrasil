@@ -11,6 +11,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.rarity !== undefined) data.rarity = body.rarity;
   if (body.imageUrl !== undefined) data.imageUrl = body.imageUrl || null;
   if (body.description !== undefined) data.description = body.description || null;
+  // unlockEventId/unlockGameId são mutuamente exclusivos - manda os dois
+  // juntos só quando o form realmente muda o gatilho (ver GameCardManager),
+  // então aqui só precisa garantir que não fica os dois setados ao mesmo
+  // tempo se por algum motivo vierem juntos.
+  if (body.unlockEventId !== undefined || body.unlockGameId !== undefined) {
+    const unlockEventId = body.unlockEventId || null;
+    data.unlockEventId = unlockEventId;
+    data.unlockGameId = unlockEventId ? null : body.unlockGameId || null;
+  }
 
   const card = await db.gameCard.update({ where: { id: params.id }, data });
   return NextResponse.json({ card });
