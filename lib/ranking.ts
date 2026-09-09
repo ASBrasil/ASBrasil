@@ -82,3 +82,67 @@ export async function getTotalXp(email: string): Promise<number> {
   });
   return agg._sum.firstScore ?? 0;
 }
+
+// --- Painel de Ranking do admin (Fase 3) -----------------------------------
+
+export interface RankingScope {
+  gameId?: string;
+  eventId?: string;
+  since?: Date;
+  until?: Date;
+}
+
+export interface RankingSummary {
+  totalPlayers: number;
+  avgScore: number;
+  topScore: number;
+  completedPhases: number;
+}
+
+function scopeWhere(scope: RankingScope) {
+  const where: Record<string, unknown> = {};
+  if (scope.gameId) {
+    where.phase = { gameId: scope.gameId };
+  } else if (scope.eventId) {
+    where.phase = { game: { eventId: scope.eventId } };
+  }
+  if (scope.since || scope.until) {
+    where.createdAt = {
+      ...(scope.since ? { gte: scope.since } : {}),
+      ...(scope.until ? { lte: scope.until } : {}),
+    };
+  }
+  return where;
+}
+
+export async function getScopedRanking(scope: RankingScope = {}, limit = 100): Promise<RankingEntry[]> {
+  const grouped = await db.playerPhaseProgress.groupBy({
+    by: ["email"],
+    where: scopeWhere(scope),
+    _sum: { firstScore: true },
+    orderBy: { _sum: { firstScore: "desc" } },
+    take: limit,
+  });
+  return withLabels(grouped);
+}
+
+export async function getRankingSummary(scope: RankingScope = {}): Promise<RankingSummary> {
+  const where = scopeWhere(scope);
+  const [grouped, completedPhases] = await Promise.all([
+    db.playerPhaseProgress.groupBy({
+      by: ["email"],
+      where,
+      _sum: { firstScore: true },
+    }),
+    db.playerPhaseProgress.count({ where: { ...where, completed: true } }),
+  ]);
+  const scores = grouped.map((g) => g._sum.firstScore ?? 0);
+  const totalPlayers = grouped.length;
+  const totalXp = scores.reduce((a, b) => a + b, 0);
+  return {
+    totalPlayers,
+    avgScore: totalPlayers ? Math.round(totalXp / totalPlayers) : 0,
+    topScore: scores.length ? Math.max(...scores) : 0,
+    completedPhases,
+  };
+}

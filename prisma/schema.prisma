@@ -703,8 +703,12 @@ model PlayerPhaseProgress {
   firstScore Int     @default(0)
   attempts   Int     @default(0)
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([email, phaseId])
   @@index([phaseId])
+  @@index([createdAt])
 }
 
 // Lista global de testadores - enquanto um Game está em TESTING, só quem

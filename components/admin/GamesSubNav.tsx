@@ -3,7 +3,8 @@ import Link from "next/link";
 const TABS = [
   { key: "jogos", href: "/admin/jogos", label: "Jogos" },
   { key: "cards", href: "/admin/jogos/cards", label: "Álbum de figurinhas" },
-  { key: "testadores", href: "/admin/jogos/testadores", label: "Testadores" },
+    { key: "testadores", href: "/admin/jogos/testadores", label: "Testadores" },
+  { key: "ranking", href: "/admin/jogos/ranking", label: "🏆 Ranking" },
 ] as const;
 
 export function GamesSubNav({ active }: { active: (typeof TABS)[number]["key"] }) {
