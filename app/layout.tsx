@@ -285,9 +285,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   }, 420);
                 }
                 window.addEventListener("load", function () {
-                  setTimeout(hideLoading, 700);
+                  setTimeout(hideLoading, 2500);
                 });
-                setTimeout(hideLoading, 4000);
+                setTimeout(hideLoading, 5500);
               })();
             `,
           }}
