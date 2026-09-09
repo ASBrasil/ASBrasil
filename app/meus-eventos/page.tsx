@@ -6,6 +6,8 @@ import { AnnouncementPopup } from "@/components/participant/AnnouncementPopup";
 import { TicketBreakdown } from "@/components/TicketBreakdown";
 import { HeroCarousel } from "@/components/HeroCarousel";
 import { EventsCarousel } from "@/components/participant/EventsCarousel";
+import { ParticipantTopNav } from "@/components/participant/ParticipantTopNav";
+import { ExperienceHeroCarousel } from "@/components/participant/ExperienceHeroCarousel";
 
 export default async function MeusEventosPage() {
   const email = await getParticipantEmail();
@@ -20,7 +22,7 @@ export default async function MeusEventosPage() {
   // `active` here because concluded events should still show up under
   // "Histórico" - only drafts that never really launched get filtered out
   // below, via the "has at least one draw" check.
-  const [rows, globalEvents, heroEventsRaw] = await Promise.all([
+  const [rows, globalEvents, heroEventsRaw, experiences] = await Promise.all([
     db.participant.findMany({
       where: { email, event: { archived: false } },
       include: { event: { include: { prizes: { select: { status: true } } } } },
@@ -41,6 +43,21 @@ export default async function MeusEventosPage() {
       orderBy: [{ order: "asc" }, { createdAt: "desc" }],
       select: { id: true, slug: true, name: true, campaign: true, vip: true, theme: true },
     }),
+    // Experiências publicadas com pelo menos um sorteio ainda não arquivado
+    // - agrupam vários sorteios do mesmo evento (ex: os 3 sorteios de Oreo
+    // do BTS aparecem juntos como uma experiência "BTS").
+    db.experience.findMany({
+      where: { active: true, events: { some: { archived: false } } },
+      orderBy: [{ order: "asc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        subtitle: true,
+        theme: true,
+        _count: { select: { events: true } },
+      },
+    }),
   ]);
 
   const heroEvents = heroEventsRaw.map((e) => {
@@ -53,6 +70,19 @@ export default async function MeusEventosPage() {
       vip: e.vip,
       bannerUrl: (theme?.bannerUrl as string | undefined) ?? null,
       primary: theme?.colors?.primary ?? "#4F5FFF",
+    };
+  });
+
+  const experienceSlides = experiences.map((exp) => {
+    const theme = exp.theme as any;
+    return {
+      id: exp.id,
+      slug: exp.slug,
+      name: exp.name,
+      subtitle: exp.subtitle,
+      bannerUrl: (theme?.backgroundImageUrl as string | undefined) ?? null,
+      primary: theme?.primaryColor || "#3B55E6",
+      secondary: theme?.secondaryColor || "#0c2a5b",
     };
   });
 
@@ -90,31 +120,12 @@ export default async function MeusEventosPage() {
     <main className="page">
       <AnnouncementPopup popup={activePopup} />
 
-      <header className="topbar">
-        <span className="brand">
-          <span aria-hidden className="dot">●</span>
-          AS BRASIL
-        </span>
-        <nav className="topbar-center">
-          <Link href="/vencedores" className="winners-link">
-            🏆 Vencedores
-          </Link>
-          <a
-            href="https://app.asbrasil.tur.br/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="reservas"
-          >
-            Minhas reservas ↗
-          </a>
-          <Link href="/perfil" className="profile-link">
-            👤 Meu perfil
-          </Link>
-        </nav>
-        <form action="/api/public/session" method="post" className="topbar-right">
-          <button className="logout">Sair</button>
-        </form>
-      </header>
+      <ParticipantTopNav />
+
+      {/* Banner de ponta a ponta das Experiências - fica entre a barra de
+          menu e o resto do conteúdo. Um futuro "ticker" de atividade
+          (ranking/conquistas passando) pode entrar aqui embaixo depois. */}
+      <ExperienceHeroCarousel slides={experienceSlides} />
 
       <section className="content">
         {heroEvents.length > 0 && <HeroCarousel events={heroEvents} />}
@@ -125,16 +136,40 @@ export default async function MeusEventosPage() {
           <p className="subtitle">Escolha uma campanha para ver seus números e os sorteios.</p>
         </div>
 
+        {experiences.length > 0 && (
+          <>
+            <div className="section-heading">
+              <span className="eyebrow">Organizado por evento</span>
+              <h2>Experiências</h2>
+              <p className="subtitle small">
+                Vários sorteios do mesmo evento, agrupados num só lugar, com o Universo AS e o
+                ranking daquele evento.
+              </p>
+            </div>
+            <EventsCarousel>
+              {experiences.map((exp) => (
+                <ExperienceCard key={exp.id} experience={exp} />
+              ))}
+            </EventsCarousel>
+          </>
+        )}
+
         {ativos.length === 0 && historico.length === 0 && discoverable.length === 0 && discoverableDrawn.length === 0 ? (
           <p className="empty">Nenhuma campanha encontrada para esse e-mail.</p>
         ) : (
           <>
             {ativos.length > 0 && (
-              <EventsCarousel>
-                {ativos.map(({ event, tickets }) => (
-                  <EventCard key={event.id} event={event} tickets={tickets} />
-                ))}
-              </EventsCarousel>
+              <>
+                <div className="section-heading">
+                  <span className="eyebrow">Avulsos</span>
+                  <h2>Seus sorteios</h2>
+                </div>
+                <EventsCarousel>
+                  {ativos.map(({ event, tickets }) => (
+                    <EventCard key={event.id} event={event} tickets={tickets} />
+                  ))}
+                </EventsCarousel>
+              </>
             )}
 
             {discoverable.length > 0 && (
@@ -181,105 +216,6 @@ export default async function MeusEventosPage() {
           font-family: system-ui, sans-serif;
           color: #f5f6fa;
         }
-        .topbar {
-          position: sticky;
-          top: 0;
-          z-index: 40;
-          display: grid;
-          grid-template-columns: 1fr auto 1fr;
-          align-items: center;
-          gap: 1rem;
-          padding: 0.85rem 1.75rem;
-          background: rgba(8, 12, 30, 0.72);
-          backdrop-filter: blur(14px);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-          font-size: 0.85rem;
-        }
-        .brand {
-          justify-self: start;
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          font-weight: 800;
-          font-size: 0.85rem;
-          letter-spacing: 0.03em;
-        }
-        .brand .dot {
-          color: #4f5fff;
-        }
-        .topbar-center {
-          justify-self: center;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          flex-wrap: wrap;
-          justify-content: center;
-        }
-        .topbar-right {
-          justify-self: end;
-        }
-        .logout {
-          background: none;
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          color: white;
-          opacity: 0.85;
-          border-radius: 999px;
-          padding: 0.42rem 1rem;
-          cursor: pointer;
-          font-size: 0.78rem;
-        }
-        .logout:hover {
-          opacity: 1;
-          border-color: rgba(255, 255, 255, 0.4);
-        }
-        .reservas {
-          display: inline-flex;
-          align-items: center;
-          color: white;
-          text-decoration: none;
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          border-radius: 999px;
-          padding: 0.46rem 1.05rem;
-          font-size: 0.8rem;
-          font-weight: 600;
-          white-space: nowrap;
-          opacity: 0.9;
-        }
-        .reservas:hover {
-          opacity: 1;
-          border-color: rgba(255, 255, 255, 0.4);
-        }
-        .winners-link {
-          display: inline-flex;
-          align-items: center;
-          color: #f5cf87;
-          text-decoration: none;
-          border: 1px solid rgba(232, 182, 70, 0.35);
-          background: rgba(232, 182, 70, 0.1);
-          border-radius: 999px;
-          padding: 0.48rem 1.05rem;
-          font-size: 0.8rem;
-          font-weight: 700;
-          white-space: nowrap;
-        }
-        .winners-link:hover {
-          border-color: rgba(232, 182, 70, 0.65);
-        }
-        .profile-link {
-          display: inline-flex;
-          align-items: center;
-          color: white;
-          text-decoration: none;
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          border-radius: 999px;
-          padding: 0.48rem 1.05rem;
-          font-size: 0.8rem;
-          font-weight: 600;
-          white-space: nowrap;
-        }
-        .profile-link:hover {
-          border-color: rgba(255, 255, 255, 0.4);
-        }
         .content { max-width: 64rem; margin: 0 auto; padding: 3.5rem 2rem 6rem; }
         .page-heading { max-width: 32rem; margin-bottom: 3rem; }
         .eyebrow {
@@ -302,26 +238,10 @@ export default async function MeusEventosPage() {
           grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
           gap: 1.35rem;
         }
-        @media (max-width: 860px) {
-          .topbar {
-            grid-template-columns: 1fr auto;
-            grid-template-areas: "brand right" "nav nav";
-            row-gap: 0.75rem;
-          }
-          .brand { grid-area: brand; }
-          .topbar-right { grid-area: right; }
-          .topbar-center {
-            grid-area: nav;
-            justify-self: stretch;
-            justify-content: flex-start;
-            overflow-x: auto;
-            flex-wrap: nowrap;
-          }
-        }
 
-        /* Cartões de evento (EventCard e DiscoverCard) - num bloco só, já
-           que 'style jsx' exige Client Component e essa página inteira é
-           Server Component (busca dados direto do banco). */
+        /* Cartões de evento (EventCard, DiscoverCard, ExperienceCard) - num
+           bloco só, já que 'style jsx' exige Client Component e essa página
+           inteira é Server Component (busca dados direto do banco). */
         .card {
           position: relative;
           text-decoration: none;
@@ -370,6 +290,20 @@ export default async function MeusEventosPage() {
           font-size: 0.68rem;
           font-weight: 700;
           padding: 0.25rem 0.6rem;
+          border-radius: 999px;
+        }
+        .exp-badge {
+          position: absolute;
+          top: 0.6rem;
+          left: 0.6rem;
+          z-index: 1;
+          background: rgba(0, 0, 0, 0.45);
+          color: #fff;
+          font-size: 0.65rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          padding: 0.22rem 0.55rem;
           border-radius: 999px;
         }
         .banner {
@@ -466,6 +400,42 @@ function DiscoverCard({
         {event.campaign && <span className="campaign">{event.campaign}</span>}
         <h3>{event.name}</h3>
         <span className="cta">{drawn ? "Ver resultado →" : "Ver como participar →"}</span>
+      </div>
+    </Link>
+  );
+}
+
+function ExperienceCard({
+  experience,
+}: {
+  experience: {
+    id: string;
+    slug: string;
+    name: string;
+    subtitle: string | null;
+    theme: unknown;
+    _count: { events: number };
+  };
+}) {
+  const theme = experience.theme as any;
+  const primary = theme?.primaryColor || "#3B55E6";
+  const secondary = theme?.secondaryColor || "#0c2a5b";
+  const bannerUrl = theme?.backgroundImageUrl as string | undefined;
+
+  return (
+    <Link href={`/eventos/${experience.slug}`} className="card">
+      <span className="exp-badge">Experiência</span>
+      {bannerUrl ? (
+        <img src={bannerUrl} alt="" className="banner-img" />
+      ) : (
+        <div className="banner" style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})` }} />
+      )}
+      <div className="info">
+        <h3>{experience.name}</h3>
+        {experience.subtitle && <p className="number">{experience.subtitle}</p>}
+        <span className="cta">
+          {experience._count.events} {experience._count.events === 1 ? "sorteio" : "sorteios"} · Ver tudo →
+        </span>
       </div>
     </Link>
   );

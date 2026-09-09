@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const navLinkBase: React.CSSProperties = {
   display: "inline-flex",
@@ -15,7 +16,26 @@ const navLinkBase: React.CSSProperties = {
   transition: "border-color 0.15s, background 0.15s",
 };
 
-export function ParticipantTopNav({ eventName }: { eventName: string }) {
+const PRIMARY_LINKS = [
+  { href: "/meus-eventos", label: "Eventos" },
+  { href: "/universo-as", label: "Universo AS" },
+  { href: "/conquistas", label: "Conquistas" },
+];
+
+const SECONDARY_LINKS = [
+  { href: "/vencedores", label: "Vencedores" },
+  { href: "/perfil", label: "Meu perfil" },
+];
+
+/**
+ * Topo compartilhado de todas as páginas do participante. `eventName` é
+ * opcional - páginas "gerais" (home, Universo AS, Conquistas) não têm um
+ * evento único como contexto, só páginas de um sorteio específico (/e/[slug])
+ * passam isso.
+ */
+export function ParticipantTopNav({ eventName }: { eventName?: string }) {
+  const pathname = usePathname();
+
   return (
     <header className="topnav">
       <Link
@@ -40,50 +60,45 @@ export function ParticipantTopNav({ eventName }: { eventName: string }) {
       </Link>
 
       <nav className="center-nav">
-        <Link
-          href="/meus-eventos"
-          style={{
-            ...navLinkBase,
-            color: "#12121a",
-            background: "linear-gradient(135deg, var(--primary, #4f5fff), color-mix(in srgb, var(--primary, #4f5fff) 100%, black 28%))",
-          }}
-        >
-          ← Meus eventos
-        </Link>
+        {PRIMARY_LINKS.map((link) => {
+          const active = pathname === link.href || pathname?.startsWith(link.href + "/");
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              style={{
+                ...navLinkBase,
+                color: active ? "#12121a" : "#fff",
+                background: active
+                  ? "linear-gradient(135deg, var(--primary, #4f5fff), color-mix(in srgb, var(--primary, #4f5fff) 100%, black 28%))"
+                  : "transparent",
+                border: active ? "none" : "1px solid rgba(255, 255, 255, 0.2)",
+              }}
+            >
+              {link.label}
+            </Link>
+          );
+        })}
+
+        <span className="nav-divider" aria-hidden />
+
+        {SECONDARY_LINKS.map((link) => (
+          <Link key={link.href} href={link.href} className="secondary-link">
+            {link.label}
+          </Link>
+        ))}
         <a
           href="https://app.asbrasil.tur.br/"
           target="_blank"
           rel="noopener noreferrer"
-          className="reservas-link"
+          className="secondary-link"
         >
           Minhas reservas ↗
         </a>
-        <Link
-          href="/vencedores"
-          style={{
-            ...navLinkBase,
-            color: "#f5cf87",
-            background: "rgba(232, 182, 70, 0.1)",
-            border: "1px solid rgba(232, 182, 70, 0.35)",
-          }}
-        >
-          🏆 Vencedores
-        </Link>
-        <Link
-          href="/perfil"
-          style={{
-            ...navLinkBase,
-            color: "#fff",
-            background: "transparent",
-            border: "1px solid rgba(255, 255, 255, 0.2)",
-          }}
-        >
-          👤 Meu perfil
-        </Link>
       </nav>
 
       <div className="right">
-        <span className="current">{eventName}</span>
+        {eventName && <span className="current">{eventName}</span>}
         <form action="/api/public/session" method="post">
           <button className="logout">Sair</button>
         </form>
@@ -114,7 +129,13 @@ export function ParticipantTopNav({ eventName }: { eventName: string }) {
           flex-wrap: wrap;
           justify-content: center;
         }
-        .reservas-link {
+        .nav-divider {
+          width: 1px;
+          height: 1.1rem;
+          background: rgba(255, 255, 255, 0.15);
+          margin: 0 0.15rem;
+        }
+        .secondary-link {
           display: inline-flex;
           align-items: center;
           color: inherit;
@@ -129,7 +150,7 @@ export function ParticipantTopNav({ eventName }: { eventName: string }) {
           opacity: 0.9;
           transition: opacity 0.15s, border-color 0.15s;
         }
-        .reservas-link:hover {
+        .secondary-link:hover {
           opacity: 1;
           border-color: rgba(255, 255, 255, 0.45);
         }
@@ -187,6 +208,9 @@ export function ParticipantTopNav({ eventName }: { eventName: string }) {
             overflow-x: auto;
             flex-wrap: nowrap;
             padding-bottom: 0.15rem;
+          }
+          .nav-divider {
+            flex-shrink: 0;
           }
           .current {
             display: none;

@@ -1,0 +1,534 @@
+"use client";
+
+import { useState } from "react";
+
+interface Question {
+  question: string;
+  options: string[];
+}
+
+interface PhaseResult {
+  completed: boolean;
+  firstScore: number;
+  attempts: number;
+}
+
+interface Phase {
+  id: string;
+  order: number;
+  title: string;
+  points: number;
+  grantsExtraTicket: boolean;
+  hasRewardCard: boolean;
+  questions: Question[];
+  result: PhaseResult | null;
+}
+
+interface GameTheme {
+  primaryColor?: string;
+  secondaryColor?: string;
+  backgroundImageUrl?: string | null;
+}
+
+interface GameInfo {
+  id: string;
+  name: string;
+  eventName: string;
+  theme: GameTheme | null;
+}
+
+interface CompleteResponse {
+  correctCount: number;
+  total: number;
+  percent: number;
+  isPerfect: boolean;
+  alreadyPlayed: boolean;
+  cardWon: { id: string; name: string; rarity: string; imageUrl: string | null } | null;
+  extraTicketNumber: number | null;
+}
+
+function emptyAnswers(phase: Phase | undefined) {
+  return Array<number | null>(phase?.questions.length ?? 0).fill(null);
+}
+
+export function GamePlayer({
+  game,
+  phases,
+  isEventParticipant,
+}: {
+  game: GameInfo;
+  phases: Phase[];
+  isEventParticipant: boolean;
+}) {
+  const [index, setIndex] = useState(0);
+  const [answers, setAnswers] = useState<(number | null)[]>(() => emptyAnswers(phases[0]));
+  const [result, setResult] = useState<CompleteResponse | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const phase = phases[index];
+  const isLast = index === phases.length - 1;
+  const allAnswered = answers.length > 0 && answers.every((a) => a !== null);
+
+  const bg = game.theme?.backgroundImageUrl
+    ? `linear-gradient(180deg, ${game.theme.primaryColor || "#3B55E6"}dd, ${
+        game.theme.secondaryColor || "#0c2a5b"
+      }ee), url(${game.theme.backgroundImageUrl}) center/cover fixed`
+    : `radial-gradient(ellipse 80% 60% at 50% -10%, ${game.theme?.primaryColor || "#1b2a5c"} 0%, ${
+        game.theme?.secondaryColor || "#0a1330"
+      } 55%, #05070f 100%)`;
+
+  function goToPhase(i: number) {
+    setIndex(i);
+    setAnswers(emptyAnswers(phases[i]));
+    setResult(null);
+    setError(null);
+  }
+
+  async function submit() {
+    setSubmitting(true);
+    setError(null);
+    const res = await fetch(`/api/public/games/phases/${phase.id}/complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answers }),
+    });
+    const data = await res.json().catch(() => null);
+    setSubmitting(false);
+    if (!res.ok || !data) {
+      setError(data?.error ?? "Não foi possível registrar sua resposta. Tente de novo.");
+      return;
+    }
+    setResult(data);
+  }
+
+  if (phases.length === 0) {
+    return (
+      <div className="wrap" style={{ background: bg }}>
+        <div className="card">
+          <p className="empty">Esse jogo ainda não tem fases prontas. Volte mais tarde!</p>
+        </div>
+        <Styles />
+      </div>
+    );
+  }
+
+  return (
+    <div className="wrap" style={{ background: bg }}>
+      <div className="card">
+        <div className="progress-dots">
+          {phases.map((p, i) => (
+            <span
+              key={p.id}
+              className={`dot ${i === index ? "active" : ""} ${p.result ? "done" : ""}`}
+              title={p.title}
+            />
+          ))}
+        </div>
+
+        {!result ? (
+          <>
+            <h2>{phase.title}</h2>
+            {phase.result && (
+              <p className="already-note">
+                Você já jogou essa fase antes ({phase.result.attempts}x) - a pontuação da sua
+                primeira tentativa é a que vale, jogar de novo é só pra treinar.
+              </p>
+            )}
+            {phase.grantsExtraTicket && !isEventParticipant && (
+              <p className="note">
+                Como você não está inscrito em <strong>{game.eventName}</strong>, essa fase te dá
+                pontos e cards normalmente, mas não o número extra do sorteio.
+              </p>
+            )}
+
+            <div className="questions">
+              {phase.questions.map((q, qi) => (
+                <div key={qi} className="question">
+                  <p className="question-text">
+                    {qi + 1}. {q.question}
+                  </p>
+                  <div className="options">
+                    {q.options.map((opt, oi) => (
+                      <label key={oi} className={`option ${answers[qi] === oi ? "selected" : ""}`}>
+                        <input
+                          type="radio"
+                          name={`q-${qi}`}
+                          checked={answers[qi] === oi}
+                          onChange={() => {
+                            const next = [...answers];
+                            next[qi] = oi;
+                            setAnswers(next);
+                          }}
+                        />
+                        {opt}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {error && <p className="error">{error}</p>}
+
+            <button className="submit-btn" disabled={!allAnswered || submitting} onClick={submit}>
+              {submitting ? "Conferindo…" : "Confirmar respostas"}
+            </button>
+          </>
+        ) : (
+          <ResultScreen
+            phase={phase}
+            game={game}
+            result={result}
+            isLast={isLast}
+            onNext={() => goToPhase(index + 1)}
+          />
+        )}
+      </div>
+      <Styles />
+    </div>
+  );
+}
+
+function ResultScreen({
+  phase,
+  game,
+  result,
+  isLast,
+  onNext,
+}: {
+  phase: Phase;
+  game: GameInfo;
+  result: CompleteResponse;
+  isLast: boolean;
+  onNext: () => void;
+}) {
+  const [sharing, setSharing] = useState(false);
+
+  async function downloadImage(url: string, filename: string) {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      // Última alternativa: abre a imagem numa aba nova pra salvar manualmente
+      // (segura o dedo na imagem no celular, ou botão direito no desktop).
+      window.open(url, "_blank");
+    }
+  }
+
+  async function shareCard() {
+    if (!result.cardWon?.imageUrl) return;
+    setSharing(true);
+    const url = result.cardWon.imageUrl;
+    const name = result.cardWon.name;
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const file = new File([blob], `${name}.png`, { type: blob.type || "image/png" });
+      const nav = navigator as Navigator & { canShare?: (data?: ShareData) => boolean };
+      if (nav.canShare && nav.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `Ganhei a carta ${name}!`,
+          text: `Acabei de ganhar a carta "${name}" jogando ${game.name} no Universo AS! 🎮`,
+        });
+        setSharing(false);
+        return;
+      }
+    } catch {
+      // segue pro fallback de download abaixo
+    }
+    await downloadImage(url, `${name}.png`);
+    setSharing(false);
+  }
+
+  return (
+    <div className="result">
+      <div className="score-circle">
+        <strong>{result.percent}%</strong>
+        <span>
+          {result.correctCount}/{result.total} certas
+        </span>
+      </div>
+
+      <h2>{result.isPerfect ? "🎉 Mandou muito bem!" : "Quase lá!"}</h2>
+
+      {result.alreadyPlayed && (
+        <p className="already-note">Esse foi um replay - o resultado que valeu foi o da sua primeira vez.</p>
+      )}
+
+      {!result.isPerfect && !result.alreadyPlayed && phase.hasRewardCard && (
+        <p className="note">Essa fase tinha uma carta pra quem acerta tudo - na próxima fase você pode tentar de novo!</p>
+      )}
+
+      {result.cardWon && (
+        <div className="card-won">
+          <p className="card-won-label">🎴 Você ganhou uma carta!</p>
+          <div className="card-image-wrap">
+            {result.cardWon.imageUrl ? (
+              <img src={result.cardWon.imageUrl} alt={result.cardWon.name} className="card-image" />
+            ) : (
+              <div className="card-image placeholder">🎴</div>
+            )}
+          </div>
+          <p className="card-name">{result.cardWon.name}</p>
+          <span className="card-rarity">{result.cardWon.rarity}</span>
+          {result.cardWon.imageUrl && (
+            <div className="card-actions">
+              <button
+                className="secondary-btn"
+                onClick={() => downloadImage(result.cardWon!.imageUrl!, `${result.cardWon!.name}.png`)}
+              >
+                ⬇️ Baixar
+              </button>
+              <button className="secondary-btn" disabled={sharing} onClick={shareCard}>
+                {sharing ? "Preparando…" : "📤 Compartilhar"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {result.extraTicketNumber !== null && (
+        <div className="ticket-won">
+          <p>🎟️ Número extra no sorteio de {game.eventName}:</p>
+          <strong>#{result.extraTicketNumber}</strong>
+        </div>
+      )}
+
+      {isLast ? (
+        <p className="finished">É isso - você concluiu todas as fases desse jogo por enquanto!</p>
+      ) : (
+        <button className="submit-btn" onClick={onNext}>
+          Próxima fase →
+        </button>
+      )}
+    </div>
+  );
+}
+
+function Styles() {
+  return (
+    <style jsx global>{`
+      .wrap {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 4rem 1.25rem;
+        font-family: system-ui, sans-serif;
+        color: #f5f6fa;
+      }
+      .card {
+        width: 100%;
+        max-width: 32rem;
+        background: rgba(10, 14, 32, 0.72);
+        backdrop-filter: blur(14px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 1.25rem;
+        padding: 2rem 1.75rem;
+        box-shadow: 0 2rem 5rem rgba(0, 0, 0, 0.45);
+      }
+      .empty {
+        text-align: center;
+        opacity: 0.75;
+        margin: 0;
+      }
+      .progress-dots {
+        display: flex;
+        justify-content: center;
+        gap: 0.4rem;
+        margin-bottom: 1.5rem;
+      }
+      .dot {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.2);
+      }
+      .dot.done {
+        background: #e8b646;
+      }
+      .dot.active {
+        background: #fff;
+        transform: scale(1.3);
+      }
+      h2 {
+        font-family: "Sora", system-ui, sans-serif;
+        font-size: 1.3rem;
+        margin: 0 0 1rem;
+        text-align: center;
+      }
+      .already-note,
+      .note {
+        font-size: 0.8rem;
+        opacity: 0.7;
+        line-height: 1.5;
+        text-align: center;
+        margin: 0 0 1.25rem;
+      }
+      .questions {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+        margin-bottom: 1.5rem;
+      }
+      .question-text {
+        font-weight: 600;
+        font-size: 0.92rem;
+        margin: 0 0 0.6rem;
+      }
+      .options {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+      .option {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        font-size: 0.87rem;
+        padding: 0.55rem 0.75rem;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 0.6rem;
+        cursor: pointer;
+      }
+      .option.selected {
+        border-color: #e8b646;
+        background: rgba(232, 182, 70, 0.1);
+      }
+      .error {
+        color: #fca5a5;
+        font-size: 0.82rem;
+        text-align: center;
+        margin: 0 0 1rem;
+      }
+      .submit-btn {
+        display: block;
+        width: 100%;
+        background: #e8b646;
+        color: #12121a;
+        border: none;
+        border-radius: 999px;
+        padding: 0.8rem 1.3rem;
+        font-weight: 700;
+        font-size: 0.92rem;
+        cursor: pointer;
+      }
+      .submit-btn:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      .result {
+        text-align: center;
+      }
+      .score-circle {
+        width: 6.5rem;
+        height: 6.5rem;
+        border-radius: 999px;
+        border: 3px solid #e8b646;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.25rem;
+      }
+      .score-circle strong {
+        font-size: 1.4rem;
+        font-family: "Sora", system-ui, sans-serif;
+      }
+      .score-circle span {
+        font-size: 0.68rem;
+        opacity: 0.7;
+      }
+      .card-won {
+        margin: 1.5rem 0;
+        padding: 1.25rem;
+        border-radius: 1rem;
+        background: rgba(232, 182, 70, 0.08);
+        border: 1px solid rgba(232, 182, 70, 0.3);
+      }
+      .card-won-label {
+        margin: 0 0 0.9rem;
+        font-weight: 700;
+        font-size: 0.9rem;
+      }
+      .card-image-wrap {
+        display: flex;
+        justify-content: center;
+      }
+      .card-image {
+        width: 9rem;
+        aspect-ratio: 1 / 1;
+        object-fit: cover;
+        border-radius: 0.8rem;
+      }
+      .card-image.placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.08);
+        font-size: 2.5rem;
+      }
+      .card-name {
+        margin: 0.75rem 0 0.15rem;
+        font-weight: 700;
+      }
+      .card-rarity {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        opacity: 0.65;
+      }
+      .card-actions {
+        display: flex;
+        justify-content: center;
+        gap: 0.6rem;
+        margin-top: 1rem;
+      }
+      .secondary-btn {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: #fff;
+        border-radius: 999px;
+        padding: 0.5rem 1rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .secondary-btn:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+      .ticket-won {
+        margin: 1.25rem 0;
+        padding: 1rem;
+        border-radius: 0.8rem;
+        background: rgba(79, 95, 255, 0.12);
+        border: 1px solid rgba(79, 95, 255, 0.35);
+      }
+      .ticket-won p {
+        margin: 0 0 0.3rem;
+        font-size: 0.82rem;
+        opacity: 0.85;
+      }
+      .ticket-won strong {
+        font-family: monospace;
+        font-size: 1.3rem;
+        color: #4f5fff;
+      }
+      .finished {
+        font-size: 0.85rem;
+        opacity: 0.75;
+        margin-top: 1.5rem;
+      }
+    `}</style>
+  );
+}
