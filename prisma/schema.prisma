@@ -52,6 +52,38 @@ model AdminUser {
   createdAt    DateTime @default(now())
 }
 
+// Agrupa vários Event (sorteios) sob uma mesma turnê/campanha maior - ex:
+// "BTS - Turnê Memórias Póstumas" agrupando os 2 sorteios de Oreo + o do
+// Army Bomb Lightstick. Puramente aditivo: Event.experienceId é opcional,
+// então todo sorteio já existente continua funcionando exatamente como
+// hoje (própria landing page em /e/[slug], banner, lpBlocks) mesmo sem
+// nunca ser vinculado a uma Experience - o admin agrupa manualmente
+// quando/se fizer sentido, pela tela /admin/experiencias.
+model Experience {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  subtitle    String?
+  description String?
+
+  // Mesmo formato usado em Game.theme: { primaryColor, secondaryColor,
+  // backgroundImageUrl }. Alimenta o banner de ponta a ponta na home do
+  // participante e o topo da landing page da experiência.
+  theme       Json     @default("{}")
+
+  active      Boolean  @default(true)
+  // Ordenação manual na home (carrossel + grade) - mesmo padrão de
+  // Event.order.
+  order       Int      @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  events      Event[]
+
+  @@index([active])
+}
+
 model Event {
   id                   String   @id @default(cuid())
   slug                 String   @unique
@@ -94,6 +126,12 @@ model Event {
   // shown side by side). Scoped independently for active vs archived -
   // moving an event only ever compares against others in the same tab.
   order                Int      @default(0)
+
+  // Agrupamento opcional numa Experience maior (ex: vários sorteios da
+  // mesma turnê). Null = sorteio "avulso", continua aparecendo em Meus
+  // Eventos normalmente, só não tem uma página de experiência por cima.
+  experienceId         String?
+  experience           Experience? @relation(fields: [experienceId], references: [id], onDelete: SetNull)
 
   // Shown in the rotating banner on /entrar (the participant login page).
   // Admin-curated on purpose, not automatic from `active` - not every

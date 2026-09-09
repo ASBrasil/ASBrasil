@@ -35,6 +35,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.vip !== undefined) data.vip = body.vip;
   if (body.prerequisiteText !== undefined) data.prerequisiteText = body.prerequisiteText;
   if (body.heroFeatured !== undefined) data.heroFeatured = body.heroFeatured;
+  // Vincula/desvincula esse sorteio de uma Experience (agrupamento maior) -
+  // null desfaz o vínculo, o sorteio volta a aparecer "avulso".
+  if (body.experienceId !== undefined) data.experienceId = body.experienceId || null;
   if (body.missionMode !== undefined) data.missionMode = body.missionMode;
   if (body.name !== undefined) data.name = body.name;
   if (body.description !== undefined) data.description = body.description;
