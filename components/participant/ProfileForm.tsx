@@ -5,12 +5,15 @@ import { useState } from "react";
 export function ProfileForm({
   initialName,
   initialPhone,
+  initialDisplayName,
 }: {
   initialName: string;
   initialPhone: string | null;
+  initialDisplayName?: string | null;
 }) {
   const [name, setName] = useState(initialName);
   const [phone, setPhone] = useState(initialPhone ?? "");
+  const [displayName, setDisplayName] = useState(initialDisplayName ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +24,7 @@ export function ProfileForm({
     const res = await fetch("/api/public/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, phone: phone || null }),
+      body: JSON.stringify({ name, phone: phone || null, displayName: displayName.trim() || null }),
     });
     setSaving(false);
     if (!res.ok) {
@@ -42,6 +45,15 @@ export function ProfileForm({
       <div className="field">
         <label>Telefone</label>
         <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Opcional" />
+      </div>
+      <div className="field">
+        <label>Apelido / nome social</label>
+        <input
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          placeholder="Como você quer aparecer no ranking do Universo AS"
+          maxLength={40}
+        />
       </div>
       {error && <p className="error">{error}</p>}
       <div className="actions">

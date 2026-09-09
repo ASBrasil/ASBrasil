@@ -3,6 +3,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { getParticipantEmail } from "@/lib/participant-session";
 import { ProfileForm } from "@/components/participant/ProfileForm";
+import { ProfilePhotos } from "@/components/participant/ProfilePhotos";
 
 export const dynamic = "force-dynamic";
 
@@ -16,13 +17,17 @@ export default async function PerfilPage() {
   const email = await getParticipantEmail();
   if (!email) redirect("/entrar");
 
-  const rows = await db.participant.findMany({
-    where: { email, event: { archived: false } },
-    include: { event: { select: { id: true, slug: true, name: true, active: true } } },
-    orderBy: { createdAt: "desc" },
-  });
+  const [rows, universeProfile] = await Promise.all([
+    db.participant.findMany({
+      where: { email, event: { archived: false } },
+      include: { event: { select: { id: true, slug: true, name: true, active: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+    db.universeProfile.findUnique({ where: { email } }),
+  ]);
 
   const latest = rows[0];
+  const profileIncomplete = !universeProfile?.displayName || !universeProfile?.avatarUrl;
 
   const byEvent = new Map<string, { name: string; slug: string; active: boolean; statuses: string[] }>();
   for (const row of rows) {
@@ -59,10 +64,24 @@ export default async function PerfilPage() {
           <p className="subtitle">Edite seus dados e veja de quais campanhas você já participou.</p>
         </div>
 
+        {profileIncomplete && (
+          <div className="incomplete-banner">
+            ⚠️ Falta pouco: adicione uma foto de perfil e um apelido pra completar seu cadastro.
+          </div>
+        )}
+
         <div className="columns">
           <div className="col">
             <h2>Dados pessoais</h2>
-            <ProfileForm initialName={latest?.name ?? ""} initialPhone={latest?.phone ?? null} />
+            <ProfilePhotos
+              initialAvatarUrl={universeProfile?.avatarUrl ?? null}
+              initialWinnerPhotoUrl={universeProfile?.winnerPhotoUrl ?? null}
+            />
+            <ProfileForm
+              initialName={latest?.name ?? ""}
+              initialPhone={latest?.phone ?? null}
+              initialDisplayName={universeProfile?.displayName ?? null}
+            />
             <p className="email-note">E-mail: {email} (usado pra entrar, não pode ser alterado aqui)</p>
           </div>
 
@@ -136,7 +155,17 @@ export default async function PerfilPage() {
         }
         .back:hover { opacity: 1; }
         .content { max-width: 56rem; margin: 0 auto; padding: 3.5rem 2rem 6rem; }
-        .page-heading { max-width: 32rem; margin-bottom: 3rem; }
+        .page-heading { max-width: 32rem; margin-bottom: 2rem; }
+        .incomplete-banner {
+          max-width: 56rem;
+          background: rgba(232, 182, 70, 0.12);
+          border: 1px solid rgba(232, 182, 70, 0.4);
+          color: #f3d38a;
+          border-radius: 0.7rem;
+          padding: 0.75rem 1.1rem;
+          font-size: 0.85rem;
+          margin-bottom: 2rem;
+        }
         .eyebrow {
           display: block;
           font-size: 0.72rem;

@@ -9,12 +9,9 @@ export const maxDuration = 30;
 const MAX_BYTES = 8 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
-/**
- * Participant-facing counterpart to /api/admin/upload - same underlying
- * Blob storage, but gated by a valid participant session (not admin), and
- * restricted to a fixed folder so a logged-in participant can't write
- * arbitrary paths. Used for mission photo submissions.
- */
+const ALLOWED_FOLDERS = new Set(["mission-photos", "profile-avatars", "profile-winner-photos"]);
+const DEFAULT_FOLDER = "mission-photos";
+
 export async function POST(req: NextRequest) {
   const email = await getParticipantEmail();
   if (!email) {
@@ -30,6 +27,11 @@ export async function POST(req: NextRequest) {
 
   const form = await req.formData();
   const file = form.get("file") as File | null;
+  const requestedFolder = form.get("folder");
+  const folder =
+    typeof requestedFolder === "string" && ALLOWED_FOLDERS.has(requestedFolder)
+      ? requestedFolder
+      : DEFAULT_FOLDER;
 
   if (!file) {
     return NextResponse.json({ error: "Nenhum arquivo enviado" }, { status: 400 });
@@ -51,7 +53,7 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Não foi possível processar essa imagem. Tente outro arquivo." }, { status: 400 });
   }
-  const key = `mission-photos/${randomUUID()}.${extension}`;
+  const key = `${folder}/${randomUUID()}.${extension}`;
 
   const blob = await put(key, compressed, { access: "public", addRandomSuffix: false, contentType: "image/jpeg" });
 

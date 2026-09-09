@@ -603,6 +603,7 @@ model UniverseProfile {
   email       String   @id
   displayName String?
   avatarUrl   String?
+  winnerPhotoUrl String?
   createdAt   DateTime @default(now())
 
   cards       PlayerCard[]
