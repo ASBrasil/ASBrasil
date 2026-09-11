@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -253,11 +254,23 @@ export function ParticipantTopNav({ eventName }: { eventName?: string }) {
         </button>
       </div>
 
-      {menuOpen && (
-        <div className={`mobile-sheet ${menuClosing ? "closing" : ""}`}>
+      {/* Renderizado via portal direto no <body> - o header (.topnav) usa
+          backdrop-filter, e isso faz o navegador tratar ele como "âncora"
+          pra qualquer `position: fixed` dentro dele (em vez da tela inteira).
+          Sem o portal, o menu ficava espremido dentro da faixa fina do
+          próprio cabeçalho em vez de cobrir a tela toda. */}
+      {menuOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className={`mobile-sheet ${menuClosing ? "closing" : ""}`}>
           <div className="mobile-sheet__overlay" onClick={closeMenu} />
 
           <div className="mobile-sheet__panel">
+            {/* Faixa de gradiente multicolor no topo - mistura as cores dos
+                ícones dos cartões, um toque de identidade "Universo AS" que
+                não existe na referência (pedido do Paulo pra não ficar
+                100% igual ao app de reservas). */}
+            <div className="mobile-sheet__accent-strip" aria-hidden />
             <div className="mobile-sheet__handle" aria-hidden />
 
             <div className="mobile-sheet__top">
@@ -334,8 +347,9 @@ export function ParticipantTopNav({ eventName }: { eventName?: string }) {
               <button className="mobile-sheet__cta">Sair da conta</button>
             </form>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body
+        )}
 
       <style jsx>{`
         .topnav {
@@ -497,6 +511,25 @@ export function ParticipantTopNav({ eventName }: { eventName?: string }) {
         .mobile-sheet.closing .mobile-sheet__panel {
           animation: sheet-panel-out 220ms cubic-bezier(0.4, 0, 1, 1) forwards;
         }
+        .mobile-sheet__accent-strip {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          border-radius: 1.5rem 1.5rem 0 0;
+          background: linear-gradient(
+            90deg,
+            var(--primary, #4f5fff),
+            #7c3aed,
+            #db2777,
+            #fbbf24,
+            #22d3ee,
+            #34d399
+          );
+          background-size: 200% 100%;
+          animation: accent-strip-shift 6s ease-in-out infinite;
+        }
         .mobile-sheet__handle {
           width: 2.4rem;
           height: 0.25rem;
@@ -576,6 +609,30 @@ export function ParticipantTopNav({ eventName }: { eventName?: string }) {
           padding: 0.7rem;
           background: rgba(255, 255, 255, 0.03);
           transition: border-color 0.15s, background 0.15s, transform 0.15s;
+          /* Entrada em cascata (um cartão depois do outro) em vez de todos
+             surgirem de uma vez - "backwards" segura o estado inicial durante
+             o delay e devolve o controle pro CSS normal depois que a animação
+             termina, então o :active (scale ao tocar) continua funcionando
+             normalmente mesmo depois da entrada. */
+          animation: tile-in 340ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+        }
+        .mobile-sheet__tiles .mobile-tile:nth-child(1) {
+          animation-delay: 40ms;
+        }
+        .mobile-sheet__tiles .mobile-tile:nth-child(2) {
+          animation-delay: 80ms;
+        }
+        .mobile-sheet__tiles .mobile-tile:nth-child(3) {
+          animation-delay: 120ms;
+        }
+        .mobile-sheet__tiles .mobile-tile:nth-child(4) {
+          animation-delay: 160ms;
+        }
+        .mobile-sheet__tiles .mobile-tile:nth-child(5) {
+          animation-delay: 200ms;
+        }
+        .mobile-sheet__tiles .mobile-tile:nth-child(6) {
+          animation-delay: 240ms;
         }
         .mobile-tile:active {
           transform: scale(0.99);
@@ -584,6 +641,9 @@ export function ParticipantTopNav({ eventName }: { eventName?: string }) {
           border-color: color-mix(in srgb, var(--primary, #4f5fff) 45%, transparent);
           background: color-mix(in srgb, var(--primary, #4f5fff) 12%, transparent);
         }
+        /* Ícones circulares com um leve brilho colorido ao redor (em vez do
+           quadrado arredondado da referência) - cada cor de destaque ganha
+           seu próprio glow, reforçando a identidade de cada seção. */
         .mobile-tile__icon {
           display: flex;
           align-items: center;
@@ -591,9 +651,9 @@ export function ParticipantTopNav({ eventName }: { eventName?: string }) {
           width: 2.5rem;
           height: 2.5rem;
           flex-shrink: 0;
-          border-radius: 0.9rem;
+          border-radius: 50%;
           font-size: 1.15rem;
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
         }
         .mobile-tile__icon--primary {
           background: linear-gradient(
@@ -601,21 +661,34 @@ export function ParticipantTopNav({ eventName }: { eventName?: string }) {
             var(--primary, #4f5fff),
             color-mix(in srgb, var(--primary, #4f5fff) 100%, black 28%)
           );
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18),
+            0 0 0 1px rgba(255, 255, 255, 0.05),
+            0 0 14px 1px color-mix(in srgb, var(--primary, #4f5fff) 55%, transparent);
         }
         .mobile-tile__icon--violet {
           background: linear-gradient(135deg, #7c3aed, #a78bfa);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.05),
+            0 0 14px 1px rgba(167, 139, 250, 0.55);
         }
         .mobile-tile__icon--amber {
           background: linear-gradient(135deg, #b45309, #fbbf24);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.05),
+            0 0 14px 1px rgba(251, 191, 36, 0.5);
         }
         .mobile-tile__icon--pink {
           background: linear-gradient(135deg, #db2777, #f472b6);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.05),
+            0 0 14px 1px rgba(244, 114, 182, 0.5);
         }
         .mobile-tile__icon--cyan {
           background: linear-gradient(135deg, #0891b2, #22d3ee);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.05),
+            0 0 14px 1px rgba(34, 211, 238, 0.5);
         }
         .mobile-tile__icon--emerald {
           background: linear-gradient(135deg, #047857, #34d399);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.05),
+            0 0 14px 1px rgba(52, 211, 153, 0.5);
         }
         .mobile-tile__content {
           min-width: 0;
@@ -690,6 +763,25 @@ export function ParticipantTopNav({ eventName }: { eventName?: string }) {
           to {
             opacity: 0;
             transform: translateY(100%);
+          }
+        }
+        @keyframes accent-strip-shift {
+          0%,
+          100% {
+            background-position: 0% 50%;
+          }
+          50% {
+            background-position: 100% 50%;
+          }
+        }
+        @keyframes tile-in {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
           }
         }
 
