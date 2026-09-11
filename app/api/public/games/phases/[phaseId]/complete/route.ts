@@ -3,7 +3,15 @@ import { db } from "@/lib/db";
 import { getParticipantEmail } from "@/lib/participant-session";
 import { getSessionAdminId } from "@/lib/auth";
 import { generateNumberPool } from "@/lib/raffle";
-import { normalizeQuizQuestions, getRushConfig, speedMultiplier as computeSpeedMultiplier } from "@/lib/games";
+import {
+  normalizeQuizQuestions,
+  getRushConfig,
+  speedMultiplier as computeSpeedMultiplier,
+  normalizeReactionConfig,
+  generateReactionSequence,
+  evaluateReactionRounds,
+  reactionSpeedMultiplier,
+} from "@/lib/games";
 import { grantGamePerfectCards } from "@/lib/cards";
 import { ParticipantSource } from "@prisma/client";
 
@@ -28,32 +36,64 @@ export async function POST(req: NextRequest, { params }: { params: { phaseId: st
   }
 
   const body = await req.json().catch(() => ({}));
-  const answers: unknown[] = Array.isArray(body.answers) ? body.answers : [];
 
-  const questions = normalizeQuizQuestions(phase.content);
-  if (questions.length === 0) {
-    return NextResponse.json({ error: "Essa fase não tem perguntas configuradas." }, { status: 400 });
+  // Cada tipo de jogo calcula "correctCount/total/percent/isPerfect" à sua
+  // própria maneira, sempre no servidor - o que muda por tipo é só COMO
+  // chega nesses números; o que vem depois (progresso, carta, número extra)
+  // é o mesmo pra qualquer tipo.
+  let correctCount: number;
+  let total: number;
+  let percent: number;
+  let isPerfect: boolean;
+  let speedFactor = 1; // multiplicador de pontuação por velocidade (1x a 1.5x), quando aplicável
+  let extra: Record<string, unknown> = {};
+
+  if (phase.type === "REACTION") {
+    // Purple Reaction: N rodadas com alvo/decoy, tempo de reação medido no
+    // cliente mas sempre clampado a uma janela humana plausível (ver
+    // lib/games.ts::evaluateReactionRounds) - nunca gera número extra de
+    // sorteio (ver mais abaixo), só XP/ranking, exatamente por depender de
+    // um cronômetro que roda no navegador da pessoa.
+    const config = normalizeReactionConfig(phase.content);
+    // A sequência de quais rodadas são chamariz é recalculada aqui, nunca
+    // lida do que o cliente mandou - ver lib/games.ts::generateReactionSequence.
+    const expectedIsDecoy = generateReactionSequence(phase.id, config);
+    const outcome = evaluateReactionRounds(body.rounds, config, expectedIsDecoy);
+    correctCount = outcome.correctCount;
+    total = outcome.total;
+    percent = outcome.percent;
+    isPerfect = outcome.isPerfect;
+    speedFactor = isPerfect ? reactionSpeedMultiplier(outcome.avgMs) : 1;
+    extra = { avgMs: outcome.avgMs, tier: outcome.tier };
+  } else {
+    // QUIZ (e qualquer fase antiga sem type explícito, que sempre foi quiz).
+    const answers: unknown[] = Array.isArray(body.answers) ? body.answers : [];
+    const questions = normalizeQuizQuestions(phase.content);
+    if (questions.length === 0) {
+      return NextResponse.json({ error: "Essa fase não tem perguntas configuradas." }, { status: 400 });
+    }
+    // Pontuação sempre calculada no servidor, nunca confiando num placar que
+    // o navegador mande - o cliente só manda o índice escolhido em cada
+    // pergunta, igual já acontece em missions/[id]/complete.
+    correctCount = 0;
+    questions.forEach((q, i) => {
+      if (answers[i] === q.correctIndex) correctCount++;
+    });
+    total = questions.length;
+    percent = Math.round((correctCount / total) * 100);
+    isPerfect = percent === 100;
+
+    // Modo Rush (11/09): bônus de pontuação por velocidade, só quando a fase
+    // foi 100% acertada - o `elapsedMs` vem do cliente mas é sempre clampado
+    // dentro do limite de tempo da fase (ver lib/games.ts::speedMultiplier),
+    // então o pior caso de manipulação é "ganhar o bônus máximo", nunca mais
+    // que isso, e nunca afeta se a fase foi perfeita ou não (isso continua
+    // 100% calculado aqui em cima das respostas reais).
+    const rush = getRushConfig(phase.game.theme);
+    const rawElapsedMs = typeof body.elapsedMs === "number" ? body.elapsedMs : null;
+    speedFactor = rush.enabled && isPerfect ? computeSpeedMultiplier(rawElapsedMs, rush.timeLimitSeconds) : 1;
+    extra = { rushEnabled: rush.enabled };
   }
-
-  // Pontuação sempre calculada no servidor, nunca confiando num placar que
-  // o navegador mande - o cliente só manda o índice escolhido em cada
-  // pergunta, igual já acontece em missions/[id]/complete.
-  let correctCount = 0;
-  questions.forEach((q, i) => {
-    if (answers[i] === q.correctIndex) correctCount++;
-  });
-  const percent = Math.round((correctCount / questions.length) * 100);
-  const isPerfect = percent === 100;
-
-  // Modo Rush (11/09): bônus de pontuação por velocidade, só quando a fase
-  // foi 100% acertada - o `elapsedMs` vem do cliente mas é sempre clampado
-  // dentro do limite de tempo da fase (ver lib/games.ts::speedMultiplier),
-  // então o pior caso de manipulação é "ganhar o bônus máximo", nunca mais
-  // que isso, e nunca afeta se a fase foi perfeita ou não (isso continua
-  // 100% calculado aqui em cima das respostas reais).
-  const rush = getRushConfig(phase.game.theme);
-  const rawElapsedMs = typeof body.elapsedMs === "number" ? body.elapsedMs : null;
-  const speedFactor = rush.enabled && isPerfect ? computeSpeedMultiplier(rawElapsedMs, rush.timeLimitSeconds) : 1;
 
   // Garante que existe um perfil Universo AS pra essa pessoa antes de
   // gravar qualquer progresso/carta - chave é o e-mail, sem cadastro novo;
@@ -107,7 +147,15 @@ export async function POST(req: NextRequest, { params }: { params: { phaseId: st
     }
   }
 
-  if (isFirstAttempt && isPerfect && phase.grantsExtraTicket) {
+  // Número extra de sorteio só pra tipos com pontuação 100% verificável no
+  // servidor (hoje só QUIZ, incluindo o Modo Rush - a velocidade é só um
+  // bônus de pontos, o "acertou tudo" continua vindo das respostas reais).
+  // Tipos como REACTION dependem de um cronômetro que roda no navegador da
+  // pessoa - valem XP/ranking normalmente, mas nunca número de sorteio,
+  // pra não abrir brecha nessa parte que envolve prêmio de verdade.
+  const canGrantTicket = phase.type === "QUIZ";
+
+  if (isFirstAttempt && isPerfect && phase.grantsExtraTicket && canGrantTicket) {
     // Só concede o número extra se a pessoa já for Participant desse
     // evento específico - o álbum/XP são livres pra todo mundo do
     // Universo AS, mas o brinde do sorteio exige inscrição de verdade.
@@ -142,12 +190,15 @@ export async function POST(req: NextRequest, { params }: { params: { phaseId: st
 
   return NextResponse.json({
     correctCount,
-    total: questions.length,
+    total,
     percent,
     isPerfect,
     alreadyPlayed: !isFirstAttempt,
     cardWon,
     extraTicketNumber,
-    speedMultiplier: rush.enabled ? Math.round(speedFactor * 100) / 100 : null,
+    // speedFactor só passa de 1 quando teve bônus de verdade (Rush ligado, ou
+    // Reaction), então isso já cobre os dois tipos sem precisar saber qual é.
+    speedMultiplier: speedFactor > 1 ? Math.round(speedFactor * 100) / 100 : null,
+    ...extra,
   });
 }

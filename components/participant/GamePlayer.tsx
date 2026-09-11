@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { generateReactionSequence, type ReactionConfig } from "@/lib/games";
 
 interface Question {
   question: string;
@@ -17,10 +18,12 @@ interface Phase {
   id: string;
   order: number;
   title: string;
+  type: "QUIZ" | "REACTION";
   points: number;
   grantsExtraTicket: boolean;
   hasRewardCard: boolean;
   questions: Question[];
+  reactionConfig: ReactionConfig | null;
   result: PhaseResult | null;
 }
 
@@ -55,6 +58,9 @@ interface CompleteResponse {
   cardWon: { id: string; name: string; rarity: string; imageUrl: string | null } | null;
   extraTicketNumber: number | null;
   speedMultiplier: number | null;
+  // Só presentes em fases REACTION (ver rota complete/route.ts, `...extra`).
+  avgMs?: number | null;
+  tier?: string;
 }
 
 function emptyAnswers(phase: Phase | undefined) {
@@ -80,8 +86,9 @@ export function GamePlayer({
   const isLast = index === phases.length - 1;
   const allAnswered = answers.length > 0 && answers.every((a) => a !== null);
 
-  // --- Modo Rush: cronômetro por fase ---------------------------------
-  const rushEnabled = game.rush.enabled;
+  // --- Modo Rush: cronômetro por fase (só faz sentido pra QUIZ - Reaction já
+  // tem seu próprio cronômetro por rodada, ver ReactionStage) --------------
+  const rushEnabled = game.rush.enabled && phase.type !== "REACTION";
   const timeLimitMs = game.rush.timeLimitSeconds * 1000;
   const [msLeft, setMsLeft] = useState(timeLimitMs);
   const phaseStartRef = useRef<number>(Date.now());
@@ -123,15 +130,14 @@ export function GamePlayer({
     setError(null);
   }
 
-  async function submit() {
+  async function postComplete(body: Record<string, unknown>) {
     if (submitting || result) return; // evita disparo duplo (botão + timeout do rush quase juntos)
     setSubmitting(true);
     setError(null);
-    const elapsedMs = Date.now() - phaseStartRef.current;
     const res = await fetch(`/api/public/games/phases/${phase.id}/complete`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(rushEnabled ? { answers, elapsedMs } : { answers }),
+      body: JSON.stringify(body),
     });
     const data = await res.json().catch(() => null);
     setSubmitting(false);
@@ -141,7 +147,16 @@ export function GamePlayer({
     }
     setResult(data);
   }
+
+  async function submit() {
+    const elapsedMs = Date.now() - phaseStartRef.current;
+    await postComplete(rushEnabled ? { answers, elapsedMs } : { answers });
+  }
   submitRef.current = submit;
+
+  async function submitReaction(rounds: { tapped: boolean; ms: number | null }[]) {
+    await postComplete({ rounds });
+  }
 
   if (phases.length === 0) {
     return (
@@ -188,51 +203,62 @@ export function GamePlayer({
                 primeira tentativa é a que vale, jogar de novo é só pra treinar.
               </p>
             )}
-            {phase.grantsExtraTicket && !isEventParticipant && (
+            {phase.grantsExtraTicket && !isEventParticipant && phase.type !== "REACTION" && (
               <p className="note">
                 Como você não está inscrito em <strong>{game.eventName}</strong>, essa fase te dá
                 pontos e cards normalmente, mas não o número extra do sorteio.
               </p>
             )}
 
-            <div className="questions">
-              {phase.questions.map((q, qi) => (
-                <div key={qi} className="question">
-                  <p className="question-text">
-                    {qi + 1}. {q.question}
-                  </p>
-                  <div className="options">
-                    {q.options.map((opt, oi) => (
-                      <label key={oi} className={`option ${answers[qi] === oi ? "selected" : ""}`}>
-                        <input
-                          type="radio"
-                          name={`q-${qi}`}
-                          checked={answers[qi] === oi}
-                          onChange={() => {
-                            const next = [...answers];
-                            next[qi] = oi;
-                            setAnswers(next);
-                            // No Rush, com fase de 1 pergunta só (o caso mais comum), envia na
-                            // hora - é o que dá a sensação de "correria" pedida; com mais de uma
-                            // pergunta na fase, mantém o botão normal de confirmar.
-                            if (rushEnabled && phase.questions.length === 1) {
-                              setTimeout(() => submitRef.current(), 0);
-                            }
-                          }}
-                        />
-                        {opt}
-                      </label>
-                    ))}
-                  </div>
+            {phase.type === "REACTION" && phase.reactionConfig ? (
+              <ReactionStage
+                key={phase.id}
+                phaseId={phase.id}
+                config={phase.reactionConfig}
+                onComplete={submitReaction}
+              />
+            ) : (
+              <>
+                <div className="questions">
+                  {phase.questions.map((q, qi) => (
+                    <div key={qi} className="question">
+                      <p className="question-text">
+                        {qi + 1}. {q.question}
+                      </p>
+                      <div className="options">
+                        {q.options.map((opt, oi) => (
+                          <label key={oi} className={`option ${answers[qi] === oi ? "selected" : ""}`}>
+                            <input
+                              type="radio"
+                              name={`q-${qi}`}
+                              checked={answers[qi] === oi}
+                              onChange={() => {
+                                const next = [...answers];
+                                next[qi] = oi;
+                                setAnswers(next);
+                                // No Rush, com fase de 1 pergunta só (o caso mais comum), envia na
+                                // hora - é o que dá a sensação de "correria" pedida; com mais de uma
+                                // pergunta na fase, mantém o botão normal de confirmar.
+                                if (rushEnabled && phase.questions.length === 1) {
+                                  setTimeout(() => submitRef.current(), 0);
+                                }
+                              }}
+                            />
+                            {opt}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+
+                <button className="submit-btn" disabled={!allAnswered || submitting} onClick={submit}>
+                  {submitting ? "Conferindo…" : "Confirmar respostas"}
+                </button>
+              </>
+            )}
 
             {error && <p className="error">{error}</p>}
-
-            <button className="submit-btn" disabled={!allAnswered || submitting} onClick={submit}>
-              {submitting ? "Conferindo…" : "Confirmar respostas"}
-            </button>
           </>
         ) : (
           <ResultScreen
@@ -320,6 +346,13 @@ function ResultScreen({
 
       <h2>{result.isPerfect ? "🎉 Mandou muito bem!" : "Quase lá!"}</h2>
 
+      {typeof result.tier === "string" && (
+        <p className="reaction-tier">
+          {result.tier}
+          {result.avgMs != null ? ` · média ${result.avgMs}ms` : ""}
+        </p>
+      )}
+
       {result.isPerfect && !result.alreadyPlayed && result.speedMultiplier && result.speedMultiplier > 1 && (
         <p className="speed-bonus">
           ⚡ Bônus de velocidade: +{Math.round((result.speedMultiplier - 1) * 100)}% de pontos!
@@ -380,6 +413,93 @@ function ResultScreen({
   );
 }
 
+// Janela máxima pra reagir a um alvo antes de contar como "não tocou" -
+// intencionalmente maior que qualquer tempo de reação humano real, só existe
+// pra não travar a rodada indefinidamente se a pessoa simplesmente não tocar.
+const REACTION_MISS_WINDOW_MS = 1200;
+
+function ReactionStage({
+  phaseId,
+  config,
+  onComplete,
+}: {
+  phaseId: string;
+  config: ReactionConfig;
+  onComplete: (rounds: { tapped: boolean; ms: number | null }[]) => void;
+}) {
+  // Mesma sequência determinística que o servidor recalcula pra conferir -
+  // ver lib/games.ts::generateReactionSequence. Calculada uma vez só por
+  // fase (não muda entre rodadas, nem se o componente re-renderizar).
+  const sequence = useMemo(() => generateReactionSequence(phaseId, config), [phaseId, config]);
+  const [roundIndex, setRoundIndex] = useState(0);
+  const [stage, setStage] = useState<"waiting" | "target">("waiting");
+  const resultsRef = useRef<{ tapped: boolean; ms: number | null }[]>([]);
+  const shownAtRef = useRef(0);
+  const missTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const finishedRef = useRef(false);
+
+  const isDecoy = sequence[roundIndex] ?? false;
+  const totalRounds = config.rounds;
+
+  useEffect(() => {
+    if (finishedRef.current || roundIndex >= totalRounds) return;
+    setStage("waiting");
+    const delay = config.minDelayMs + Math.random() * (config.maxDelayMs - config.minDelayMs);
+    const showTimer = setTimeout(() => {
+      shownAtRef.current = Date.now();
+      setStage("target");
+      missTimeoutRef.current = setTimeout(() => {
+        registerRound({ tapped: false, ms: null });
+      }, REACTION_MISS_WINDOW_MS);
+    }, delay);
+    return () => {
+      clearTimeout(showTimer);
+      if (missTimeoutRef.current) clearTimeout(missTimeoutRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roundIndex]);
+
+  function registerRound(entry: { tapped: boolean; ms: number | null }) {
+    if (missTimeoutRef.current) clearTimeout(missTimeoutRef.current);
+    resultsRef.current.push(entry);
+    const next = roundIndex + 1;
+    if (next >= totalRounds) {
+      finishedRef.current = true;
+      onComplete(resultsRef.current);
+    } else {
+      setRoundIndex(next);
+    }
+  }
+
+  function handleTap() {
+    if (stage !== "target") return;
+    registerRound({ tapped: true, ms: Date.now() - shownAtRef.current });
+  }
+
+  return (
+    <div className="reaction-stage">
+      <p className="reaction-round">
+        Rodada {Math.min(roundIndex + 1, totalRounds)}/{totalRounds}
+      </p>
+      <button
+        type="button"
+        className={`reaction-target ${stage}${stage === "target" ? (isDecoy ? " decoy" : " real") : ""}`}
+        onClick={handleTap}
+        disabled={stage !== "target"}
+      >
+        {stage === "waiting" ? "…" : isDecoy ? "NÃO TOQUE" : "TOQUE!"}
+      </button>
+      <p className="reaction-hint">
+        {stage === "waiting"
+          ? "Prepare o dedo…"
+          : isDecoy
+          ? "Isso é um chamariz - segura o dedo!"
+          : "Vai!"}
+      </p>
+    </div>
+  );
+}
+
 function Styles() {
   return (
     <style jsx global>{`
@@ -433,6 +553,58 @@ function Styles() {
         font-weight: 700;
         color: #fbbf24;
         margin: -0.5rem 0 0.75rem;
+      }
+      .reaction-tier {
+        text-align: center;
+        font-weight: 700;
+        color: #e8b646;
+        margin: -0.5rem 0 1rem;
+      }
+      .reaction-stage {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 0 1.5rem;
+      }
+      .reaction-round {
+        margin: 0;
+        font-size: 0.8rem;
+        opacity: 0.7;
+      }
+      .reaction-target {
+        width: 11rem;
+        height: 11rem;
+        border-radius: 999px;
+        border: none;
+        font-weight: 800;
+        font-size: 1.05rem;
+        letter-spacing: 0.02em;
+        color: #fff;
+        cursor: pointer;
+        transition: background 0.15s, transform 0.1s;
+        background: rgba(255, 255, 255, 0.1);
+      }
+      .reaction-target.waiting {
+        cursor: default;
+        opacity: 0.6;
+      }
+      .reaction-target.target.real {
+        background: #16a34a;
+        box-shadow: 0 0 3rem rgba(22, 163, 74, 0.5);
+      }
+      .reaction-target.target.decoy {
+        background: #dc2626;
+        box-shadow: 0 0 3rem rgba(220, 38, 38, 0.5);
+      }
+      .reaction-target:active:not(:disabled) {
+        transform: scale(0.96);
+      }
+      .reaction-hint {
+        margin: 0;
+        font-size: 0.85rem;
+        opacity: 0.75;
+        min-height: 1.2em;
       }
       .progress-dots {
         display: flex;

@@ -41,6 +41,7 @@ export default async function GameDetailPage({ params }: { params: { id: string 
 
       <GamePhaseManager
         gameId={game.id}
+        gameType={game.type}
         visibility={game.visibility}
         phases={game.phases.map((p: any) => ({
           id: p.id,

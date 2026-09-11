@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button, Field, Input } from "@/components/ui/primitives";
 
 type Visibility = "DRAFT" | "TESTING" | "LIVE";
+type GameType = "QUIZ" | "MEMORY" | "RHYTHM" | "HUNT" | "CARDS" | "REACTION";
 
 interface QuizContent {
   question: string;
@@ -12,11 +13,16 @@ interface QuizContent {
   correctIndex: number;
 }
 
+interface ReactionContent {
+  rounds?: number;
+  decoyChance?: number;
+}
+
 interface Phase {
   id: string;
   order: number;
   title: string;
-  content: QuizContent;
+  content: QuizContent & ReactionContent;
   points: number;
   rewardCardId: string | null;
   grantsExtraTicket: boolean;
@@ -42,19 +48,26 @@ const EMPTY_DRAFT = {
   points: 10,
   rewardCardId: "",
   grantsExtraTicket: false,
+  // Purple Reaction (11/09) - decoyChancePercent fica em 0-100 na UI só pra
+  // ser mais natural de digitar, convertido pra 0-1 na hora de salvar.
+  rounds: 5,
+  decoyChancePercent: 25,
 };
 
 export function GamePhaseManager({
   gameId,
+  gameType,
   visibility: initialVisibility,
   phases: initialPhases,
   cards,
 }: {
   gameId: string;
+  gameType: GameType;
   visibility: Visibility;
   phases: Phase[];
   cards: CardOption[];
 }) {
+  const isReaction = gameType === "REACTION";
   const router = useRouter();
   const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
   const [phases, setPhases] = useState(initialPhases);
@@ -91,11 +104,18 @@ export function GamePhaseManager({
       points: p.points,
       rewardCardId: p.rewardCardId ?? "",
       grantsExtraTicket: p.grantsExtraTicket,
+      rounds: p.content?.rounds ?? 5,
+      decoyChancePercent: Math.round((p.content?.decoyChance ?? 0.25) * 100),
     };
   }
 
   function validate(): string | null {
     if (!draft.title.trim()) return "Escreva um título pra fase.";
+    if (isReaction) {
+      // Rounds/decoy sempre têm um valor seguro (normalizeReactionConfig
+      // clampa tudo no servidor), então não tem muito o que validar aqui.
+      return null;
+    }
     if (!draft.question.trim()) return "Escreva a pergunta do quiz.";
     const options = draft.optionsText
       .split("\n")
@@ -117,17 +137,28 @@ export function GamePhaseManager({
     setError(null);
     setSaving(true);
 
-    const options = draft.optionsText
-      .split("\n")
-      .map((s) => s.trim())
-      .filter(Boolean);
+    const content = isReaction
+      ? {
+          rounds: Number(draft.rounds) || 5,
+          decoyChance: (Number(draft.decoyChancePercent) || 0) / 100,
+        }
+      : (() => {
+          const options = draft.optionsText
+            .split("\n")
+            .map((s) => s.trim())
+            .filter(Boolean);
+          return { question: draft.question.trim(), options, correctIndex: draft.correctIndex };
+        })();
 
     const body = {
       title: draft.title.trim(),
-      content: { question: draft.question.trim(), options, correctIndex: draft.correctIndex },
+      content,
       points: Number(draft.points) || 0,
       rewardCardId: draft.rewardCardId || null,
-      grantsExtraTicket: draft.grantsExtraTicket,
+      // Reaction nunca concede número extra de sorteio (pontuação depende de
+      // um cronômetro no navegador da pessoa) - ver canGrantTicket na rota
+      // complete/route.ts. Forçado aqui pra UI nem oferecer a opção.
+      grantsExtraTicket: isReaction ? false : draft.grantsExtraTicket,
     };
 
     const url = phaseId
@@ -179,7 +210,7 @@ export function GamePhaseManager({
       </div>
 
       <div className="section-header">
-        <p className="section-title">Fases (quiz)</p>
+        <p className="section-title">Fases ({isReaction ? "reação" : "quiz"})</p>
         {!creating && !editingId && (
           <Button
             onClick={() => {
@@ -197,6 +228,7 @@ export function GamePhaseManager({
           draft={draft}
           setDraft={setDraft}
           cards={cards}
+          isReaction={isReaction}
           error={error}
           saving={saving}
           onCancel={() => {
@@ -216,6 +248,7 @@ export function GamePhaseManager({
               draft={draft}
               setDraft={setDraft}
               cards={cards}
+              isReaction={isReaction}
               error={error}
               saving={saving}
               onCancel={() => {
@@ -387,6 +420,7 @@ function PhaseForm({
   draft,
   setDraft,
   cards,
+  isReaction,
   error,
   saving,
   onCancel,
@@ -396,6 +430,7 @@ function PhaseForm({
   draft: typeof EMPTY_DRAFT;
   setDraft: (d: typeof EMPTY_DRAFT) => void;
   cards: CardOption[];
+  isReaction: boolean;
   error: string | null;
   saving: boolean;
   onCancel: () => void;
@@ -413,41 +448,67 @@ function PhaseForm({
         <Input
           value={draft.title}
           onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-          placeholder="Ex: Fase 1 - Curiosidades AS Brasil"
+          placeholder={isReaction ? "Ex: Reflexo Roxo" : "Ex: Fase 1 - Curiosidades AS Brasil"}
         />
       </Field>
-      <Field label="Pergunta" required>
-        <textarea
-          className="textarea"
-          rows={2}
-          value={draft.question}
-          onChange={(e) => setDraft({ ...draft, question: e.target.value })}
-          placeholder="Ex: Em que ano a AS Brasil foi fundada?"
-        />
-      </Field>
-      <Field label="Opções de resposta" required hint="Uma por linha, pelo menos 2.">
-        <textarea
-          className="textarea"
-          rows={4}
-          value={draft.optionsText}
-          onChange={(e) => setDraft({ ...draft, optionsText: e.target.value })}
-          placeholder={"2010\n2015\n2018"}
-        />
-      </Field>
-      {options.length > 0 && (
-        <Field label="Qual é a correta?" required>
-          <select
-            value={draft.correctIndex}
-            onChange={(e) => setDraft({ ...draft, correctIndex: Number(e.target.value) })}
+
+      {isReaction ? (
+        <>
+          <Field label="Quantidade de rodadas" hint="Entre 3 e 15 - cada rodada é um alvo (ou chamariz) na tela.">
+            <Input
+              type="number"
+              value={draft.rounds}
+              onChange={(e) => setDraft({ ...draft, rounds: Number(e.target.value) })}
+            />
+          </Field>
+          <Field
+            label="Chance de chamariz (%)"
+            hint="Rodada que NÃO deve ser tocada - testa o impulso da pessoa. 0 a 60%."
           >
-            {options.map((opt, i) => (
-              <option key={i} value={i}>
-                {opt}
-              </option>
-            ))}
-          </select>
-        </Field>
+            <Input
+              type="number"
+              value={draft.decoyChancePercent}
+              onChange={(e) => setDraft({ ...draft, decoyChancePercent: Number(e.target.value) })}
+            />
+          </Field>
+        </>
+      ) : (
+        <>
+          <Field label="Pergunta" required>
+            <textarea
+              className="textarea"
+              rows={2}
+              value={draft.question}
+              onChange={(e) => setDraft({ ...draft, question: e.target.value })}
+              placeholder="Ex: Em que ano a AS Brasil foi fundada?"
+            />
+          </Field>
+          <Field label="Opções de resposta" required hint="Uma por linha, pelo menos 2.">
+            <textarea
+              className="textarea"
+              rows={4}
+              value={draft.optionsText}
+              onChange={(e) => setDraft({ ...draft, optionsText: e.target.value })}
+              placeholder={"2010\n2015\n2018"}
+            />
+          </Field>
+          {options.length > 0 && (
+            <Field label="Qual é a correta?" required>
+              <select
+                value={draft.correctIndex}
+                onChange={(e) => setDraft({ ...draft, correctIndex: Number(e.target.value) })}
+              >
+                {options.map((opt, i) => (
+                  <option key={i} value={i}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+        </>
       )}
+
       <Field label="Pontos">
         <Input
           type="number"
@@ -471,16 +532,23 @@ function PhaseForm({
           ))}
         </select>
       </Field>
-      <label className="checkbox">
-        <input
-          type="checkbox"
-          checked={draft.grantsExtraTicket}
-          onChange={(e) => setDraft({ ...draft, grantsExtraTicket: e.target.checked })}
-        />
-        <span>
-          Concede número extra no sorteio do evento (só pra quem já está inscrito no evento)
-        </span>
-      </label>
+      {isReaction ? (
+        <p className="reaction-note">
+          Fases de reação nunca concedem número extra de sorteio (a pontuação depende de um
+          cronômetro no navegador da pessoa) - só pontos, ranking e card de recompensa.
+        </p>
+      ) : (
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={draft.grantsExtraTicket}
+            onChange={(e) => setDraft({ ...draft, grantsExtraTicket: e.target.checked })}
+          />
+          <span>
+            Concede número extra no sorteio do evento (só pra quem já está inscrito no evento)
+          </span>
+        </label>
+      )}
       {error && <p className="error">{error}</p>}
       <div className="form-actions">
         <Button variant="ghost" onClick={onCancel} disabled={saving}>
@@ -530,6 +598,11 @@ function PhaseForm({
         }
         .checkbox input {
           margin-top: 0.2rem;
+        }
+        .reaction-note {
+          font-size: 0.8rem;
+          color: var(--text-muted);
+          margin: 0 0 1rem;
         }
         .error {
           color: #c0392b;

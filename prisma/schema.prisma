@@ -584,6 +584,9 @@ enum GameType {
   RHYTHM
   HUNT
   CARDS
+  // Purple Reaction (11/09) - mede tempo de reação em rodadas, sem
+  // pergunta/alternativa nenhuma. Ver GamePhase.content pro formato.
+  REACTION
 }
 
 // DRAFT: só aparece no admin. TESTING: aparece pro participante, mas só

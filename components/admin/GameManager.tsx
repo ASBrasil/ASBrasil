@@ -5,8 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button, Field, Input } from "@/components/ui/primitives";
 
-type GameType = "QUIZ" | "MEMORY" | "RHYTHM" | "HUNT" | "CARDS";
+type GameType = "QUIZ" | "MEMORY" | "RHYTHM" | "HUNT" | "CARDS" | "REACTION";
 type GameVisibility = "DRAFT" | "TESTING" | "LIVE";
+
+// Tipos que já têm um jogador de verdade construído (ver GamePlayer.tsx) -
+// os outros existem no schema/admin mas ainda não são jogáveis, então ficam
+// desabilitados no seletor até terem seu componente de jogador.
+const PLAYABLE_TYPES: GameType[] = ["QUIZ", "REACTION"];
 
 interface GameRow {
   id: string;
@@ -25,6 +30,7 @@ const TYPE_LABEL: Record<GameType, string> = {
   RHYTHM: "Ritmo",
   HUNT: "Caça",
   CARDS: "Cards",
+  REACTION: "Reação (Purple Reaction)",
 };
 
 const VISIBILITY_LABEL: Record<GameVisibility, string> = {
@@ -148,12 +154,15 @@ export function GameManager({
           </Field>
           <Field label="Tipo">
             <select value={type} onChange={(e) => setType(e.target.value as GameType)}>
-              {Object.entries(TYPE_LABEL).map(([value, label]) => (
-                <option key={value} value={value} disabled={value !== "QUIZ"}>
-                  {label}
-                  {value !== "QUIZ" ? " (em breve)" : ""}
-                </option>
-              ))}
+              {Object.entries(TYPE_LABEL).map(([value, label]) => {
+                const playable = PLAYABLE_TYPES.includes(value as GameType);
+                return (
+                  <option key={value} value={value} disabled={!playable}>
+                    {label}
+                    {!playable ? " (em breve)" : ""}
+                  </option>
+                );
+              })}
             </select>
           </Field>
           {error && <p className="error">{error}</p>}

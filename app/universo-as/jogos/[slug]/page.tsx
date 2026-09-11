@@ -2,7 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { getParticipantEmail } from "@/lib/participant-session";
 import { getSessionAdminId } from "@/lib/auth";
-import { normalizeQuizQuestions, stripCorrectAnswers, getRushConfig } from "@/lib/games";
+import { normalizeQuizQuestions, stripCorrectAnswers, getRushConfig, normalizeReactionConfig } from "@/lib/games";
 import { GamePlayer } from "@/components/participant/GamePlayer";
 import { ParticipantTopNav } from "@/components/participant/ParticipantTopNav";
 
@@ -58,10 +58,16 @@ export default async function PlayGamePage({ params }: { params: { slug: string 
       id: p.id,
       order: p.order,
       title: p.title,
+      type: p.type,
       points: p.points,
       grantsExtraTicket: p.grantsExtraTicket,
       hasRewardCard: !!p.rewardCardId,
-      questions: stripCorrectAnswers(normalizeQuizQuestions(p.content)),
+      // Reaction não tem "resposta certa" pra esconder (o que decide o que
+      // aparece na tela é o generateReactionSequence, calculado pelo próprio
+      // navegador a partir do id da fase) - só o quiz precisa tirar a
+      // correctIndex antes de mandar pro cliente.
+      questions: p.type === "REACTION" ? [] : stripCorrectAnswers(normalizeQuizQuestions(p.content)),
+      reactionConfig: p.type === "REACTION" ? normalizeReactionConfig(p.content) : null,
       result: existing
         ? { completed: existing.completed, firstScore: existing.firstScore, attempts: existing.attempts }
         : null,
