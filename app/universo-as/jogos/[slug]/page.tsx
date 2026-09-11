@@ -2,7 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { getParticipantEmail } from "@/lib/participant-session";
 import { getSessionAdminId } from "@/lib/auth";
-import { normalizeQuizQuestions, stripCorrectAnswers } from "@/lib/games";
+import { normalizeQuizQuestions, stripCorrectAnswers, getRushConfig } from "@/lib/games";
 import { GamePlayer } from "@/components/participant/GamePlayer";
 import { ParticipantTopNav } from "@/components/participant/ParticipantTopNav";
 
@@ -77,6 +77,7 @@ export default async function PlayGamePage({ params }: { params: { slug: string 
           name: game.name,
           eventName: game.event.name,
           theme: game.theme as any,
+          rush: getRushConfig(game.theme),
         }}
         phases={phases}
         isEventParticipant={isEventParticipant}

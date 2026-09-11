@@ -49,3 +49,46 @@ export function normalizeQuizQuestions(content: unknown): QuizQuestion[] {
 export function stripCorrectAnswers(questions: QuizQuestion[]) {
   return questions.map((q) => ({ question: q.question, options: q.options }));
 }
+
+// --- Modo Rush (11/09) ------------------------------------------------------
+//
+// "Quiz Rush" não é um GameType novo nem exige migration nenhuma - é um modo
+// ligado por jogo, guardado dentro do próprio `Game.theme` (JSON livre que já
+// existia pras cores/imagem de fundo). Isso deixa o jogo inteiro (todas as
+// fases) cronometrado, com bônus de pontuação por velocidade quando a pessoa
+// acerta tudo - sem tocar em schema, então dá pra construir e validar 100%
+// no sandbox mesmo sem conseguir rodar `prisma generate` aqui hoje.
+export interface RushConfig {
+  enabled: boolean;
+  timeLimitSeconds: number;
+}
+
+const RUSH_MIN_SECONDS = 3;
+const RUSH_MAX_SECONDS = 60;
+const RUSH_DEFAULT_SECONDS = 8;
+
+/** Lê a config de rush a partir do `Game.theme` (JSON livre) - nunca falha, sempre volta um valor seguro. */
+export function getRushConfig(theme: unknown): RushConfig {
+  if (!theme || typeof theme !== "object") return { enabled: false, timeLimitSeconds: RUSH_DEFAULT_SECONDS };
+  const t = theme as Record<string, unknown>;
+  const enabled = t.rushMode === true;
+  const raw = typeof t.rushTimeLimitSeconds === "number" ? t.rushTimeLimitSeconds : RUSH_DEFAULT_SECONDS;
+  const timeLimitSeconds = Math.min(RUSH_MAX_SECONDS, Math.max(RUSH_MIN_SECONDS, Math.round(raw)));
+  return { enabled, timeLimitSeconds };
+}
+
+/**
+ * Multiplicador de pontuação por velocidade (1x a 1.5x) - só entra em jogo
+ * quando a fase foi 100% acertada (nunca "salva" uma resposta errada por ter
+ * sido rápida). `elapsedMs` vem do cliente mas é sempre clampado aqui dentro
+ * do limite de tempo da fase, então o pior que dá pra manipular é ganhar o
+ * bônus máximo (1.5x) mandando um valor bem baixo - nunca inflar além disso,
+ * e nunca afeta se a fase foi "perfeita" (isso continua 100% servidor).
+ */
+export function speedMultiplier(elapsedMs: unknown, timeLimitSeconds: number): number {
+  const timeLimitMs = timeLimitSeconds * 1000;
+  const raw = typeof elapsedMs === "number" && Number.isFinite(elapsedMs) ? elapsedMs : timeLimitMs;
+  const clamped = Math.min(Math.max(raw, 0), timeLimitMs);
+  const speedRatio = timeLimitMs > 0 ? 1 - clamped / timeLimitMs : 0;
+  return 1 + speedRatio * 0.5;
+}

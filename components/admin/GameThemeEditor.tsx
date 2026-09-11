@@ -9,12 +9,20 @@ interface GameTheme {
   primaryColor?: string;
   secondaryColor?: string;
   backgroundImageUrl?: string | null;
+  // Modo Rush (11/09) - cronometra cada fase e dá bônus de pontuação por
+  // velocidade quando a pessoa acerta tudo. Guardado aqui (dentro do theme,
+  // que já é JSON livre) de propósito, pra não precisar de migration nova -
+  // ver lib/games.ts::getRushConfig.
+  rushMode?: boolean;
+  rushTimeLimitSeconds?: number;
 }
 
 const DEFAULT_THEME: Required<GameTheme> = {
   primaryColor: "#3B55E6",
   secondaryColor: "#0c2a5b",
   backgroundImageUrl: null,
+  rushMode: false,
+  rushTimeLimitSeconds: 8,
 };
 
 export function GameThemeEditor({
@@ -86,6 +94,35 @@ export function GameThemeEditor({
         aspectRatio="16 / 9"
       />
 
+      <div className="rush-card">
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={theme.rushMode}
+            onChange={(e) => setTheme({ ...theme, rushMode: e.target.checked })}
+          />
+          <span>
+            <strong>⚡ Modo Rush</strong> — cronometra cada fase e dá bônus de pontuação por
+            velocidade (até +50%) pra quem acerta tudo rápido. Sem cronômetro, o jogo funciona
+            exatamente como hoje.
+          </span>
+        </label>
+        {theme.rushMode && (
+          <Field label="Segundos por fase" hint="Tempo que a pessoa tem pra responder antes de passar direto pra próxima.">
+            <input
+              type="number"
+              min={3}
+              max={60}
+              className="seconds-input"
+              value={theme.rushTimeLimitSeconds}
+              onChange={(e) =>
+                setTheme({ ...theme, rushTimeLimitSeconds: Number(e.target.value) || 8 })
+              }
+            />
+          </Field>
+        )}
+      </div>
+
       <div
         className="preview"
         style={{
@@ -146,6 +183,36 @@ export function GameThemeEditor({
           font-size: 0.85rem;
           color: var(--text-muted);
           font-family: var(--font-mono, monospace);
+        }
+        .rush-card {
+          border-top: 1px dashed var(--border);
+          margin-top: 1rem;
+          padding-top: 1rem;
+        }
+        .checkbox {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.6rem;
+          cursor: pointer;
+        }
+        .checkbox input {
+          margin-top: 0.2rem;
+        }
+        .checkbox span {
+          font-size: 0.82rem;
+          color: var(--text-muted);
+          line-height: 1.5;
+        }
+        .checkbox strong {
+          color: var(--text);
+        }
+        .seconds-input {
+          width: 6rem;
+          padding: 0.5rem 0.7rem;
+          border-radius: 0.5rem;
+          border: 1px solid var(--border);
+          background: var(--surface);
+          color: var(--text);
         }
         .preview {
           height: 6rem;

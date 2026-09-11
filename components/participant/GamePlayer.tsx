@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface Question {
   question: string;
@@ -30,11 +30,20 @@ interface GameTheme {
   backgroundImageUrl?: string | null;
 }
 
+// Modo Rush (11/09) - jogo inteiro cronometrado, com bônus de pontuação por
+// velocidade quando a fase é 100% acertada. Config vem de Game.theme (ver
+// lib/games.ts::getRushConfig), sem exigir schema novo.
+interface RushConfig {
+  enabled: boolean;
+  timeLimitSeconds: number;
+}
+
 interface GameInfo {
   id: string;
   name: string;
   eventName: string;
   theme: GameTheme | null;
+  rush: RushConfig;
 }
 
 interface CompleteResponse {
@@ -45,6 +54,7 @@ interface CompleteResponse {
   alreadyPlayed: boolean;
   cardWon: { id: string; name: string; rarity: string; imageUrl: string | null } | null;
   extraTicketNumber: number | null;
+  speedMultiplier: number | null;
 }
 
 function emptyAnswers(phase: Phase | undefined) {
@@ -70,6 +80,34 @@ export function GamePlayer({
   const isLast = index === phases.length - 1;
   const allAnswered = answers.length > 0 && answers.every((a) => a !== null);
 
+  // --- Modo Rush: cronômetro por fase ---------------------------------
+  const rushEnabled = game.rush.enabled;
+  const timeLimitMs = game.rush.timeLimitSeconds * 1000;
+  const [msLeft, setMsLeft] = useState(timeLimitMs);
+  const phaseStartRef = useRef<number>(Date.now());
+  const submitRef = useRef<() => void>(() => {});
+
+  // Reinicia o cronômetro sempre que a fase muda (ou some, se não tiver
+  // fase/modo rush) - guardado num ref porque o timeout/interval abaixo
+  // precisa ler o valor mais recente sem recriar o efeito toda hora.
+  useEffect(() => {
+    if (!rushEnabled || result) return;
+    phaseStartRef.current = Date.now();
+    setMsLeft(timeLimitMs);
+    const interval = setInterval(() => {
+      const left = timeLimitMs - (Date.now() - phaseStartRef.current);
+      if (left <= 0) {
+        setMsLeft(0);
+        clearInterval(interval);
+        submitRef.current();
+      } else {
+        setMsLeft(left);
+      }
+    }, 100);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rushEnabled, index, result, timeLimitMs]);
+
   const bg = game.theme?.backgroundImageUrl
     ? `linear-gradient(180deg, ${game.theme.primaryColor || "#3B55E6"}dd, ${
         game.theme.secondaryColor || "#0c2a5b"
@@ -86,12 +124,14 @@ export function GamePlayer({
   }
 
   async function submit() {
+    if (submitting || result) return; // evita disparo duplo (botão + timeout do rush quase juntos)
     setSubmitting(true);
     setError(null);
+    const elapsedMs = Date.now() - phaseStartRef.current;
     const res = await fetch(`/api/public/games/phases/${phase.id}/complete`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ answers }),
+      body: JSON.stringify(rushEnabled ? { answers, elapsedMs } : { answers }),
     });
     const data = await res.json().catch(() => null);
     setSubmitting(false);
@@ -101,6 +141,7 @@ export function GamePlayer({
     }
     setResult(data);
   }
+  submitRef.current = submit;
 
   if (phases.length === 0) {
     return (
@@ -128,6 +169,18 @@ export function GamePlayer({
 
         {!result ? (
           <>
+            {rushEnabled && (
+              <div className="rush-bar" aria-label="Tempo restante">
+                <div
+                  className="rush-bar-fill"
+                  style={{
+                    width: `${Math.max(0, (msLeft / timeLimitMs) * 100)}%`,
+                    background: msLeft < timeLimitMs * 0.25 ? "#dc2626" : "var(--primary, #4f5fff)",
+                  }}
+                />
+                <span className="rush-seconds">{Math.ceil(msLeft / 1000)}s</span>
+              </div>
+            )}
             <h2>{phase.title}</h2>
             {phase.result && (
               <p className="already-note">
@@ -159,6 +212,12 @@ export function GamePlayer({
                             const next = [...answers];
                             next[qi] = oi;
                             setAnswers(next);
+                            // No Rush, com fase de 1 pergunta só (o caso mais comum), envia na
+                            // hora - é o que dá a sensação de "correria" pedida; com mais de uma
+                            // pergunta na fase, mantém o botão normal de confirmar.
+                            if (rushEnabled && phase.questions.length === 1) {
+                              setTimeout(() => submitRef.current(), 0);
+                            }
                           }}
                         />
                         {opt}
@@ -261,6 +320,12 @@ function ResultScreen({
 
       <h2>{result.isPerfect ? "🎉 Mandou muito bem!" : "Quase lá!"}</h2>
 
+      {result.isPerfect && !result.alreadyPlayed && result.speedMultiplier && result.speedMultiplier > 1 && (
+        <p className="speed-bonus">
+          ⚡ Bônus de velocidade: +{Math.round((result.speedMultiplier - 1) * 100)}% de pontos!
+        </p>
+      )}
+
       {result.alreadyPlayed && (
         <p className="already-note">Esse foi um replay - o resultado que valeu foi o da sua primeira vez.</p>
       )}
@@ -341,6 +406,33 @@ function Styles() {
         text-align: center;
         opacity: 0.75;
         margin: 0;
+      }
+      .rush-bar {
+        position: relative;
+        height: 0.5rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.12);
+        margin-bottom: 1.1rem;
+        overflow: hidden;
+      }
+      .rush-bar-fill {
+        height: 100%;
+        border-radius: 999px;
+        transition: width 0.1s linear, background 0.2s;
+      }
+      .rush-seconds {
+        position: absolute;
+        top: -1.35rem;
+        right: 0;
+        font-size: 0.75rem;
+        font-weight: 700;
+        opacity: 0.8;
+      }
+      .speed-bonus {
+        text-align: center;
+        font-weight: 700;
+        color: #fbbf24;
+        margin: -0.5rem 0 0.75rem;
       }
       .progress-dots {
         display: flex;

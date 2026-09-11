@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getParticipantEmail } from "@/lib/participant-session";
 import { getSessionAdminId } from "@/lib/auth";
 import { generateNumberPool } from "@/lib/raffle";
-import { normalizeQuizQuestions } from "@/lib/games";
+import { normalizeQuizQuestions, getRushConfig, speedMultiplier as computeSpeedMultiplier } from "@/lib/games";
 import { grantGamePerfectCards } from "@/lib/cards";
 import { ParticipantSource } from "@prisma/client";
 
@@ -45,6 +45,16 @@ export async function POST(req: NextRequest, { params }: { params: { phaseId: st
   const percent = Math.round((correctCount / questions.length) * 100);
   const isPerfect = percent === 100;
 
+  // Modo Rush (11/09): bônus de pontuação por velocidade, só quando a fase
+  // foi 100% acertada - o `elapsedMs` vem do cliente mas é sempre clampado
+  // dentro do limite de tempo da fase (ver lib/games.ts::speedMultiplier),
+  // então o pior caso de manipulação é "ganhar o bônus máximo", nunca mais
+  // que isso, e nunca afeta se a fase foi perfeita ou não (isso continua
+  // 100% calculado aqui em cima das respostas reais).
+  const rush = getRushConfig(phase.game.theme);
+  const rawElapsedMs = typeof body.elapsedMs === "number" ? body.elapsedMs : null;
+  const speedFactor = rush.enabled && isPerfect ? computeSpeedMultiplier(rawElapsedMs, rush.timeLimitSeconds) : 1;
+
   // Garante que existe um perfil Universo AS pra essa pessoa antes de
   // gravar qualquer progresso/carta - chave é o e-mail, sem cadastro novo;
   // puxa o nome de alguma inscrição já existente, se tiver.
@@ -72,7 +82,7 @@ export async function POST(req: NextRequest, { params }: { params: { phaseId: st
       email,
       phaseId: phase.id,
       completed: true,
-      firstScore: isPerfect ? phase.points : Math.round((phase.points * percent) / 100),
+      firstScore: isPerfect ? Math.round(phase.points * speedFactor) : Math.round((phase.points * percent) / 100),
       attempts: 1,
     },
     update: { attempts: { increment: 1 } },
@@ -138,5 +148,6 @@ export async function POST(req: NextRequest, { params }: { params: { phaseId: st
     alreadyPlayed: !isFirstAttempt,
     cardWon,
     extraTicketNumber,
+    speedMultiplier: rush.enabled ? Math.round(speedFactor * 100) / 100 : null,
   });
 }
