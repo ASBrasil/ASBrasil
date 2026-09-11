@@ -123,7 +123,7 @@ export function ParticipantTopNav({ eventName }: { eventName?: string }) {
         {/* Separado dos links do sistema de sorteios porque é outro produto
             (app de reservas) - misturado junto com Vencedores/Meu perfil
             dava a impressão de pertencer a este sistema. */}
-        
+        <a
           href="https://app.asbrasil.tur.br/"
           target="_blank"
           rel="noopener noreferrer"
@@ -157,7 +157,7 @@ export function ParticipantTopNav({ eventName }: { eventName?: string }) {
               reservas): ícone circular + título + descrição num fundo com
               gradiente, pra puxar o olho pra ação mais "externa" do menu -
               em vez de misturar com a lista de navegação comum. */}
-          
+          <a
             href="https://app.asbrasil.tur.br/"
             target="_blank"
             rel="noopener noreferrer"
