@@ -587,6 +587,9 @@ enum GameType {
   // Purple Reaction (11/09) - mede tempo de reação em rodadas, sem
   // pergunta/alternativa nenhuma. Ver GamePhase.content pro formato.
   REACTION
+  // AS Run (12/09) - corredor de 3 faixas, desvia de obstáculo e coleta
+  // item, combo de velocidade. Ver GamePhase.content e lib/games.ts.
+  RUN
 }
 
 // DRAFT: só aparece no admin. TESTING: aparece pro participante, mas só

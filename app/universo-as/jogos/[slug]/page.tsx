@@ -8,6 +8,7 @@ import {
   getRushConfig,
   normalizeReactionConfig,
   normalizeMemoryConfig,
+  normalizeRunConfig,
 } from "@/lib/games";
 import { GamePlayer } from "@/components/participant/GamePlayer";
 import { ParticipantTopNav } from "@/components/participant/ParticipantTopNav";
@@ -68,13 +69,16 @@ export default async function PlayGamePage({ params }: { params: { slug: string 
       points: p.points,
       grantsExtraTicket: p.grantsExtraTicket,
       hasRewardCard: !!p.rewardCardId,
-      // Reaction e Memory não têm "resposta certa" pra esconder (nenhum dos
-      // dois depende de um segredo guardado no servidor) - só o quiz precisa
-      // tirar a correctIndex antes de mandar pro cliente.
+      // Reaction, Memory e Run não têm "resposta certa" pra esconder (nenhum
+      // deles depende de um segredo guardado no servidor) - só o quiz
+      // precisa tirar a correctIndex antes de mandar pro cliente.
       questions:
-        p.type === "REACTION" || p.type === "MEMORY" ? [] : stripCorrectAnswers(normalizeQuizQuestions(p.content)),
+        p.type === "REACTION" || p.type === "MEMORY" || p.type === "RUN"
+          ? []
+          : stripCorrectAnswers(normalizeQuizQuestions(p.content)),
       reactionConfig: p.type === "REACTION" ? normalizeReactionConfig(p.content) : null,
       memoryConfig: p.type === "MEMORY" ? normalizeMemoryConfig(p.content) : null,
+      runConfig: p.type === "RUN" ? normalizeRunConfig(p.content) : null,
       result: existing
         ? { completed: existing.completed, firstScore: existing.firstScore, attempts: existing.attempts }
         : null,

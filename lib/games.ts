@@ -330,3 +330,95 @@ export function memorySpeedMultiplier(elapsedMs: number | null, pairs: number): 
   const ratio = parMs > minMs ? 1 - (clamped - minMs) / (parMs - minMs) : 0;
   return 1 + ratio * 0.5;
 }
+
+// --- AS Run (12/09) -----------------------------------------------------
+//
+// Corredor de 3 faixas: a pessoa troca de faixa pra desviar de obstáculo e
+// coletar item, com combo crescente. Ao contrário do Purple Reaction, aqui
+// não tem "sequência esperada" nenhuma pro servidor recalcular - o próprio
+// jogo (spawn de obstáculo/item, física simples de faixa) roda inteiro no
+// navegador, igual qualquer corredor 2D. O que dá pra fazer, e é o que essa
+// seção faz, é nunca aceitar cegamente a pontuação final: em vez disso,
+// calcula um TETO plausível (quantos itens dava pra pegar, no máximo, no
+// tempo que a corrida durou, jogando perfeitamente) e clampa a pontuação
+// mandada a esse teto. Constantes de jogo (faixas, pontos por item, combo
+// máximo, ritmo de spawn) vivem aqui pra cliente e servidor usarem
+// exatamente os mesmos números.
+export const RUN_LANES = 3;
+export const RUN_POINTS_PER_ITEM = 10;
+export const RUN_MAX_COMBO = 5;
+export const RUN_LIVES = 3;
+// Intervalo de spawn (ms) - começa devagar (RUN_MAX_SPAWN_MS) e vai
+// acelerando até RUN_MIN_SPAWN_MS conforme a corrida avança.
+export const RUN_MIN_SPAWN_MS = 450;
+export const RUN_MAX_SPAWN_MS = 900;
+
+export interface RunConfig {
+  durationSeconds: number;
+  targetScore: number; // pontuação "cheia" (100%) - referência pro admin ajustar por evento
+}
+
+const RUN_DEFAULTS: RunConfig = { durationSeconds: 30, targetScore: 150 };
+const RUN_MIN_SECONDS = 15;
+const RUN_MAX_SECONDS = 90;
+
+/** Lê a config de uma fase RUN a partir do content (Json livre) - sempre volta um valor seguro. */
+export function normalizeRunConfig(content: unknown): RunConfig {
+  if (!content || typeof content !== "object") return { ...RUN_DEFAULTS };
+  const c = content as Record<string, unknown>;
+  const durationSeconds =
+    typeof c.durationSeconds === "number"
+      ? Math.min(RUN_MAX_SECONDS, Math.max(RUN_MIN_SECONDS, Math.round(c.durationSeconds)))
+      : RUN_DEFAULTS.durationSeconds;
+  const targetScore = typeof c.targetScore === "number" ? Math.max(10, Math.round(c.targetScore)) : RUN_DEFAULTS.targetScore;
+  return { durationSeconds, targetScore };
+}
+
+export interface RunOutcome {
+  score: number;
+  maxCombo: number;
+  percent: number;
+  isPerfect: boolean;
+  tier: string;
+}
+
+/**
+ * Reprocessa o resultado mandado pelo cliente. `score`/`maxCombo` vêm 100%
+ * do navegador (não tem como o servidor recalcular a corrida em si, ver
+ * comentário da seção acima) - o cuidado é nunca aceitar um valor acima do
+ * fisicamente possível: dado o tempo decorrido (sempre clampado ao limite
+ * configurado da fase), calcula quantos itens dava pra pegar no MÁXIMO
+ * (no ritmo mais rápido de spawn) e usa isso como teto da pontuação. O pior
+ * caso de manipulação vira "ganhar a pontuação máxima plausível", nunca um
+ * valor absurdo.
+ */
+export function evaluateRunResult(
+  rawScore: unknown,
+  rawMaxCombo: unknown,
+  rawElapsedMs: unknown,
+  config: RunConfig
+): RunOutcome {
+  const durationMs = config.durationSeconds * 1000;
+  const elapsedMs =
+    typeof rawElapsedMs === "number" && Number.isFinite(rawElapsedMs) ? Math.min(durationMs, Math.max(0, rawElapsedMs)) : durationMs;
+  const maxItems = Math.ceil(elapsedMs / RUN_MIN_SPAWN_MS) + 1;
+  const ceiling = maxItems * RUN_POINTS_PER_ITEM * RUN_MAX_COMBO;
+  const score =
+    typeof rawScore === "number" && Number.isFinite(rawScore) ? Math.max(0, Math.min(ceiling, Math.round(rawScore))) : 0;
+  const maxCombo =
+    typeof rawMaxCombo === "number" && Number.isFinite(rawMaxCombo)
+      ? Math.max(1, Math.min(RUN_MAX_COMBO, Math.round(rawMaxCombo)))
+      : 1;
+  const percent = config.targetScore > 0 ? Math.min(100, Math.round((score / config.targetScore) * 100)) : 0;
+  const isPerfect = percent >= 100;
+  return { score, maxCombo, percent, isPerfect, tier: classifyRunTier(percent) };
+}
+
+/** Classificação exibida pro jogador com base em quanto da meta (targetScore) foi atingido - só cosmético. */
+export function classifyRunTier(percent: number): string {
+  if (percent >= 100) return "🥇 Show garantido";
+  if (percent >= 75) return "🥈 Quase lá";
+  if (percent >= 50) return "🥉 Na correria";
+  if (percent >= 25) return "⚡ Aquecendo";
+  return "🐢 Precisa treinar";
+}

@@ -15,6 +15,8 @@ import {
   evaluateMemoryRun,
   memorySpeedMultiplier,
   classifyMemoryTier,
+  normalizeRunConfig,
+  evaluateRunResult,
 } from "@/lib/games";
 import { grantGamePerfectCards } from "@/lib/cards";
 import { ParticipantSource } from "@prisma/client";
@@ -83,6 +85,22 @@ export async function POST(req: NextRequest, { params }: { params: { phaseId: st
     isPerfect = outcome.isPerfect;
     speedFactor = isPerfect ? memorySpeedMultiplier(outcome.elapsedMs, outcome.pairs) : 1;
     extra = { moves: outcome.moves, tier: classifyMemoryTier(outcome.moves / outcome.pairs) };
+  } else if (phase.type === "RUN") {
+    // AS Run: corredor de 3 faixas, pontuação e combo calculados 100% no
+    // navegador (não tem segredo servidor pra recalcular, ver comentário em
+    // lib/games.ts) - o único cuidado possível é clampar a pontuação a um
+    // teto fisicamente plausível dado o tempo decorrido. Igual Reaction e
+    // Memory, nunca gera número extra de sorteio, só XP/ranking.
+    const config = normalizeRunConfig(phase.content);
+    const outcome = evaluateRunResult(body.score, body.maxCombo, body.elapsedMs, config);
+    correctCount = outcome.score;
+    total = config.targetScore;
+    percent = outcome.percent;
+    isPerfect = outcome.isPerfect;
+    // Sem bônus de velocidade separado aqui - o desempenho já está todo
+    // embutido na própria pontuação (combo cresce com sequência de acertos).
+    speedFactor = 1;
+    extra = { score: outcome.score, maxCombo: outcome.maxCombo, tier: outcome.tier };
   } else {
     // QUIZ (e qualquer fase antiga sem type explícito, que sempre foi quiz).
     const answers: unknown[] = Array.isArray(body.answers) ? body.answers : [];

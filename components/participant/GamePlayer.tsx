@@ -1,7 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { generateReactionSequence, type ReactionConfig, type MemoryConfig } from "@/lib/games";
+import {
+  generateReactionSequence,
+  type ReactionConfig,
+  type MemoryConfig,
+  type RunConfig,
+  RUN_LANES,
+  RUN_MIN_SPAWN_MS,
+  RUN_MAX_SPAWN_MS,
+  RUN_POINTS_PER_ITEM,
+  RUN_MAX_COMBO,
+  RUN_LIVES,
+} from "@/lib/games";
 
 interface Question {
   question: string;
@@ -18,13 +29,14 @@ interface Phase {
   id: string;
   order: number;
   title: string;
-  type: "QUIZ" | "REACTION" | "MEMORY";
+  type: "QUIZ" | "REACTION" | "MEMORY" | "RUN";
   points: number;
   grantsExtraTicket: boolean;
   hasRewardCard: boolean;
   questions: Question[];
   reactionConfig: ReactionConfig | null;
   memoryConfig: MemoryConfig | null;
+  runConfig: RunConfig | null;
   result: PhaseResult | null;
 }
 
@@ -59,10 +71,12 @@ interface CompleteResponse {
   cardWon: { id: string; name: string; rarity: string; imageUrl: string | null } | null;
   extraTicketNumber: number | null;
   speedMultiplier: number | null;
-  // Só presentes em fases REACTION/MEMORY (ver rota complete/route.ts, `...extra`).
+  // Só presentes em fases REACTION/MEMORY/RUN (ver rota complete/route.ts, `...extra`).
   avgMs?: number | null;
   tier?: string;
   moves?: number;
+  score?: number;
+  maxCombo?: number;
 }
 
 function emptyAnswers(phase: Phase | undefined) {
@@ -165,6 +179,10 @@ export function GamePlayer({
     await postComplete(result);
   }
 
+  async function submitRun(result: { score: number; maxCombo: number; elapsedMs: number }) {
+    await postComplete(result);
+  }
+
   if (phases.length === 0) {
     return (
       <div className="wrap" style={{ background: bg }}>
@@ -226,6 +244,8 @@ export function GamePlayer({
               />
             ) : phase.type === "MEMORY" && phase.memoryConfig ? (
               <MemoryStage key={phase.id} config={phase.memoryConfig} onComplete={submitMemory} />
+            ) : phase.type === "RUN" && phase.runConfig ? (
+              <RunStage key={phase.id} config={phase.runConfig} onComplete={submitRun} />
             ) : (
               <>
                 <div className="questions">
@@ -360,6 +380,8 @@ function ResultScreen({
           {result.tier}
           {result.avgMs != null ? ` · média ${result.avgMs}ms` : ""}
           {typeof result.moves === "number" ? ` · ${result.moves} jogadas` : ""}
+          {typeof result.score === "number" ? ` · ${result.score} pts` : ""}
+          {typeof result.maxCombo === "number" && result.maxCombo > 1 ? ` · combo x${result.maxCombo}` : ""}
         </p>
       )}
 
@@ -612,6 +634,174 @@ function MemoryStage({
   );
 }
 
+// --- AS Run --------------------------------------------------------------
+const RUN_CANVAS_W = 300;
+const RUN_CANVAS_H = 460;
+const RUN_LANE_W = RUN_CANVAS_W / RUN_LANES;
+const RUN_PLAYER_Y = RUN_CANVAS_H - 64;
+const RUN_ITEM_SIZE = 34;
+const RUN_FALL_PX_PER_MS = 0.22;
+
+interface RunItem {
+  lane: number;
+  y: number;
+  kind: "good" | "bad";
+  resolved: boolean;
+}
+
+function RunStage({
+  config,
+  onComplete,
+}: {
+  config: RunConfig;
+  onComplete: (result: { score: number; maxCombo: number; elapsedMs: number }) => void;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const laneRef = useRef(1);
+  const itemsRef = useRef<RunItem[]>([]);
+  const scoreRef = useRef(0);
+  const comboStreakRef = useRef(0);
+  const maxComboRef = useRef(1);
+  const livesRef = useRef(RUN_LIVES);
+  const startRef = useRef(0);
+  const rafRef = useRef(0);
+  const finishedRef = useRef(false);
+
+  const [hud, setHud] = useState({ score: 0, lives: RUN_LIVES, combo: 1, timeLeft: config.durationSeconds });
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+
+    startRef.current = performance.now();
+    let lastFrame = startRef.current;
+    let lastSpawn = 0;
+    let lastHud = 0;
+
+    function finish() {
+      if (finishedRef.current) return;
+      finishedRef.current = true;
+      cancelAnimationFrame(rafRef.current);
+      onComplete({
+        score: Math.round(scoreRef.current),
+        maxCombo: maxComboRef.current,
+        elapsedMs: performance.now() - startRef.current,
+      });
+    }
+
+    function draw() {
+      if (!ctx) return;
+      ctx.clearRect(0, 0, RUN_CANVAS_W, RUN_CANVAS_H);
+      for (let i = 0; i < RUN_LANES; i++) {
+        ctx.fillStyle = i % 2 === 0 ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.02)";
+        ctx.fillRect(i * RUN_LANE_W, 0, RUN_LANE_W, RUN_CANVAS_H);
+      }
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      itemsRef.current.forEach((item) => {
+        ctx.font = `${RUN_ITEM_SIZE}px sans-serif`;
+        ctx.fillText(item.kind === "good" ? "🎫" : "🚧", item.lane * RUN_LANE_W + RUN_LANE_W / 2, item.y);
+      });
+      ctx.font = "40px sans-serif";
+      ctx.fillText("🏃", laneRef.current * RUN_LANE_W + RUN_LANE_W / 2, RUN_PLAYER_Y);
+    }
+
+    function loop(now: number) {
+      const elapsed = now - startRef.current;
+      const dt = now - lastFrame;
+      lastFrame = now;
+
+      if (elapsed >= config.durationSeconds * 1000 || livesRef.current <= 0) {
+        draw();
+        finish();
+        return;
+      }
+
+      const progress = Math.min(1, elapsed / (config.durationSeconds * 1000));
+      const spawnInterval = RUN_MAX_SPAWN_MS - (RUN_MAX_SPAWN_MS - RUN_MIN_SPAWN_MS) * progress;
+      if (elapsed - lastSpawn >= spawnInterval) {
+        lastSpawn = elapsed;
+        itemsRef.current.push({
+          lane: Math.floor(Math.random() * RUN_LANES),
+          y: -RUN_ITEM_SIZE,
+          kind: Math.random() < 0.7 ? "good" : "bad",
+          resolved: false,
+        });
+      }
+
+      itemsRef.current = itemsRef.current.filter((item) => {
+        item.y += RUN_FALL_PX_PER_MS * dt;
+        if (!item.resolved && Math.abs(item.y - RUN_PLAYER_Y) < RUN_ITEM_SIZE * 0.6 && item.lane === laneRef.current) {
+          item.resolved = true;
+          if (item.kind === "good") {
+            comboStreakRef.current += 1;
+            const multiplier = Math.min(RUN_MAX_COMBO, 1 + Math.floor(comboStreakRef.current / 5));
+            maxComboRef.current = Math.max(maxComboRef.current, multiplier);
+            scoreRef.current += RUN_POINTS_PER_ITEM * multiplier;
+          } else {
+            comboStreakRef.current = 0;
+            livesRef.current -= 1;
+          }
+          return false;
+        }
+        return item.y < RUN_CANVAS_H + RUN_ITEM_SIZE;
+      });
+
+      draw();
+      if (elapsed - lastHud >= 120) {
+        lastHud = elapsed;
+        const multiplier = Math.min(RUN_MAX_COMBO, 1 + Math.floor(comboStreakRef.current / 5));
+        setHud({
+          score: Math.round(scoreRef.current),
+          lives: Math.max(0, livesRef.current),
+          combo: multiplier,
+          timeLeft: Math.max(0, Math.ceil(config.durationSeconds - elapsed / 1000)),
+        });
+      }
+      rafRef.current = requestAnimationFrame(loop);
+    }
+
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "ArrowLeft" || e.key === "a") laneRef.current = Math.max(0, laneRef.current - 1);
+      if (e.key === "ArrowRight" || e.key === "d") laneRef.current = Math.min(RUN_LANES - 1, laneRef.current + 1);
+    }
+    window.addEventListener("keydown", handleKey);
+    rafRef.current = requestAnimationFrame(loop);
+
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      window.removeEventListener("keydown", handleKey);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleTap(e: React.PointerEvent<HTMLCanvasElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    laneRef.current = Math.min(RUN_LANES - 1, Math.max(0, Math.floor(ratio * RUN_LANES)));
+  }
+
+  return (
+    <div className="run-stage">
+      <div className="run-hud">
+        <span>⏱️ {hud.timeLeft}s</span>
+        <span>⭐ {hud.score}</span>
+        <span>🔥 x{hud.combo}</span>
+        <span>{"❤️".repeat(hud.lives)}</span>
+      </div>
+      <canvas
+        ref={canvasRef}
+        width={RUN_CANVAS_W}
+        height={RUN_CANVAS_H}
+        className="run-canvas"
+        onPointerDown={handleTap}
+      />
+      <p className="run-hint">Setas ← → ou toque numa faixa pra mudar</p>
+    </div>
+  );
+}
+
 function Styles() {
   return (
     <style jsx global>{`
@@ -756,6 +946,33 @@ function Styles() {
         background: rgba(22, 163, 74, 0.18);
         border-color: rgba(22, 163, 74, 0.4);
         opacity: 0.85;
+      }
+      .run-stage {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.6rem;
+      }
+      .run-hud {
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+        font-size: 0.8rem;
+        font-weight: 700;
+      }
+      .run-canvas {
+        width: 100%;
+        max-width: 20rem;
+        height: auto;
+        border-radius: 0.75rem;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(0, 0, 0, 0.2);
+        touch-action: none;
+      }
+      .run-hint {
+        margin: 0;
+        font-size: 0.75rem;
+        opacity: 0.6;
       }
       .progress-dots {
         display: flex;

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button, Field, Input } from "@/components/ui/primitives";
 
 type Visibility = "DRAFT" | "TESTING" | "LIVE";
-type GameType = "QUIZ" | "MEMORY" | "RHYTHM" | "HUNT" | "CARDS" | "REACTION";
+type GameType = "QUIZ" | "MEMORY" | "RHYTHM" | "HUNT" | "CARDS" | "REACTION" | "RUN";
 
 interface QuizContent {
   question: string;
@@ -23,11 +23,16 @@ interface MemoryContent {
   timeLimitSeconds?: number;
 }
 
+interface RunContent {
+  durationSeconds?: number;
+  targetScore?: number;
+}
+
 interface Phase {
   id: string;
   order: number;
   title: string;
-  content: QuizContent & ReactionContent & MemoryContent;
+  content: QuizContent & ReactionContent & MemoryContent & RunContent;
   points: number;
   rewardCardId: string | null;
   grantsExtraTicket: boolean;
@@ -60,6 +65,9 @@ const EMPTY_DRAFT = {
   // AS Memory (11/09) - timeLimitSeconds 0 = sem limite.
   pairs: 8,
   timeLimitSeconds: 0,
+  // AS Run (12/09).
+  durationSeconds: 30,
+  targetScore: 150,
 };
 
 export function GamePhaseManager({
@@ -77,10 +85,11 @@ export function GamePhaseManager({
 }) {
   const isReaction = gameType === "REACTION";
   const isMemory = gameType === "MEMORY";
+  const isRun = gameType === "RUN";
   // Tipos cuja pontuação depende de um cronômetro/contagem no navegador da
   // pessoa, sem verificação de servidor - nunca concedem número extra de
   // sorteio (ver canGrantTicket em complete/route.ts), só pontos/ranking.
-  const noTicket = isReaction || isMemory;
+  const noTicket = isReaction || isMemory || isRun;
   const router = useRouter();
   const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
   const [phases, setPhases] = useState(initialPhases);
@@ -121,15 +130,17 @@ export function GamePhaseManager({
       decoyChancePercent: Math.round((p.content?.decoyChance ?? 0.25) * 100),
       pairs: p.content?.pairs ?? 8,
       timeLimitSeconds: p.content?.timeLimitSeconds ?? 0,
+      durationSeconds: p.content?.durationSeconds ?? 30,
+      targetScore: p.content?.targetScore ?? 150,
     };
   }
 
   function validate(): string | null {
     if (!draft.title.trim()) return "Escreva um título pra fase.";
-    if (isReaction || isMemory) {
-      // Rounds/decoy/pares sempre têm um valor seguro (normalizeReactionConfig
-      // e normalizeMemoryConfig clampam tudo no servidor), então não tem
-      // muito o que validar aqui.
+    if (isReaction || isMemory || isRun) {
+      // Rounds/decoy/pares/duração sempre têm um valor seguro
+      // (normalizeReactionConfig/normalizeMemoryConfig/normalizeRunConfig
+      // clampam tudo no servidor), então não tem muito o que validar aqui.
       return null;
     }
     if (!draft.question.trim()) return "Escreva a pergunta do quiz.";
@@ -162,6 +173,11 @@ export function GamePhaseManager({
       ? {
           pairs: Number(draft.pairs) || 8,
           timeLimitSeconds: Number(draft.timeLimitSeconds) || 0,
+        }
+      : isRun
+      ? {
+          durationSeconds: Number(draft.durationSeconds) || 30,
+          targetScore: Number(draft.targetScore) || 150,
         }
       : (() => {
           const options = draft.optionsText
@@ -232,7 +248,9 @@ export function GamePhaseManager({
       </div>
 
       <div className="section-header">
-        <p className="section-title">Fases ({isReaction ? "reação" : isMemory ? "memória" : "quiz"})</p>
+        <p className="section-title">
+          Fases ({isReaction ? "reação" : isMemory ? "memória" : isRun ? "corrida" : "quiz"})
+        </p>
         {!creating && !editingId && (
           <Button
             onClick={() => {
@@ -252,6 +270,7 @@ export function GamePhaseManager({
           cards={cards}
           isReaction={isReaction}
           isMemory={isMemory}
+          isRun={isRun}
           error={error}
           saving={saving}
           onCancel={() => {
@@ -273,6 +292,7 @@ export function GamePhaseManager({
               cards={cards}
               isReaction={isReaction}
               isMemory={isMemory}
+              isRun={isRun}
               error={error}
               saving={saving}
               onCancel={() => {
@@ -446,6 +466,7 @@ function PhaseForm({
   cards,
   isReaction,
   isMemory,
+  isRun,
   error,
   saving,
   onCancel,
@@ -457,6 +478,7 @@ function PhaseForm({
   cards: CardOption[];
   isReaction: boolean;
   isMemory: boolean;
+  isRun: boolean;
   error: string | null;
   saving: boolean;
   onCancel: () => void;
@@ -475,7 +497,13 @@ function PhaseForm({
           value={draft.title}
           onChange={(e) => setDraft({ ...draft, title: e.target.value })}
           placeholder={
-            isReaction ? "Ex: Reflexo Roxo" : isMemory ? "Ex: Memória AS" : "Ex: Fase 1 - Curiosidades AS Brasil"
+            isReaction
+              ? "Ex: Reflexo Roxo"
+              : isMemory
+              ? "Ex: Memória AS"
+              : isRun
+              ? "Ex: Corrida pro Show"
+              : "Ex: Fase 1 - Curiosidades AS Brasil"
           }
         />
       </Field>
@@ -514,6 +542,26 @@ function PhaseForm({
               type="number"
               value={draft.timeLimitSeconds}
               onChange={(e) => setDraft({ ...draft, timeLimitSeconds: Number(e.target.value) })}
+            />
+          </Field>
+        </>
+      ) : isRun ? (
+        <>
+          <Field label="Duração da corrida (segundos)" hint="Entre 15 e 90 segundos.">
+            <Input
+              type="number"
+              value={draft.durationSeconds}
+              onChange={(e) => setDraft({ ...draft, durationSeconds: Number(e.target.value) })}
+            />
+          </Field>
+          <Field
+            label="Pontuação pra 100%"
+            hint="Referência de 'desempenho cheio' pra essa corrida - ajuste conforme a dificuldade que quiser pro evento."
+          >
+            <Input
+              type="number"
+              value={draft.targetScore}
+              onChange={(e) => setDraft({ ...draft, targetScore: Number(e.target.value) })}
             />
           </Field>
         </>
@@ -577,7 +625,7 @@ function PhaseForm({
           ))}
         </select>
       </Field>
-      {isReaction || isMemory ? (
+      {isReaction || isMemory || isRun ? (
         <p className="reaction-note">
           Fases desse tipo nunca concedem número extra de sorteio (a pontuação depende de um
           cronômetro/contagem no navegador da pessoa) - só pontos, ranking e card de recompensa.
