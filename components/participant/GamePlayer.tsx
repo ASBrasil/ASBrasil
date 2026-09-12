@@ -6,12 +6,19 @@ import {
   type ReactionConfig,
   type MemoryConfig,
   type RunConfig,
+  type TicketConfig,
   RUN_LANES,
   RUN_MIN_SPAWN_MS,
   RUN_MAX_SPAWN_MS,
   RUN_POINTS_PER_ITEM,
   RUN_MAX_COMBO,
   RUN_LIVES,
+  TICKET_MIN_SPAWN_MS,
+  TICKET_MAX_SPAWN_MS,
+  TICKET_POINTS_PER_ITEM,
+  TICKET_MAX_COMBO,
+  TICKET_LIVES,
+  TICKET_FAKE_CHANCE,
 } from "@/lib/games";
 
 interface Question {
@@ -29,7 +36,7 @@ interface Phase {
   id: string;
   order: number;
   title: string;
-  type: "QUIZ" | "REACTION" | "MEMORY" | "RUN";
+  type: "QUIZ" | "REACTION" | "MEMORY" | "RUN" | "TICKET";
   points: number;
   grantsExtraTicket: boolean;
   hasRewardCard: boolean;
@@ -37,6 +44,7 @@ interface Phase {
   reactionConfig: ReactionConfig | null;
   memoryConfig: MemoryConfig | null;
   runConfig: RunConfig | null;
+  ticketConfig: TicketConfig | null;
   result: PhaseResult | null;
 }
 
@@ -183,6 +191,10 @@ export function GamePlayer({
     await postComplete(result);
   }
 
+  async function submitTicket(result: { score: number; maxCombo: number; elapsedMs: number }) {
+    await postComplete(result);
+  }
+
   if (phases.length === 0) {
     return (
       <div className="wrap" style={{ background: bg }}>
@@ -246,6 +258,8 @@ export function GamePlayer({
               <MemoryStage key={phase.id} config={phase.memoryConfig} onComplete={submitMemory} />
             ) : phase.type === "RUN" && phase.runConfig ? (
               <RunStage key={phase.id} config={phase.runConfig} onComplete={submitRun} />
+            ) : phase.type === "TICKET" && phase.ticketConfig ? (
+              <TicketStage key={phase.id} config={phase.ticketConfig} onComplete={submitTicket} />
             ) : (
               <>
                 <div className="questions">
@@ -802,6 +816,175 @@ function RunStage({
   );
 }
 
+// --- Ticket Rush -----------------------------------------------------------
+const TICKET_CANVAS_W = 300;
+const TICKET_CANVAS_H = 460;
+const TICKET_ITEM_SIZE = 40;
+const TICKET_FALL_PX_PER_MS = 0.16;
+
+interface TicketItem {
+  x: number;
+  y: number;
+  kind: "valid" | "fake";
+}
+
+function TicketStage({
+  config,
+  onComplete,
+}: {
+  config: TicketConfig;
+  onComplete: (result: { score: number; maxCombo: number; elapsedMs: number }) => void;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const itemsRef = useRef<TicketItem[]>([]);
+  const scoreRef = useRef(0);
+  const comboStreakRef = useRef(0);
+  const maxComboRef = useRef(1);
+  const livesRef = useRef(TICKET_LIVES);
+  const startRef = useRef(0);
+  const rafRef = useRef(0);
+  const finishedRef = useRef(false);
+
+  const [hud, setHud] = useState({ score: 0, lives: TICKET_LIVES, combo: 1, timeLeft: config.durationSeconds });
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+
+    startRef.current = performance.now();
+    let lastFrame = startRef.current;
+    let lastSpawn = 0;
+    let lastHud = 0;
+
+    function finish() {
+      if (finishedRef.current) return;
+      finishedRef.current = true;
+      cancelAnimationFrame(rafRef.current);
+      onComplete({
+        score: Math.round(scoreRef.current),
+        maxCombo: maxComboRef.current,
+        elapsedMs: performance.now() - startRef.current,
+      });
+    }
+
+    function draw() {
+      if (!ctx) return;
+      ctx.clearRect(0, 0, TICKET_CANVAS_W, TICKET_CANVAS_H);
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = `${TICKET_ITEM_SIZE}px sans-serif`;
+      itemsRef.current.forEach((item) => {
+        ctx.fillText(item.kind === "valid" ? "🎫" : "🚫", item.x, item.y);
+      });
+    }
+
+    function loop(now: number) {
+      const elapsed = now - startRef.current;
+      const dt = now - lastFrame;
+      lastFrame = now;
+
+      if (elapsed >= config.durationSeconds * 1000 || livesRef.current <= 0) {
+        draw();
+        finish();
+        return;
+      }
+
+      const progress = Math.min(1, elapsed / (config.durationSeconds * 1000));
+      const spawnInterval = TICKET_MAX_SPAWN_MS - (TICKET_MAX_SPAWN_MS - TICKET_MIN_SPAWN_MS) * progress;
+      if (elapsed - lastSpawn >= spawnInterval) {
+        lastSpawn = elapsed;
+        itemsRef.current.push({
+          x: TICKET_ITEM_SIZE / 2 + Math.random() * (TICKET_CANVAS_W - TICKET_ITEM_SIZE),
+          y: -TICKET_ITEM_SIZE,
+          kind: Math.random() < TICKET_FAKE_CHANCE ? "fake" : "valid",
+        });
+      }
+
+      itemsRef.current = itemsRef.current.filter((item) => {
+        item.y += TICKET_FALL_PX_PER_MS * dt;
+        if (item.y >= TICKET_CANVAS_H + TICKET_ITEM_SIZE) {
+          // Deixou passar sem tocar - só reseta combo se era um válido
+          // (ignorar um falso é o comportamento certo, não pune isso).
+          if (item.kind === "valid") comboStreakRef.current = 0;
+          return false;
+        }
+        return true;
+      });
+
+      draw();
+      if (elapsed - lastHud >= 120) {
+        lastHud = elapsed;
+        const multiplier = Math.min(TICKET_MAX_COMBO, 1 + Math.floor(comboStreakRef.current / 5));
+        setHud({
+          score: Math.round(scoreRef.current),
+          lives: Math.max(0, livesRef.current),
+          combo: multiplier,
+          timeLeft: Math.max(0, Math.ceil(config.durationSeconds - elapsed / 1000)),
+        });
+      }
+      rafRef.current = requestAnimationFrame(loop);
+    }
+
+    rafRef.current = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(rafRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleTap(e: React.PointerEvent<HTMLCanvasElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const scaleX = TICKET_CANVAS_W / rect.width;
+    const scaleY = TICKET_CANVAS_H / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+
+    // Acha o item caído mais próximo do toque, dentro de um raio razoável -
+    // sem faixa pra "encaixar" (ao contrário do Run), o toque precisa
+    // acertar perto do item de verdade.
+    let hitIndex = -1;
+    let hitDist = TICKET_ITEM_SIZE * 0.75;
+    itemsRef.current.forEach((item, i) => {
+      const dist = Math.hypot(item.x - x, item.y - y);
+      if (dist < hitDist) {
+        hitDist = dist;
+        hitIndex = i;
+      }
+    });
+    if (hitIndex === -1) return;
+
+    const item = itemsRef.current[hitIndex];
+    if (item.kind === "valid") {
+      comboStreakRef.current += 1;
+      const multiplier = Math.min(TICKET_MAX_COMBO, 1 + Math.floor(comboStreakRef.current / 5));
+      maxComboRef.current = Math.max(maxComboRef.current, multiplier);
+      scoreRef.current += TICKET_POINTS_PER_ITEM * multiplier;
+    } else {
+      comboStreakRef.current = 0;
+      livesRef.current -= 1;
+    }
+    itemsRef.current.splice(hitIndex, 1);
+  }
+
+  return (
+    <div className="ticket-stage">
+      <div className="ticket-hud">
+        <span>⏱️ {hud.timeLeft}s</span>
+        <span>⭐ {hud.score}</span>
+        <span>🔥 x{hud.combo}</span>
+        <span>{"❤️".repeat(hud.lives)}</span>
+      </div>
+      <canvas
+        ref={canvasRef}
+        width={TICKET_CANVAS_W}
+        height={TICKET_CANVAS_H}
+        className="ticket-canvas"
+        onPointerDown={handleTap}
+      />
+      <p className="ticket-hint">Toque só nos tickets válidos 🎫 - evite os cancelados 🚫</p>
+    </div>
+  );
+}
+
 function Styles() {
   return (
     <style jsx global>{`
@@ -970,6 +1153,33 @@ function Styles() {
         touch-action: none;
       }
       .run-hint {
+        margin: 0;
+        font-size: 0.75rem;
+        opacity: 0.6;
+      }
+      .ticket-stage {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.6rem;
+      }
+      .ticket-hud {
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+        font-size: 0.8rem;
+        font-weight: 700;
+      }
+      .ticket-canvas {
+        width: 100%;
+        max-width: 20rem;
+        height: auto;
+        border-radius: 0.75rem;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(0, 0, 0, 0.2);
+        touch-action: none;
+      }
+      .ticket-hint {
         margin: 0;
         font-size: 0.75rem;
         opacity: 0.6;

@@ -422,3 +422,91 @@ export function classifyRunTier(percent: number): string {
   if (percent >= 25) return "⚡ Aquecendo";
   return "🐢 Precisa treinar";
 }
+
+// --- Ticket Rush (12/09) --------------------------------------------------
+//
+// Itens caem verticalmente - ticket válido (🎫) ou cancelado/falso (🚫) - e a
+// pessoa toca só nos válidos: tocar num falso custa uma vida e reseta o
+// combo, deixar um válido passar sem tocar também reseta o combo (mas não
+// custa vida - só "distração", não "erro"). Igual AS Run, pontuação/combo
+// nascem 100% no navegador (não tem segredo servidor pra recalcular qual
+// item era qual - o cliente já sabe, só não dá pra confiar cegamente no
+// placar final) - o mesmo cuidado de teto plausível por tempo decorrido se
+// aplica aqui.
+export const TICKET_POINTS_PER_ITEM = 10;
+export const TICKET_MAX_COMBO = 5;
+export const TICKET_LIVES = 3;
+// Intervalo de spawn (ms) - começa devagar (TICKET_MAX_SPAWN_MS) e vai
+// acelerando até TICKET_MIN_SPAWN_MS conforme o tempo passa.
+export const TICKET_MIN_SPAWN_MS = 500;
+export const TICKET_MAX_SPAWN_MS = 1100;
+// Chance de um item nascer como "falso" em vez de válido.
+export const TICKET_FAKE_CHANCE = 0.35;
+
+export interface TicketConfig {
+  durationSeconds: number;
+  targetScore: number; // pontuação "cheia" (100%) - referência pro admin ajustar por evento
+}
+
+const TICKET_DEFAULTS: TicketConfig = { durationSeconds: 30, targetScore: 150 };
+const TICKET_MIN_SECONDS = 15;
+const TICKET_MAX_SECONDS = 90;
+
+/** Lê a config de uma fase TICKET a partir do content (Json livre) - sempre volta um valor seguro. */
+export function normalizeTicketConfig(content: unknown): TicketConfig {
+  if (!content || typeof content !== "object") return { ...TICKET_DEFAULTS };
+  const c = content as Record<string, unknown>;
+  const durationSeconds =
+    typeof c.durationSeconds === "number"
+      ? Math.min(TICKET_MAX_SECONDS, Math.max(TICKET_MIN_SECONDS, Math.round(c.durationSeconds)))
+      : TICKET_DEFAULTS.durationSeconds;
+  const targetScore = typeof c.targetScore === "number" ? Math.max(10, Math.round(c.targetScore)) : TICKET_DEFAULTS.targetScore;
+  return { durationSeconds, targetScore };
+}
+
+export interface TicketOutcome {
+  score: number;
+  maxCombo: number;
+  percent: number;
+  isPerfect: boolean;
+  tier: string;
+}
+
+/**
+ * Reprocessa o resultado mandado pelo cliente - mesma lógica de AS Run (ver
+ * comentário de evaluateRunResult): dado o tempo decorrido (clampado ao
+ * limite da fase), calcula quantos itens dava pra pegar no MÁXIMO no ritmo
+ * mais rápido de spawn, e usa isso como teto da pontuação. Pior caso de
+ * manipulação vira "ganhar a pontuação máxima plausível", nunca um valor
+ * absurdo.
+ */
+export function evaluateTicketRushResult(
+  rawScore: unknown,
+  rawMaxCombo: unknown,
+  rawElapsedMs: unknown,
+  config: TicketConfig
+): TicketOutcome {
+  const durationMs = config.durationSeconds * 1000;
+  const elapsedMs =
+    typeof rawElapsedMs === "number" && Number.isFinite(rawElapsedMs) ? Math.min(durationMs, Math.max(0, rawElapsedMs)) : durationMs;
+  const maxItems = Math.ceil(elapsedMs / TICKET_MIN_SPAWN_MS) + 1;
+  const ceiling = maxItems * TICKET_POINTS_PER_ITEM * TICKET_MAX_COMBO;
+  const score =
+    typeof rawScore === "number" && Number.isFinite(rawScore) ? Math.max(0, Math.min(ceiling, Math.round(rawScore))) : 0;
+  const maxCombo =
+    typeof rawMaxCombo === "number" && Number.isFinite(rawMaxCombo)
+      ? Math.max(1, Math.min(TICKET_MAX_COMBO, Math.round(rawMaxCombo)))
+      : 1;
+  const percent = config.targetScore > 0 ? Math.min(100, Math.round((score / config.targetScore) * 100)) : 0;
+  const isPerfect = percent >= 100;
+  return { score, maxCombo, percent, isPerfect, tier: classifyTicketTier(percent) };
+}
+
+/** Classificação exibida pro jogador com base em quanto da meta (targetScore) foi atingido - só cosmético. */
+export function classifyTicketTier(percent: number): string {
+  if (percent >= 100) return "🥇 Lotação máxima";
+  if (percent >= 75) return "🥈 Quase lotado";
+  if (percent >= 50) return "🥉 Enchendo o ônibus";
+  if (percent >= 25) return "⚡ Embarque iniciado";
+  return "🐢 Precisa treinar";
+}

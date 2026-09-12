@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button, Field, Input } from "@/components/ui/primitives";
 
-type GameType = "QUIZ" | "MEMORY" | "RHYTHM" | "HUNT" | "CARDS" | "REACTION" | "RUN";
+type GameType = "QUIZ" | "MEMORY" | "RHYTHM" | "HUNT" | "CARDS" | "REACTION" | "RUN" | "TICKET";
 type GameVisibility = "DRAFT" | "TESTING" | "LIVE";
 
 // Tipos que já têm um jogador de verdade construído (ver GamePlayer.tsx) -
 // os outros existem no schema/admin mas ainda não são jogáveis, então ficam
 // desabilitados no seletor até terem seu componente de jogador.
-const PLAYABLE_TYPES: GameType[] = ["QUIZ", "REACTION", "MEMORY", "RUN"];
+const PLAYABLE_TYPES: GameType[] = ["QUIZ", "REACTION", "MEMORY", "RUN", "TICKET"];
 
 interface GameRow {
   id: string;
@@ -32,6 +32,7 @@ const TYPE_LABEL: Record<GameType, string> = {
   CARDS: "Cards",
   REACTION: "Reação (Purple Reaction)",
   RUN: "Corrida (AS Run)",
+  TICKET: "Ingressos (Ticket Rush)",
 };
 
 const VISIBILITY_LABEL: Record<GameVisibility, string> = {

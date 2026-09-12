@@ -17,6 +17,8 @@ import {
   classifyMemoryTier,
   normalizeRunConfig,
   evaluateRunResult,
+  normalizeTicketConfig,
+  evaluateTicketRushResult,
 } from "@/lib/games";
 import { grantGamePerfectCards } from "@/lib/cards";
 import { ParticipantSource } from "@prisma/client";
@@ -99,6 +101,19 @@ export async function POST(req: NextRequest, { params }: { params: { phaseId: st
     isPerfect = outcome.isPerfect;
     // Sem bônus de velocidade separado aqui - o desempenho já está todo
     // embutido na própria pontuação (combo cresce com sequência de acertos).
+    speedFactor = 1;
+    extra = { score: outcome.score, maxCombo: outcome.maxCombo, tier: outcome.tier };
+  } else if (phase.type === "TICKET") {
+    // Ticket Rush: itens caindo, toca só nos válidos - pontuação e combo
+    // calculados 100% no navegador, igual AS Run (mesmo comentário se
+    // aplica, ver lib/games.ts). Nunca gera número extra de sorteio, só
+    // XP/ranking.
+    const config = normalizeTicketConfig(phase.content);
+    const outcome = evaluateTicketRushResult(body.score, body.maxCombo, body.elapsedMs, config);
+    correctCount = outcome.score;
+    total = config.targetScore;
+    percent = outcome.percent;
+    isPerfect = outcome.isPerfect;
     speedFactor = 1;
     extra = { score: outcome.score, maxCombo: outcome.maxCombo, tier: outcome.tier };
   } else {
