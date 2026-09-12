@@ -240,3 +240,93 @@ export function reactionSpeedMultiplier(avgMs: number | null): number {
   const ratio = 1 - Math.min(1, Math.max(0, (avgMs - MIN_HUMAN_REACTION_MS) / (500 - MIN_HUMAN_REACTION_MS)));
   return 1 + ratio * 0.5;
 }
+
+// --- AS Memory (11/09) -------------------------------------------------------
+//
+// Jogo da memória: N pares de cartas viradas pra baixo, embaralhadas no
+// próprio navegador (não precisa de seed nem verificação de servidor pra
+// "qual carta é qual", porque não existe segredo nenhum sendo escondido do
+// jogador - ao contrário do Purple Reaction, aqui o desafio é 100% da
+// pessoa contra a própria memória, não contra tentar adivinhar algo que o
+// servidor sabe e ela não. Usa o GameType.MEMORY que já existia no schema
+// (não precisou de migration nova, só o componente de jogador que faltava).
+export interface MemoryConfig {
+  pairs: number;
+  timeLimitSeconds: number; // 0 = sem limite (mas ainda usado como teto do clamp de velocidade)
+}
+
+const MEMORY_DEFAULTS: MemoryConfig = { pairs: 8, timeLimitSeconds: 0 };
+const MEMORY_MIN_PAIRS = 4;
+const MEMORY_MAX_PAIRS = 18;
+
+/** Lê a config de uma fase MEMORY a partir do content (Json livre) - sempre volta um valor seguro. */
+export function normalizeMemoryConfig(content: unknown): MemoryConfig {
+  if (!content || typeof content !== "object") return { ...MEMORY_DEFAULTS };
+  const c = content as Record<string, unknown>;
+  const pairs =
+    typeof c.pairs === "number"
+      ? Math.min(MEMORY_MAX_PAIRS, Math.max(MEMORY_MIN_PAIRS, Math.round(c.pairs)))
+      : MEMORY_DEFAULTS.pairs;
+  const timeLimitSeconds =
+    typeof c.timeLimitSeconds === "number" ? Math.max(0, Math.round(c.timeLimitSeconds)) : MEMORY_DEFAULTS.timeLimitSeconds;
+  return { pairs, timeLimitSeconds };
+}
+
+export interface MemoryOutcome {
+  moves: number; // quantas "jogadas" (virar 2 cartas) foram feitas até achar todos os pares
+  pairs: number;
+  percent: number;
+  isPerfect: boolean; // moves === pairs, ou seja, acertou todo par de primeira
+  elapsedMs: number | null;
+}
+
+// Nenhum ser humano vira 2 cartas, reconhece o par e clica de novo mais rápido
+// que isso - é o mesmo papel do MIN_HUMAN_REACTION_MS lá em cima, só que por
+// par de cartas em vez de por toque único.
+const MIN_MS_PER_PAIR = 500;
+// Ritmo "normal" de referência pra calcular o bônus de velocidade - jogar mais
+// rápido que isso (por par) rende bônus, mais devagar não perde nada além do
+// bônus.
+const MEMORY_PAR_MS_PER_PAIR = 2200;
+
+/**
+ * Reprocessa o resultado mandado pelo cliente. `moves` e `elapsedMs` são os
+ * únicos dados que vêm do navegador (não tem "resposta certa" pra conferir
+ * contra o servidor, ver comentário da seção) - o cuidado aqui é só nunca
+ * aceitar um tempo implausível: `elapsedMs` é sempre clampado a um mínimo de
+ * `pairs * MIN_MS_PER_PAIR`, então o pior caso de manipulação é ganhar o
+ * bônus de velocidade máximo, nunca um valor absurdo. Ausência de `moves`
+ * nunca é tratada como "jogo perfeito" (assume um desempenho mediano em vez
+ * de dar o benefício da dúvida).
+ */
+export function evaluateMemoryRun(rawMoves: unknown, rawElapsedMs: unknown, config: MemoryConfig): MemoryOutcome {
+  const pairs = config.pairs;
+  const moves =
+    typeof rawMoves === "number" && Number.isFinite(rawMoves) && rawMoves >= pairs
+      ? Math.round(rawMoves)
+      : pairs * 3;
+  const percent = Math.min(100, Math.round((pairs / moves) * 100));
+  const isPerfect = moves === pairs;
+  const minMs = pairs * MIN_MS_PER_PAIR;
+  const elapsedMs = typeof rawElapsedMs === "number" && Number.isFinite(rawElapsedMs) ? Math.max(minMs, rawElapsedMs) : null;
+  return { moves, pairs, percent, isPerfect, elapsedMs };
+}
+
+/** Classificação exibida pro jogador com base na eficiência (jogadas ÷ pares) - só cosmético. */
+export function classifyMemoryTier(movesPerPair: number): string {
+  if (movesPerPair <= 1) return "🥇 Perfeito";
+  if (movesPerPair <= 1.25) return "🥈 Excelente";
+  if (movesPerPair <= 1.6) return "🥉 Muito bom";
+  if (movesPerPair <= 2.2) return "⚡ Bom";
+  return "🐢 Precisa treinar";
+}
+
+/** Mesmo formato 1x-1.5x dos outros modos, baseado no tempo médio por par em vez de por rodada/fase inteira. */
+export function memorySpeedMultiplier(elapsedMs: number | null, pairs: number): number {
+  if (elapsedMs === null || pairs <= 0) return 1;
+  const parMs = pairs * MEMORY_PAR_MS_PER_PAIR;
+  const minMs = pairs * MIN_MS_PER_PAIR;
+  const clamped = Math.min(parMs, Math.max(minMs, elapsedMs));
+  const ratio = parMs > minMs ? 1 - (clamped - minMs) / (parMs - minMs) : 0;
+  return 1 + ratio * 0.5;
+}

@@ -11,6 +11,10 @@ import {
   generateReactionSequence,
   evaluateReactionRounds,
   reactionSpeedMultiplier,
+  normalizeMemoryConfig,
+  evaluateMemoryRun,
+  memorySpeedMultiplier,
+  classifyMemoryTier,
 } from "@/lib/games";
 import { grantGamePerfectCards } from "@/lib/cards";
 import { ParticipantSource } from "@prisma/client";
@@ -65,6 +69,20 @@ export async function POST(req: NextRequest, { params }: { params: { phaseId: st
     isPerfect = outcome.isPerfect;
     speedFactor = isPerfect ? reactionSpeedMultiplier(outcome.avgMs) : 1;
     extra = { avgMs: outcome.avgMs, tier: outcome.tier };
+  } else if (phase.type === "MEMORY") {
+    // AS Memory: não tem "resposta certa" pra conferir (não existe segredo
+    // nenhum sendo escondido do jogador, ver comentário em lib/games.ts) -
+    // só `moves`/`elapsedMs` vêm do cliente, e `elapsedMs` é sempre clampado
+    // a um mínimo humano plausível por par. Igual Reaction, nunca gera
+    // número extra de sorteio (canGrantTicket mais abaixo), só XP/ranking.
+    const config = normalizeMemoryConfig(phase.content);
+    const outcome = evaluateMemoryRun(body.moves, body.elapsedMs, config);
+    correctCount = outcome.pairs;
+    total = outcome.pairs;
+    percent = outcome.percent;
+    isPerfect = outcome.isPerfect;
+    speedFactor = isPerfect ? memorySpeedMultiplier(outcome.elapsedMs, outcome.pairs) : 1;
+    extra = { moves: outcome.moves, tier: classifyMemoryTier(outcome.moves / outcome.pairs) };
   } else {
     // QUIZ (e qualquer fase antiga sem type explícito, que sempre foi quiz).
     const answers: unknown[] = Array.isArray(body.answers) ? body.answers : [];

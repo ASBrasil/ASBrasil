@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { generateReactionSequence, type ReactionConfig } from "@/lib/games";
+import { generateReactionSequence, type ReactionConfig, type MemoryConfig } from "@/lib/games";
 
 interface Question {
   question: string;
@@ -18,12 +18,13 @@ interface Phase {
   id: string;
   order: number;
   title: string;
-  type: "QUIZ" | "REACTION";
+  type: "QUIZ" | "REACTION" | "MEMORY";
   points: number;
   grantsExtraTicket: boolean;
   hasRewardCard: boolean;
   questions: Question[];
   reactionConfig: ReactionConfig | null;
+  memoryConfig: MemoryConfig | null;
   result: PhaseResult | null;
 }
 
@@ -58,9 +59,10 @@ interface CompleteResponse {
   cardWon: { id: string; name: string; rarity: string; imageUrl: string | null } | null;
   extraTicketNumber: number | null;
   speedMultiplier: number | null;
-  // Só presentes em fases REACTION (ver rota complete/route.ts, `...extra`).
+  // Só presentes em fases REACTION/MEMORY (ver rota complete/route.ts, `...extra`).
   avgMs?: number | null;
   tier?: string;
+  moves?: number;
 }
 
 function emptyAnswers(phase: Phase | undefined) {
@@ -86,9 +88,10 @@ export function GamePlayer({
   const isLast = index === phases.length - 1;
   const allAnswered = answers.length > 0 && answers.every((a) => a !== null);
 
-  // --- Modo Rush: cronômetro por fase (só faz sentido pra QUIZ - Reaction já
-  // tem seu próprio cronômetro por rodada, ver ReactionStage) --------------
-  const rushEnabled = game.rush.enabled && phase.type !== "REACTION";
+  // --- Modo Rush: cronômetro por fase (só faz sentido pra QUIZ - Reaction e
+  // Memory já têm seu próprio cronômetro/ritmo próprio, ver ReactionStage e
+  // MemoryStage) -------------------------------------------------------
+  const rushEnabled = game.rush.enabled && phase.type === "QUIZ";
   const timeLimitMs = game.rush.timeLimitSeconds * 1000;
   const [msLeft, setMsLeft] = useState(timeLimitMs);
   const phaseStartRef = useRef<number>(Date.now());
@@ -158,6 +161,10 @@ export function GamePlayer({
     await postComplete({ rounds });
   }
 
+  async function submitMemory(result: { moves: number; elapsedMs: number }) {
+    await postComplete(result);
+  }
+
   if (phases.length === 0) {
     return (
       <div className="wrap" style={{ background: bg }}>
@@ -203,7 +210,7 @@ export function GamePlayer({
                 primeira tentativa é a que vale, jogar de novo é só pra treinar.
               </p>
             )}
-            {phase.grantsExtraTicket && !isEventParticipant && phase.type !== "REACTION" && (
+            {phase.grantsExtraTicket && !isEventParticipant && phase.type === "QUIZ" && (
               <p className="note">
                 Como você não está inscrito em <strong>{game.eventName}</strong>, essa fase te dá
                 pontos e cards normalmente, mas não o número extra do sorteio.
@@ -217,6 +224,8 @@ export function GamePlayer({
                 config={phase.reactionConfig}
                 onComplete={submitReaction}
               />
+            ) : phase.type === "MEMORY" && phase.memoryConfig ? (
+              <MemoryStage key={phase.id} config={phase.memoryConfig} onComplete={submitMemory} />
             ) : (
               <>
                 <div className="questions">
@@ -350,6 +359,7 @@ function ResultScreen({
         <p className="reaction-tier">
           {result.tier}
           {result.avgMs != null ? ` · média ${result.avgMs}ms` : ""}
+          {typeof result.moves === "number" ? ` · ${result.moves} jogadas` : ""}
         </p>
       )}
 
@@ -500,6 +510,108 @@ function ReactionStage({
   );
 }
 
+// Símbolos usados nas cartas - genéricos o suficiente pra qualquer tema de
+// evento (não são específicos de BTS/Stray Kids/etc, então funcionam pra
+// qualquer Game.theme sem precisar trocar por evento). Suporta até 18 pares.
+const MEMORY_SYMBOLS = [
+  "🎫", "🚌", "⭐", "🎤", "💜", "🎉", "🔥", "🎶", "🏆",
+  "🎁", "🎧", "🌟", "🎪", "🎈", "🎯", "🚗", "🎬", "🎵",
+];
+
+interface MemoryCard {
+  symbol: string;
+  matched: boolean;
+}
+
+function shuffledMemoryDeck(pairs: number): MemoryCard[] {
+  const symbols = MEMORY_SYMBOLS.slice(0, pairs);
+  const deck: MemoryCard[] = symbols.flatMap((symbol) => [
+    { symbol, matched: false },
+    { symbol, matched: false },
+  ]);
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
+
+function MemoryStage({
+  config,
+  onComplete,
+}: {
+  config: MemoryConfig;
+  onComplete: (result: { moves: number; elapsedMs: number }) => void;
+}) {
+  // Embaralha uma vez só quando o componente monta - não precisa de seed
+  // nenhuma (ver comentário em lib/games.ts sobre por que Memory não precisa
+  // de verificação de servidor pro layout das cartas).
+  const [deck, setDeck] = useState<MemoryCard[]>(() => shuffledMemoryDeck(config.pairs));
+  const [flipped, setFlipped] = useState<number[]>([]);
+  const [moves, setMoves] = useState(0);
+  const [locked, setLocked] = useState(false);
+  const startRef = useRef(Date.now());
+  const finishedRef = useRef(false);
+
+  const totalPairs = config.pairs;
+  const matchedCount = deck.filter((c) => c.matched).length / 2;
+  const columns = deck.length <= 12 ? 4 : deck.length <= 20 ? 5 : 6;
+
+  function handleFlip(i: number) {
+    if (locked || flipped.includes(i) || deck[i].matched || flipped.length === 2) return;
+    const next = [...flipped, i];
+    setFlipped(next);
+    if (next.length === 2) {
+      setLocked(true);
+      setMoves((m) => m + 1);
+      const [a, b] = next;
+      if (deck[a].symbol === deck[b].symbol) {
+        setTimeout(() => {
+          const nextDeck = deck.map((c, idx) => (idx === a || idx === b ? { ...c, matched: true } : c));
+          setDeck(nextDeck);
+          setFlipped([]);
+          setLocked(false);
+          const done = nextDeck.every((c) => c.matched);
+          if (done && !finishedRef.current) {
+            finishedRef.current = true;
+            onComplete({ moves: moves + 1, elapsedMs: Date.now() - startRef.current });
+          }
+        }, 500);
+      } else {
+        setTimeout(() => {
+          setFlipped([]);
+          setLocked(false);
+        }, 900);
+      }
+    }
+  }
+
+  return (
+    <div className="memory-stage">
+      <p className="memory-progress">
+        {matchedCount}/{totalPairs} pares · {moves} jogadas
+      </p>
+      <div className="memory-grid" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
+        {deck.map((card, i) => {
+          const isFaceUp = card.matched || flipped.includes(i);
+          return (
+            <button
+              key={i}
+              type="button"
+              className={`memory-card ${isFaceUp ? "face-up" : ""} ${card.matched ? "matched" : ""}`}
+              onClick={() => handleFlip(i)}
+              disabled={isFaceUp}
+              aria-label={isFaceUp ? card.symbol : "Carta virada pra baixo"}
+            >
+              {isFaceUp ? card.symbol : "?"}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function Styles() {
   return (
     <style jsx global>{`
@@ -605,6 +717,45 @@ function Styles() {
         font-size: 0.85rem;
         opacity: 0.75;
         min-height: 1.2em;
+      }
+      .memory-stage {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.9rem;
+      }
+      .memory-progress {
+        margin: 0;
+        font-size: 0.8rem;
+        opacity: 0.75;
+      }
+      .memory-grid {
+        display: grid;
+        gap: 0.5rem;
+        width: 100%;
+      }
+      .memory-card {
+        aspect-ratio: 1 / 1;
+        border-radius: 0.6rem;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.08);
+        font-size: 1.4rem;
+        cursor: pointer;
+        transition: background 0.15s, transform 0.15s;
+        color: #fff;
+      }
+      .memory-card:active:not(:disabled) {
+        transform: scale(0.94);
+      }
+      .memory-card.face-up {
+        background: rgba(232, 182, 70, 0.18);
+        border-color: rgba(232, 182, 70, 0.4);
+        cursor: default;
+      }
+      .memory-card.matched {
+        background: rgba(22, 163, 74, 0.18);
+        border-color: rgba(22, 163, 74, 0.4);
+        opacity: 0.85;
       }
       .progress-dots {
         display: flex;

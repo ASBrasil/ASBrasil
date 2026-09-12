@@ -11,7 +11,7 @@ type GameVisibility = "DRAFT" | "TESTING" | "LIVE";
 // Tipos que já têm um jogador de verdade construído (ver GamePlayer.tsx) -
 // os outros existem no schema/admin mas ainda não são jogáveis, então ficam
 // desabilitados no seletor até terem seu componente de jogador.
-const PLAYABLE_TYPES: GameType[] = ["QUIZ", "REACTION"];
+const PLAYABLE_TYPES: GameType[] = ["QUIZ", "REACTION", "MEMORY"];
 
 interface GameRow {
   id: string;
