@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button, Field, Input } from "@/components/ui/primitives";
 
 type Visibility = "DRAFT" | "TESTING" | "LIVE";
-type GameType = "QUIZ" | "MEMORY" | "RHYTHM" | "HUNT" | "CARDS" | "REACTION" | "RUN" | "TICKET";
+type GameType = "QUIZ" | "MEMORY" | "RHYTHM" | "HUNT" | "CARDS" | "REACTION" | "RUN" | "TICKET" | "PICK";
 
 interface QuizContent {
   question: string;
@@ -33,11 +33,17 @@ interface TicketContent {
   targetScore?: number;
 }
 
+interface PickContent {
+  rounds?: number;
+  startMs?: number;
+  minMs?: number;
+}
+
 interface Phase {
   id: string;
   order: number;
   title: string;
-  content: QuizContent & ReactionContent & MemoryContent & RunContent & TicketContent;
+  content: QuizContent & ReactionContent & MemoryContent & RunContent & TicketContent & PickContent;
   points: number;
   rewardCardId: string | null;
   grantsExtraTicket: boolean;
@@ -70,9 +76,13 @@ const EMPTY_DRAFT = {
   // AS Memory (11/09) - timeLimitSeconds 0 = sem limite.
   pairs: 8,
   timeLimitSeconds: 0,
-  // AS Run (12/09).
+  // AS Run (12/09) e Ticket Rush (12/09) reaproveitam os dois campos abaixo.
   durationSeconds: 30,
   targetScore: 150,
+  // Perfect Pick (13/09) - reaproveita o campo `rounds` já existente
+  // (Reaction) e adiciona startMs/minMs (duração da travessia).
+  startMs: 2400,
+  minMs: 900,
 };
 
 export function GamePhaseManager({
@@ -92,10 +102,11 @@ export function GamePhaseManager({
   const isMemory = gameType === "MEMORY";
   const isRun = gameType === "RUN";
   const isTicket = gameType === "TICKET";
+  const isPick = gameType === "PICK";
   // Tipos cuja pontuação depende de um cronômetro/contagem no navegador da
   // pessoa, sem verificação de servidor - nunca concedem número extra de
   // sorteio (ver canGrantTicket em complete/route.ts), só pontos/ranking.
-  const noTicket = isReaction || isMemory || isRun || isTicket;
+  const noTicket = isReaction || isMemory || isRun || isTicket || isPick;
   const router = useRouter();
   const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
   const [phases, setPhases] = useState(initialPhases);
@@ -138,16 +149,18 @@ export function GamePhaseManager({
       timeLimitSeconds: p.content?.timeLimitSeconds ?? 0,
       durationSeconds: p.content?.durationSeconds ?? 30,
       targetScore: p.content?.targetScore ?? 150,
+      startMs: p.content?.startMs ?? 2400,
+      minMs: p.content?.minMs ?? 900,
     };
   }
 
   function validate(): string | null {
     if (!draft.title.trim()) return "Escreva um título pra fase.";
-    if (isReaction || isMemory || isRun || isTicket) {
+    if (isReaction || isMemory || isRun || isTicket || isPick) {
       // Rounds/decoy/pares/duração sempre têm um valor seguro
       // (normalizeReactionConfig/normalizeMemoryConfig/normalizeRunConfig/
-      // normalizeTicketConfig clampam tudo no servidor), então não tem muito
-      // o que validar aqui.
+      // normalizeTicketConfig/normalizePerfectPickConfig clampam tudo no
+      // servidor), então não tem muito o que validar aqui.
       return null;
     }
     if (!draft.question.trim()) return "Escreva a pergunta do quiz.";
@@ -190,6 +203,12 @@ export function GamePhaseManager({
       ? {
           durationSeconds: Number(draft.durationSeconds) || 30,
           targetScore: Number(draft.targetScore) || 150,
+        }
+      : isPick
+      ? {
+          rounds: Number(draft.rounds) || 6,
+          startMs: Number(draft.startMs) || 2400,
+          minMs: Number(draft.minMs) || 900,
         }
       : (() => {
           const options = draft.optionsText
@@ -261,7 +280,7 @@ export function GamePhaseManager({
 
       <div className="section-header">
         <p className="section-title">
-          Fases ({isReaction ? "reação" : isMemory ? "memória" : isRun ? "corrida" : isTicket ? "tickets" : "quiz"})
+          Fases ({isReaction ? "reação" : isMemory ? "memória" : isRun ? "corrida" : isTicket ? "tickets" : isPick ? "precisão" : "quiz"})
         </p>
         {!creating && !editingId && (
           <Button
@@ -284,6 +303,7 @@ export function GamePhaseManager({
           isMemory={isMemory}
           isRun={isRun}
           isTicket={isTicket}
+          isPick={isPick}
           error={error}
           saving={saving}
           onCancel={() => {
@@ -307,6 +327,7 @@ export function GamePhaseManager({
               isMemory={isMemory}
               isRun={isRun}
               isTicket={isTicket}
+              isPick={isPick}
               error={error}
               saving={saving}
               onCancel={() => {
@@ -482,6 +503,7 @@ function PhaseForm({
   isMemory,
   isRun,
   isTicket,
+  isPick,
   error,
   saving,
   onCancel,
@@ -495,6 +517,7 @@ function PhaseForm({
   isMemory: boolean;
   isRun: boolean;
   isTicket: boolean;
+  isPick: boolean;
   error: string | null;
   saving: boolean;
   onCancel: () => void;
@@ -521,6 +544,8 @@ function PhaseForm({
               ? "Ex: Corrida pro Show"
               : isTicket
               ? "Ex: Fila do Embarque"
+              : isPick
+              ? "Ex: Toque Certeiro"
               : "Ex: Fase 1 - Curiosidades AS Brasil"
           }
         />
@@ -603,6 +628,36 @@ function PhaseForm({
             />
           </Field>
         </>
+      ) : isPick ? (
+        <>
+          <Field label="Quantidade de rodadas" hint="Entre 3 e 12 - cada rodada é uma travessia do marcador.">
+            <Input
+              type="number"
+              value={draft.rounds}
+              onChange={(e) => setDraft({ ...draft, rounds: Number(e.target.value) })}
+            />
+          </Field>
+          <Field
+            label="Velocidade inicial (ms)"
+            hint="Tempo que o marcador leva pra atravessar a barra na 1ª rodada - mais alto é mais fácil."
+          >
+            <Input
+              type="number"
+              value={draft.startMs}
+              onChange={(e) => setDraft({ ...draft, startMs: Number(e.target.value) })}
+            />
+          </Field>
+          <Field
+            label="Velocidade final (ms)"
+            hint="Tempo de travessia na última rodada - mais baixo é mais difícil."
+          >
+            <Input
+              type="number"
+              value={draft.minMs}
+              onChange={(e) => setDraft({ ...draft, minMs: Number(e.target.value) })}
+            />
+          </Field>
+        </>
       ) : (
         <>
           <Field label="Pergunta" required>
@@ -663,7 +718,7 @@ function PhaseForm({
           ))}
         </select>
       </Field>
-      {isReaction || isMemory || isRun || isTicket ? (
+      {isReaction || isMemory || isRun || isTicket || isPick ? (
         <p className="reaction-note">
           Fases desse tipo nunca concedem número extra de sorteio (a pontuação depende de um
           cronômetro/contagem no navegador da pessoa) - só pontos, ranking e card de recompensa.

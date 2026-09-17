@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 
-const VALID_TYPES = ["QUIZ", "MEMORY", "RHYTHM", "HUNT", "CARDS", "REACTION", "RUN", "TICKET"];
+const VALID_TYPES = ["QUIZ", "MEMORY", "RHYTHM", "HUNT", "CARDS", "REACTION", "RUN", "TICKET", "PICK"];
 
 export async function GET() {
   await requireAdmin();

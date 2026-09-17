@@ -510,3 +510,132 @@ export function classifyTicketTier(percent: number): string {
   if (percent >= 25) return "⚡ Embarque iniciado";
   return "🐢 Precisa treinar";
 }
+
+// --- Perfect Pick (13/09) --------------------------------------------------
+//
+// Um marcador atravessa uma barra da esquerda pra direita numa única
+// passada por rodada (cada rodada mais rápida que a anterior) e a pessoa
+// precisa tocar exatamente quando ele passa pelo centro. Ao contrário do
+// Purple Reaction, aqui não tem "chamariz" nem segredo nenhum escondido do
+// jogador - o instante ideal de cada rodada é só matemática (metade do
+// tempo de travessia daquela rodada), então cliente e servidor calculam
+// exatamente a mesma coisa sem precisar de nenhuma seed. O único cuidado é
+// nunca aceitar um `ms` fora da janela real da rodada (negativo ou maior
+// que a duração) antes de medir a distância até o instante ideal - mesmo
+// espírito do clamp usado em todos os outros jogos de ação (o pior caso de
+// manipulação vira "reivindicar timing perfeito", nunca um valor fora da
+// rodada).
+export interface PerfectPickConfig {
+  rounds: number;
+  startMs: number; // duração da travessia na 1ª rodada (mais fácil)
+  minMs: number; // duração da travessia na última rodada (mais difícil)
+}
+
+const PERFECT_PICK_DEFAULTS: PerfectPickConfig = { rounds: 6, startMs: 2400, minMs: 900 };
+const PERFECT_PICK_MIN_ROUNDS = 3;
+const PERFECT_PICK_MAX_ROUNDS = 12;
+const PERFECT_PICK_MS_FLOOR = 500;
+const PERFECT_PICK_MS_CEIL = 4000;
+
+/** Lê a config de uma fase PICK a partir do content (Json livre) - sempre volta um valor seguro. */
+export function normalizePerfectPickConfig(content: unknown): PerfectPickConfig {
+  if (!content || typeof content !== "object") return { ...PERFECT_PICK_DEFAULTS };
+  const c = content as Record<string, unknown>;
+  const rounds =
+    typeof c.rounds === "number"
+      ? Math.min(PERFECT_PICK_MAX_ROUNDS, Math.max(PERFECT_PICK_MIN_ROUNDS, Math.round(c.rounds)))
+      : PERFECT_PICK_DEFAULTS.rounds;
+  const startMs =
+    typeof c.startMs === "number"
+      ? Math.min(PERFECT_PICK_MS_CEIL, Math.max(PERFECT_PICK_MS_FLOOR, Math.round(c.startMs)))
+      : PERFECT_PICK_DEFAULTS.startMs;
+  const minMsRaw =
+    typeof c.minMs === "number" ? Math.max(PERFECT_PICK_MS_FLOOR, Math.round(c.minMs)) : PERFECT_PICK_DEFAULTS.minMs;
+  // minMs nunca pode passar de startMs (a última rodada tem que ser igual ou
+  // mais rápida que a primeira, nunca o contrário).
+  const minMs = Math.min(startMs, minMsRaw);
+  return { rounds, startMs, minMs };
+}
+
+/** Duração (ms) da travessia da rodada `i` (0-indexed) - desce linearmente de startMs até minMs. */
+export function perfectPickRoundDuration(i: number, config: PerfectPickConfig): number {
+  const { rounds, startMs, minMs } = config;
+  if (rounds <= 1) return startMs;
+  const ratio = i / (rounds - 1);
+  return Math.round(startMs - (startMs - minMs) * ratio);
+}
+
+type PerfectPickTapTier = "perfect" | "great" | "good" | "miss";
+
+const PERFECT_PICK_PERFECT_RATIO = 0.05;
+const PERFECT_PICK_GREAT_RATIO = 0.1;
+const PERFECT_PICK_GOOD_RATIO = 0.18;
+const PERFECT_PICK_TIER_WEIGHT: Record<PerfectPickTapTier, number> = { perfect: 100, great: 75, good: 45, miss: 0 };
+
+function classifyPerfectPickTap(ms: number, durationMs: number): PerfectPickTapTier {
+  const idealMs = durationMs / 2;
+  const offsetRatio = durationMs > 0 ? Math.abs(ms - idealMs) / durationMs : 1;
+  if (offsetRatio <= PERFECT_PICK_PERFECT_RATIO) return "perfect";
+  if (offsetRatio <= PERFECT_PICK_GREAT_RATIO) return "great";
+  if (offsetRatio <= PERFECT_PICK_GOOD_RATIO) return "good";
+  return "miss";
+}
+
+export interface PerfectPickOutcome {
+  correctCount: number;
+  total: number;
+  percent: number;
+  isPerfect: boolean;
+  avgQuality: number; // 0-100, média do peso do tier em TODAS as rodadas (miss conta 0)
+  tier: string;
+}
+
+/**
+ * Reprocessa as rodadas mandadas pelo cliente. Cada rodada manda só `ms`
+ * (tempo desde o início da rodada até o toque, ou null se o tempo acabou
+ * sem tocar) - a duração/instante ideal da rodada são recalculados aqui a
+ * partir da config (mesma fórmula do cliente, ver perfectPickRoundDuration),
+ * nunca aceitos do que o corpo da requisição diz.
+ */
+export function evaluatePerfectPickRounds(rounds: unknown, config: PerfectPickConfig): PerfectPickOutcome {
+  const list = Array.isArray(rounds) ? rounds.slice(0, config.rounds) : [];
+  const total = config.rounds;
+
+  let correctCount = 0;
+  let qualitySum = 0;
+
+  for (let i = 0; i < total; i++) {
+    const durationMs = perfectPickRoundDuration(i, config);
+    const r = list[i];
+    const rr = r && typeof r === "object" ? (r as Record<string, unknown>) : {};
+    const rawMs = typeof rr.ms === "number" && Number.isFinite(rr.ms) ? rr.ms : null;
+
+    if (rawMs === null) continue; // não tocou a tempo - miss, soma 0 de qualidade
+
+    const clampedMs = Math.min(durationMs, Math.max(0, rawMs));
+    const tapTier = classifyPerfectPickTap(clampedMs, durationMs);
+    if (tapTier !== "miss") correctCount++;
+    qualitySum += PERFECT_PICK_TIER_WEIGHT[tapTier];
+  }
+
+  const percent = total > 0 ? Math.round((correctCount / total) * 100) : 0;
+  const isPerfect = total > 0 && correctCount === total;
+  const avgQuality = total > 0 ? Math.round(qualitySum / total) : 0;
+
+  return { correctCount, total, percent, isPerfect, avgQuality, tier: classifyPerfectPickTier(avgQuality) };
+}
+
+/** Classificação exibida pro jogador com base na qualidade média do timing - só cosmético. */
+export function classifyPerfectPickTier(avgQuality: number): string {
+  if (avgQuality >= 90) return "🥇 Cirúrgico";
+  if (avgQuality >= 70) return "🥈 Ótimo timing";
+  if (avgQuality >= 45) return "🥉 Bom timing";
+  if (avgQuality >= 20) return "⚡ Impreciso";
+  return "🐢 Precisa treinar";
+}
+
+/** Mesmo formato 1x-1.5x dos outros modos, baseado na qualidade média de timing em vez de tempo de reação. */
+export function perfectPickSpeedMultiplier(avgQuality: number): number {
+  const ratio = Math.max(0, Math.min(100, avgQuality)) / 100;
+  return 1 + ratio * 0.5;
+}

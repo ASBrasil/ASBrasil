@@ -7,6 +7,8 @@ import {
   type MemoryConfig,
   type RunConfig,
   type TicketConfig,
+  type PerfectPickConfig,
+  perfectPickRoundDuration,
   RUN_LANES,
   RUN_MIN_SPAWN_MS,
   RUN_MAX_SPAWN_MS,
@@ -20,6 +22,20 @@ import {
   TICKET_LIVES,
   TICKET_FAKE_CHANCE,
 } from "@/lib/games";
+import {
+  IconStar,
+  IconFlame,
+  IconHeart,
+  IconClock,
+  IconTicket,
+  IconTicketBan,
+  IconCone,
+  IconLightning,
+  IconSparkle,
+  IconShare,
+  IconCardBack,
+  MEMORY_ICONS,
+} from "./GameIcons";
 
 interface Question {
   question: string;
@@ -36,7 +52,7 @@ interface Phase {
   id: string;
   order: number;
   title: string;
-  type: "QUIZ" | "REACTION" | "MEMORY" | "RUN" | "TICKET";
+  type: "QUIZ" | "REACTION" | "MEMORY" | "RUN" | "TICKET" | "PICK";
   points: number;
   grantsExtraTicket: boolean;
   hasRewardCard: boolean;
@@ -45,6 +61,7 @@ interface Phase {
   memoryConfig: MemoryConfig | null;
   runConfig: RunConfig | null;
   ticketConfig: TicketConfig | null;
+  pickConfig: PerfectPickConfig | null;
   result: PhaseResult | null;
 }
 
@@ -79,12 +96,13 @@ interface CompleteResponse {
   cardWon: { id: string; name: string; rarity: string; imageUrl: string | null } | null;
   extraTicketNumber: number | null;
   speedMultiplier: number | null;
-  // Só presentes em fases REACTION/MEMORY/RUN (ver rota complete/route.ts, `...extra`).
+  // Só presentes em fases REACTION/MEMORY/RUN/TICKET/PICK (ver rota complete/route.ts, `...extra`).
   avgMs?: number | null;
   tier?: string;
   moves?: number;
   score?: number;
   maxCombo?: number;
+  avgQuality?: number;
 }
 
 function emptyAnswers(phase: Phase | undefined) {
@@ -195,6 +213,10 @@ export function GamePlayer({
     await postComplete(result);
   }
 
+  async function submitPick(rounds: { ms: number | null }[]) {
+    await postComplete({ rounds });
+  }
+
   if (phases.length === 0) {
     return (
       <div className="wrap" style={{ background: bg }}>
@@ -257,9 +279,21 @@ export function GamePlayer({
             ) : phase.type === "MEMORY" && phase.memoryConfig ? (
               <MemoryStage key={phase.id} config={phase.memoryConfig} onComplete={submitMemory} />
             ) : phase.type === "RUN" && phase.runConfig ? (
-              <RunStage key={phase.id} config={phase.runConfig} onComplete={submitRun} />
+              <RunStage
+                key={phase.id}
+                config={phase.runConfig}
+                onComplete={submitRun}
+                accent={game.theme?.primaryColor || "#8b5cf6"}
+              />
             ) : phase.type === "TICKET" && phase.ticketConfig ? (
-              <TicketStage key={phase.id} config={phase.ticketConfig} onComplete={submitTicket} />
+              <TicketStage
+                key={phase.id}
+                config={phase.ticketConfig}
+                onComplete={submitTicket}
+                accent={game.theme?.primaryColor || "#8b5cf6"}
+              />
+            ) : phase.type === "PICK" && phase.pickConfig ? (
+              <PerfectPickStage key={phase.id} config={phase.pickConfig} onComplete={submitPick} />
             ) : (
               <>
                 <div className="questions">
@@ -387,7 +421,10 @@ function ResultScreen({
         </span>
       </div>
 
-      <h2>{result.isPerfect ? "🎉 Mandou muito bem!" : "Quase lá!"}</h2>
+      <h2 className={result.isPerfect ? "result-title perfect" : "result-title"}>
+        {result.isPerfect && <IconSparkle size={22} className="inline-icon" />}
+        {result.isPerfect ? "Mandou muito bem!" : "Quase lá!"}
+      </h2>
 
       {typeof result.tier === "string" && (
         <p className="reaction-tier">
@@ -396,12 +433,14 @@ function ResultScreen({
           {typeof result.moves === "number" ? ` · ${result.moves} jogadas` : ""}
           {typeof result.score === "number" ? ` · ${result.score} pts` : ""}
           {typeof result.maxCombo === "number" && result.maxCombo > 1 ? ` · combo x${result.maxCombo}` : ""}
+          {typeof result.avgQuality === "number" ? ` · ${result.avgQuality}% de precisão` : ""}
         </p>
       )}
 
       {result.isPerfect && !result.alreadyPlayed && result.speedMultiplier && result.speedMultiplier > 1 && (
         <p className="speed-bonus">
-          ⚡ Bônus de velocidade: +{Math.round((result.speedMultiplier - 1) * 100)}% de pontos!
+          <IconLightning size={16} className="inline-icon" /> Bônus de velocidade: +
+          {Math.round((result.speedMultiplier - 1) * 100)}% de pontos!
         </p>
       )}
 
@@ -415,12 +454,16 @@ function ResultScreen({
 
       {result.cardWon && (
         <div className="card-won">
-          <p className="card-won-label">🎴 Você ganhou uma carta!</p>
+          <p className="card-won-label">
+            <IconCardBack size={16} className="inline-icon" /> Você ganhou uma carta!
+          </p>
           <div className="card-image-wrap">
             {result.cardWon.imageUrl ? (
               <img src={result.cardWon.imageUrl} alt={result.cardWon.name} className="card-image" />
             ) : (
-              <div className="card-image placeholder">🎴</div>
+              <div className="card-image placeholder">
+                <IconCardBack size={44} />
+              </div>
             )}
           </div>
           <p className="card-name">{result.cardWon.name}</p>
@@ -434,7 +477,13 @@ function ResultScreen({
                 ⬇️ Baixar
               </button>
               <button className="secondary-btn" disabled={sharing} onClick={shareCard}>
-                {sharing ? "Preparando…" : "📤 Compartilhar"}
+                {sharing ? (
+                  "Preparando…"
+                ) : (
+                  <>
+                    <IconShare size={14} className="inline-icon" /> Compartilhar
+                  </>
+                )}
               </button>
             </div>
           )}
@@ -443,7 +492,9 @@ function ResultScreen({
 
       {result.extraTicketNumber !== null && (
         <div className="ticket-won">
-          <p>🎟️ Número extra no sorteio de {game.eventName}:</p>
+          <p>
+            <IconTicket size={16} className="inline-icon" /> Número extra no sorteio de {game.eventName}:
+          </p>
           <strong>#{result.extraTicketNumber}</strong>
         </div>
       )}
@@ -546,21 +597,18 @@ function ReactionStage({
   );
 }
 
-// Símbolos usados nas cartas - genéricos o suficiente pra qualquer tema de
-// evento (não são específicos de BTS/Stray Kids/etc, então funcionam pra
-// qualquer Game.theme sem precisar trocar por evento). Suporta até 18 pares.
-const MEMORY_SYMBOLS = [
-  "🎫", "🚌", "⭐", "🎤", "💜", "🎉", "🔥", "🎶", "🏆",
-  "🎁", "🎧", "🌟", "🎪", "🎈", "🎯", "🚗", "🎬", "🎵",
-];
+// Símbolos usados nas cartas - ícones SVG originais e genéricos o suficiente
+// pra qualquer tema de evento (não são específicos de BTS/Stray Kids/etc,
+// então funcionam pra qualquer Game.theme sem precisar trocar por evento).
+// Suporta até 18 pares (ver MEMORY_ICONS em GameIcons.tsx).
 
 interface MemoryCard {
-  symbol: string;
+  symbol: number;
   matched: boolean;
 }
 
 function shuffledMemoryDeck(pairs: number): MemoryCard[] {
-  const symbols = MEMORY_SYMBOLS.slice(0, pairs);
+  const symbols = MEMORY_ICONS.slice(0, pairs).map((_, i) => i);
   const deck: MemoryCard[] = symbols.flatMap((symbol) => [
     { symbol, matched: false },
     { symbol, matched: false },
@@ -630,6 +678,7 @@ function MemoryStage({
       <div className="memory-grid" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
         {deck.map((card, i) => {
           const isFaceUp = card.matched || flipped.includes(i);
+          const Icon = MEMORY_ICONS[card.symbol] ?? MEMORY_ICONS[0];
           return (
             <button
               key={i}
@@ -637,9 +686,9 @@ function MemoryStage({
               className={`memory-card ${isFaceUp ? "face-up" : ""} ${card.matched ? "matched" : ""}`}
               onClick={() => handleFlip(i)}
               disabled={isFaceUp}
-              aria-label={isFaceUp ? card.symbol : "Carta virada pra baixo"}
+              aria-label={isFaceUp ? `Carta ${card.symbol + 1}` : "Carta virada pra baixo"}
             >
-              {isFaceUp ? card.symbol : "?"}
+              {isFaceUp ? <Icon size={26} /> : "?"}
             </button>
           );
         })}
@@ -663,12 +712,204 @@ interface RunItem {
   resolved: boolean;
 }
 
+// Desenha a pista (asfalto + acostamento + faixas tracejadas rolando) - troca
+// o fundo genérico por algo que lê como "rua de verdade" mesmo em Canvas 2D
+// simples, sem precisar de nenhuma imagem externa.
+function drawRoad(ctx: CanvasRenderingContext2D, offset: number) {
+  const grad = ctx.createLinearGradient(0, 0, 0, RUN_CANVAS_H);
+  grad.addColorStop(0, "#2a2a38");
+  grad.addColorStop(1, "#17171f");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, RUN_CANVAS_W, RUN_CANVAS_H);
+
+  // acostamento com faixa de segurança tracejada (amarela), nas duas bordas
+  ctx.fillStyle = "#3d3d4d";
+  ctx.fillRect(0, 0, 8, RUN_CANVAS_H);
+  ctx.fillRect(RUN_CANVAS_W - 8, 0, 8, RUN_CANVAS_H);
+  ctx.strokeStyle = "rgba(250, 204, 21, 0.85)";
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([10, 10]);
+  ctx.lineDashOffset = -offset;
+  ctx.beginPath();
+  ctx.moveTo(4, 0);
+  ctx.lineTo(4, RUN_CANVAS_H);
+  ctx.moveTo(RUN_CANVAS_W - 4, 0);
+  ctx.lineTo(RUN_CANVAS_W - 4, RUN_CANVAS_H);
+  ctx.stroke();
+
+  // faixas de divisão de pista (brancas, tracejadas, rolando pra dar
+  // sensação de movimento)
+  ctx.strokeStyle = "rgba(255,255,255,0.6)";
+  ctx.lineWidth = 3;
+  ctx.setLineDash([20, 18]);
+  ctx.lineDashOffset = -offset;
+  for (let i = 1; i < RUN_LANES; i++) {
+    const x = i * RUN_LANE_W;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, RUN_CANVAS_H);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+}
+
+// Silhueta simples de corredor, com pernas/braços em tesoura animados pela
+// fase (sobe/desce em onda) - dá pra entender de longe que é "alguém
+// correndo" sem precisar de sprite/imagem nenhuma.
+function drawRunner(ctx: CanvasRenderingContext2D, cx: number, cy: number, phase: number, color: string) {
+  const swing = Math.sin(phase) * 9;
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.beginPath();
+  ctx.ellipse(0, 25, 13, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 5;
+  ctx.lineCap = "round";
+
+  ctx.beginPath();
+  ctx.moveTo(-1.5, 6);
+  ctx.lineTo(-1.5 - swing * 0.6, 23);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(1.5, 6);
+  ctx.lineTo(1.5 + swing * 0.6, 23);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(0, -14);
+  ctx.lineTo(0, 6);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(0, -10);
+  ctx.lineTo(swing * 0.7, 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0, -10);
+  ctx.lineTo(-swing * 0.7, 2);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(0, -19.5, 5.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// Ticket estilizado (recorte + linha picotada, igual o ícone IconTicket) -
+// reaproveitado tanto no AS Run (item "bom") quanto no Ticket Rush (item
+// "válido"), pra manter a mesma linguagem visual nos dois jogos de ação.
+function drawTicketShape(ctx: CanvasRenderingContext2D, size: number, color: string) {
+  const w = size * 1.05;
+  const h = size * 0.62;
+  ctx.fillStyle = color;
+  roundRect(ctx, -w / 2, -h / 2, w, h, h * 0.22);
+  ctx.fill();
+  ctx.fillStyle = "#17171f";
+  ctx.beginPath();
+  ctx.arc(w / 2 - h * 0.1, -h / 2, h * 0.16, 0, Math.PI * 2);
+  ctx.arc(w / 2 - h * 0.1, h / 2, h * 0.16, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,0.3)";
+  ctx.setLineDash([2, 2]);
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(w / 2 - h * 0.28, -h / 2 + 2);
+  ctx.lineTo(w / 2 - h * 0.28, h / 2 - 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  return { w, h };
+}
+
+// Mesmo ticket, mas "cancelado" (círculo + traço vermelho por cima, igual o
+// ícone IconTicketBan) - usado pro item falso do Ticket Rush.
+function drawBannedTicketShape(ctx: CanvasRenderingContext2D, size: number, color: string) {
+  ctx.save();
+  ctx.globalAlpha = 0.55;
+  drawTicketShape(ctx, size, color);
+  ctx.restore();
+  const r = size * 0.46;
+  ctx.strokeStyle = "#ef4444";
+  ctx.lineWidth = size * 0.09;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.lineCap = "round";
+  ctx.moveTo(-r * 0.7, r * 0.7);
+  ctx.lineTo(r * 0.7, -r * 0.7);
+  ctx.stroke();
+}
+
+// Cone de obstáculo genérico (laranja + faixas brancas) - item "ruim" do AS
+// Run.
+function drawConeShape(ctx: CanvasRenderingContext2D, size: number) {
+  const s = size * 0.9;
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  roundRect(ctx, -s * 0.42, s * 0.34, s * 0.84, s * 0.14, s * 0.06);
+  ctx.fill();
+  ctx.fillStyle = "#f97316";
+  ctx.beginPath();
+  ctx.moveTo(0, -s * 0.5);
+  ctx.lineTo(s * 0.38, s * 0.4);
+  ctx.lineTo(-s * 0.38, s * 0.4);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.12, -s * 0.02);
+  ctx.lineTo(s * 0.12, -s * 0.02);
+  ctx.lineTo(s * 0.24, s * 0.24);
+  ctx.lineTo(-s * 0.24, s * 0.24);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawRunItem(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, kind: "good" | "bad", color: string) {
+  ctx.save();
+  ctx.translate(x, y);
+  if (kind === "good") {
+    drawTicketShape(ctx, size, color);
+  } else {
+    drawConeShape(ctx, size);
+  }
+  ctx.restore();
+}
+
+function drawTicketRushItem(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, kind: "valid" | "fake", color: string) {
+  ctx.save();
+  ctx.translate(x, y);
+  if (kind === "valid") {
+    drawTicketShape(ctx, size, color);
+  } else {
+    drawBannedTicketShape(ctx, size, color);
+  }
+  ctx.restore();
+}
+
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
 function RunStage({
   config,
   onComplete,
+  accent,
 }: {
   config: RunConfig;
   onComplete: (result: { score: number; maxCombo: number; elapsedMs: number }) => void;
+  accent: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const laneRef = useRef(1);
@@ -680,6 +921,8 @@ function RunStage({
   const startRef = useRef(0);
   const rafRef = useRef(0);
   const finishedRef = useRef(false);
+  const roadOffsetRef = useRef(0);
+  const runnerPhaseRef = useRef(0);
 
   const [hud, setHud] = useState({ score: 0, lives: RUN_LIVES, combo: 1, timeLeft: config.durationSeconds });
 
@@ -706,25 +949,26 @@ function RunStage({
 
     function draw() {
       if (!ctx) return;
-      ctx.clearRect(0, 0, RUN_CANVAS_W, RUN_CANVAS_H);
-      for (let i = 0; i < RUN_LANES; i++) {
-        ctx.fillStyle = i % 2 === 0 ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.02)";
-        ctx.fillRect(i * RUN_LANE_W, 0, RUN_LANE_W, RUN_CANVAS_H);
-      }
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
+      drawRoad(ctx, roadOffsetRef.current);
       itemsRef.current.forEach((item) => {
-        ctx.font = `${RUN_ITEM_SIZE}px sans-serif`;
-        ctx.fillText(item.kind === "good" ? "🎫" : "🚧", item.lane * RUN_LANE_W + RUN_LANE_W / 2, item.y);
+        drawRunItem(ctx, item.lane * RUN_LANE_W + RUN_LANE_W / 2, item.y, RUN_ITEM_SIZE, item.kind, accent);
       });
-      ctx.font = "40px sans-serif";
-      ctx.fillText("🏃", laneRef.current * RUN_LANE_W + RUN_LANE_W / 2, RUN_PLAYER_Y);
+      const moving = livesRef.current > 0;
+      drawRunner(
+        ctx,
+        laneRef.current * RUN_LANE_W + RUN_LANE_W / 2,
+        RUN_PLAYER_Y,
+        moving ? runnerPhaseRef.current : 0,
+        accent
+      );
     }
 
     function loop(now: number) {
       const elapsed = now - startRef.current;
       const dt = now - lastFrame;
       lastFrame = now;
+      roadOffsetRef.current += dt * 0.09;
+      runnerPhaseRef.current += dt * 0.012;
 
       if (elapsed >= config.durationSeconds * 1000 || livesRef.current <= 0) {
         draw();
@@ -799,10 +1043,19 @@ function RunStage({
   return (
     <div className="run-stage">
       <div className="run-hud">
-        <span>⏱️ {hud.timeLeft}s</span>
-        <span>⭐ {hud.score}</span>
-        <span>🔥 x{hud.combo}</span>
-        <span>{"❤️".repeat(hud.lives)}</span>
+        <span className="hud-stat">
+          <IconClock size={15} /> {hud.timeLeft}s
+        </span>
+        <span className="hud-stat">
+          <IconStar size={15} /> {hud.score}
+        </span>
+        <span className="hud-stat">
+          <IconFlame size={15} /> x{hud.combo}
+        </span>
+        <span className="hud-stat">
+          <IconHeart size={15} />
+          {hud.lives}
+        </span>
       </div>
       <canvas
         ref={canvasRef}
@@ -828,12 +1081,42 @@ interface TicketItem {
   kind: "valid" | "fake";
 }
 
+// Fundo escuro com "luzes de fila de embarque" subindo (feixes verticais
+// suaves) - troca o clearRect vazio por algo com um pouco de atmosfera, sem
+// competir visualmente com os tickets caindo.
+function drawTicketBg(ctx: CanvasRenderingContext2D, offset: number, color: string) {
+  const grad = ctx.createLinearGradient(0, 0, 0, TICKET_CANVAS_H);
+  grad.addColorStop(0, "#191a2e");
+  grad.addColorStop(1, "#0d0e1c");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, TICKET_CANVAS_W, TICKET_CANVAS_H);
+
+  ctx.save();
+  ctx.globalAlpha = 0.1;
+  ctx.fillStyle = color;
+  const beamCount = 5;
+  for (let i = 0; i < beamCount; i++) {
+    const x = ((i + 0.5) / beamCount) * TICKET_CANVAS_W;
+    const sway = Math.sin(offset * 0.02 + i) * 14;
+    ctx.beginPath();
+    ctx.moveTo(x - 26 + sway, 0);
+    ctx.lineTo(x + 26 + sway, 0);
+    ctx.lineTo(x + 8, TICKET_CANVAS_H);
+    ctx.lineTo(x - 8, TICKET_CANVAS_H);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 function TicketStage({
   config,
   onComplete,
+  accent,
 }: {
   config: TicketConfig;
   onComplete: (result: { score: number; maxCombo: number; elapsedMs: number }) => void;
+  accent: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const itemsRef = useRef<TicketItem[]>([]);
@@ -846,6 +1129,7 @@ function TicketStage({
   const finishedRef = useRef(false);
 
   const [hud, setHud] = useState({ score: 0, lives: TICKET_LIVES, combo: 1, timeLeft: config.durationSeconds });
+  const bgOffsetRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -870,12 +1154,9 @@ function TicketStage({
 
     function draw() {
       if (!ctx) return;
-      ctx.clearRect(0, 0, TICKET_CANVAS_W, TICKET_CANVAS_H);
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.font = `${TICKET_ITEM_SIZE}px sans-serif`;
+      drawTicketBg(ctx, bgOffsetRef.current, accent);
       itemsRef.current.forEach((item) => {
-        ctx.fillText(item.kind === "valid" ? "🎫" : "🚫", item.x, item.y);
+        drawTicketRushItem(ctx, item.x, item.y, TICKET_ITEM_SIZE, item.kind, accent);
       });
     }
 
@@ -883,6 +1164,7 @@ function TicketStage({
       const elapsed = now - startRef.current;
       const dt = now - lastFrame;
       lastFrame = now;
+      bgOffsetRef.current += dt;
 
       if (elapsed >= config.durationSeconds * 1000 || livesRef.current <= 0) {
         draw();
@@ -968,10 +1250,19 @@ function TicketStage({
   return (
     <div className="ticket-stage">
       <div className="ticket-hud">
-        <span>⏱️ {hud.timeLeft}s</span>
-        <span>⭐ {hud.score}</span>
-        <span>🔥 x{hud.combo}</span>
-        <span>{"❤️".repeat(hud.lives)}</span>
+        <span className="hud-stat">
+          <IconClock size={15} /> {hud.timeLeft}s
+        </span>
+        <span className="hud-stat">
+          <IconStar size={15} /> {hud.score}
+        </span>
+        <span className="hud-stat">
+          <IconFlame size={15} /> x{hud.combo}
+        </span>
+        <span className="hud-stat">
+          <IconHeart size={15} />
+          {hud.lives}
+        </span>
       </div>
       <canvas
         ref={canvasRef}
@@ -980,7 +1271,90 @@ function TicketStage({
         className="ticket-canvas"
         onPointerDown={handleTap}
       />
-      <p className="ticket-hint">Toque só nos tickets válidos 🎫 - evite os cancelados 🚫</p>
+      <p className="ticket-hint">
+        Toque só nos tickets válidos <IconTicket size={13} className="inline-icon" /> - evite os cancelados{" "}
+        <IconTicketBan size={13} className="inline-icon" />
+      </p>
+    </div>
+  );
+}
+
+// --- Perfect Pick ----------------------------------------------------------
+// Delay antes de cada rodada começar a andar - só pra dar tempo de ler
+// "Rodada X" antes do marcador sair, não conta pra pontuação.
+const PICK_ROUND_START_DELAY_MS = 500;
+
+function PerfectPickStage({
+  config,
+  onComplete,
+}: {
+  config: PerfectPickConfig;
+  onComplete: (rounds: { ms: number | null }[]) => void;
+}) {
+  const [roundIndex, setRoundIndex] = useState(0);
+  const [running, setRunning] = useState(false);
+  const resultsRef = useRef<{ ms: number | null }[]>([]);
+  const startedAtRef = useRef(0);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const finishedRef = useRef(false);
+
+  const totalRounds = config.rounds;
+  const durationMs = perfectPickRoundDuration(roundIndex, config);
+
+  useEffect(() => {
+    if (finishedRef.current || roundIndex >= totalRounds) return;
+    setRunning(false);
+    const startTimer = setTimeout(() => {
+      startedAtRef.current = Date.now();
+      setRunning(true);
+      timeoutRef.current = setTimeout(() => {
+        registerRound({ ms: null });
+      }, durationMs);
+    }, PICK_ROUND_START_DELAY_MS);
+    return () => {
+      clearTimeout(startTimer);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roundIndex]);
+
+  function registerRound(entry: { ms: number | null }) {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    setRunning(false);
+    resultsRef.current.push(entry);
+    const next = roundIndex + 1;
+    if (next >= totalRounds) {
+      finishedRef.current = true;
+      onComplete(resultsRef.current);
+    } else {
+      setRoundIndex(next);
+    }
+  }
+
+  function handleTap() {
+    if (!running) return;
+    registerRound({ ms: Date.now() - startedAtRef.current });
+  }
+
+  return (
+    <div className="pick-stage">
+      <p className="pick-round">
+        Rodada {Math.min(roundIndex + 1, totalRounds)}/{totalRounds}
+      </p>
+      <div className="pick-track">
+        <div className="pick-target" />
+        <div
+          className="pick-marker"
+          style={{
+            left: running ? "100%" : "0%",
+            transition: running ? `left ${durationMs}ms linear` : "none",
+          }}
+        />
+      </div>
+      <button type="button" className="pick-btn" onClick={handleTap} disabled={!running}>
+        {running ? "TOCAR!" : "…"}
+      </button>
+      <p className="pick-hint">Toque exatamente quando o marcador passar pelo centro da barra</p>
     </div>
   );
 }
@@ -1113,6 +1487,9 @@ function Styles() {
         border: 1px solid rgba(255, 255, 255, 0.15);
         background: rgba(255, 255, 255, 0.08);
         font-size: 1.4rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         cursor: pointer;
         transition: background 0.15s, transform 0.15s;
         color: #fff;
@@ -1184,6 +1561,68 @@ function Styles() {
         font-size: 0.75rem;
         opacity: 0.6;
       }
+      .pick-stage {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 0 1.5rem;
+        width: 100%;
+      }
+      .pick-round {
+        margin: 0;
+        font-size: 0.8rem;
+        opacity: 0.7;
+      }
+      .pick-track {
+        position: relative;
+        width: 100%;
+        height: 0.6rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.1);
+      }
+      .pick-target {
+        position: absolute;
+        top: 50%;
+        left: calc(50% - 0.35rem);
+        transform: translateY(-50%);
+        width: 0.7rem;
+        height: 1.6rem;
+        border-radius: 0.2rem;
+        background: rgba(232, 182, 70, 0.35);
+        border: 1px solid rgba(232, 182, 70, 0.6);
+      }
+      .pick-marker {
+        position: absolute;
+        top: 50%;
+        width: 1rem;
+        height: 1rem;
+        border-radius: 999px;
+        background: #4f5fff;
+        box-shadow: 0 0 1rem rgba(79, 95, 255, 0.6);
+        transform: translate(-50%, -50%);
+      }
+      .pick-btn {
+        width: 100%;
+        background: #e8b646;
+        color: #12121a;
+        border: none;
+        border-radius: 999px;
+        padding: 0.9rem 1.3rem;
+        font-weight: 800;
+        font-size: 1rem;
+        cursor: pointer;
+      }
+      .pick-btn:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      .pick-hint {
+        margin: 0;
+        font-size: 0.8rem;
+        opacity: 0.7;
+        text-align: center;
+      }
       .progress-dots {
         display: flex;
         justify-content: center;
@@ -1208,6 +1647,25 @@ function Styles() {
         font-size: 1.3rem;
         margin: 0 0 1rem;
         text-align: center;
+      }
+      .result-title {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+      }
+      .result-title.perfect {
+        color: #fbbf24;
+      }
+      .inline-icon {
+        display: inline-block;
+        vertical-align: -0.15em;
+        flex-shrink: 0;
+      }
+      .hud-stat {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
       }
       .already-note,
       .note {
@@ -1299,6 +1757,10 @@ function Styles() {
         border: 1px solid rgba(232, 182, 70, 0.3);
       }
       .card-won-label {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
         margin: 0 0 0.9rem;
         font-weight: 700;
         font-size: 0.9rem;
@@ -1336,6 +1798,9 @@ function Styles() {
         margin-top: 1rem;
       }
       .secondary-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
         background: transparent;
         border: 1px solid rgba(255, 255, 255, 0.3);
         color: #fff;
@@ -1357,6 +1822,9 @@ function Styles() {
         border: 1px solid rgba(79, 95, 255, 0.35);
       }
       .ticket-won p {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
         margin: 0 0 0.3rem;
         font-size: 0.82rem;
         opacity: 0.85;

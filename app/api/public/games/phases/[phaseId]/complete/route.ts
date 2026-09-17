@@ -19,6 +19,9 @@ import {
   evaluateRunResult,
   normalizeTicketConfig,
   evaluateTicketRushResult,
+  normalizePerfectPickConfig,
+  evaluatePerfectPickRounds,
+  perfectPickSpeedMultiplier,
 } from "@/lib/games";
 import { grantGamePerfectCards } from "@/lib/cards";
 import { ParticipantSource } from "@prisma/client";
@@ -116,6 +119,20 @@ export async function POST(req: NextRequest, { params }: { params: { phaseId: st
     isPerfect = outcome.isPerfect;
     speedFactor = 1;
     extra = { score: outcome.score, maxCombo: outcome.maxCombo, tier: outcome.tier };
+  } else if (phase.type === "PICK") {
+    // Perfect Pick: toca quando o marcador passa pelo centro da barra. Sem
+    // segredo nenhum pra esconder (o instante ideal é só matemática, ver
+    // lib/games.ts) - o `ms` de cada rodada vem do cliente mas é sempre
+    // clampado dentro da janela real daquela rodada. Igual os outros jogos
+    // de ação, nunca gera número extra de sorteio.
+    const config = normalizePerfectPickConfig(phase.content);
+    const outcome = evaluatePerfectPickRounds(body.rounds, config);
+    correctCount = outcome.correctCount;
+    total = outcome.total;
+    percent = outcome.percent;
+    isPerfect = outcome.isPerfect;
+    speedFactor = isPerfect ? perfectPickSpeedMultiplier(outcome.avgQuality) : 1;
+    extra = { avgQuality: outcome.avgQuality, tier: outcome.tier };
   } else {
     // QUIZ (e qualquer fase antiga sem type explícito, que sempre foi quiz).
     const answers: unknown[] = Array.isArray(body.answers) ? body.answers : [];

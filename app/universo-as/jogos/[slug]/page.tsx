@@ -10,6 +10,7 @@ import {
   normalizeMemoryConfig,
   normalizeRunConfig,
   normalizeTicketConfig,
+  normalizePerfectPickConfig,
 } from "@/lib/games";
 import { GamePlayer } from "@/components/participant/GamePlayer";
 import { ParticipantTopNav } from "@/components/participant/ParticipantTopNav";
@@ -70,17 +71,18 @@ export default async function PlayGamePage({ params }: { params: { slug: string 
       points: p.points,
       grantsExtraTicket: p.grantsExtraTicket,
       hasRewardCard: !!p.rewardCardId,
-      // Reaction, Memory, Run e Ticket não têm "resposta certa" pra esconder
-      // (nenhum deles depende de um segredo guardado no servidor) - só o
-      // quiz precisa tirar a correctIndex antes de mandar pro cliente.
+      // Reaction, Memory, Run, Ticket e Pick não têm "resposta certa" pra
+      // esconder (nenhum deles depende de um segredo guardado no servidor) -
+      // só o quiz precisa tirar a correctIndex antes de mandar pro cliente.
       questions:
-        p.type === "REACTION" || p.type === "MEMORY" || p.type === "RUN" || p.type === "TICKET"
+        p.type === "REACTION" || p.type === "MEMORY" || p.type === "RUN" || p.type === "TICKET" || p.type === "PICK"
           ? []
           : stripCorrectAnswers(normalizeQuizQuestions(p.content)),
       reactionConfig: p.type === "REACTION" ? normalizeReactionConfig(p.content) : null,
       memoryConfig: p.type === "MEMORY" ? normalizeMemoryConfig(p.content) : null,
       runConfig: p.type === "RUN" ? normalizeRunConfig(p.content) : null,
       ticketConfig: p.type === "TICKET" ? normalizeTicketConfig(p.content) : null,
+      pickConfig: p.type === "PICK" ? normalizePerfectPickConfig(p.content) : null,
       result: existing
         ? { completed: existing.completed, firstScore: existing.firstScore, attempts: existing.attempts }
         : null,
