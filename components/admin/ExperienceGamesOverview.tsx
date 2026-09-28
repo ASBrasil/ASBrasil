@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { RankingList } from "@/components/participant/RankingList";
 import type { RankingEntry } from "@/lib/ranking";

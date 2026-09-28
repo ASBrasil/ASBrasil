@@ -138,45 +138,6 @@ export function ImageUpload({
               </svg>
             </button>
             <img src={value} alt="" onClick={(e) => e.stopPropagation()} />
-            <style jsx>{`
-              .lightbox {
-                position: fixed;
-                inset: 0;
-                z-index: 200;
-                background: rgba(5, 8, 18, 0.85);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                padding: 3rem 1.5rem;
-                cursor: zoom-out;
-              }
-              .lightbox img {
-                max-width: min(90vw, 60rem);
-                max-height: 85vh;
-                object-fit: contain;
-                border-radius: 0.5rem;
-                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-                cursor: default;
-              }
-              .lightbox-close {
-                position: fixed;
-                top: 1.25rem;
-                right: 1.5rem;
-                width: 2.4rem;
-                height: 2.4rem;
-                border-radius: 999px;
-                border: none;
-                background: rgba(255, 255, 255, 0.12);
-                color: white;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                cursor: pointer;
-              }
-              .lightbox-close:hover {
-                background: rgba(255, 255, 255, 0.22);
-              }
-            `}</style>
           </div>,
           document.body
         )}
@@ -274,6 +235,43 @@ export function ImageUpload({
         .error {
           font-size: 0.78rem;
           color: #c0392b;
+        }
+        .lightbox {
+          position: fixed;
+          inset: 0;
+          z-index: 200;
+          background: rgba(5, 8, 18, 0.85);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 3rem 1.5rem;
+          cursor: zoom-out;
+        }
+        .lightbox img {
+          max-width: min(90vw, 60rem);
+          max-height: 85vh;
+          object-fit: contain;
+          border-radius: 0.5rem;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+          cursor: default;
+        }
+        .lightbox-close {
+          position: fixed;
+          top: 1.25rem;
+          right: 1.5rem;
+          width: 2.4rem;
+          height: 2.4rem;
+          border-radius: 999px;
+          border: none;
+          background: rgba(255, 255, 255, 0.12);
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+        }
+        .lightbox-close:hover {
+          background: rgba(255, 255, 255, 0.22);
         }
       `}</style>
     </div>
