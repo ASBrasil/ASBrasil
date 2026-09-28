@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { IconCamera } from "@/components/participant/GameIcons";
 
 interface PhotoSlotProps {
   label: string;
@@ -52,8 +53,12 @@ function PhotoSlot({ label, hint, folder, field, initialUrl, shape }: PhotoSlotP
   return (
     <div className="slot">
       <div className={`preview ${shape}`}>
-        {url ? <img src={url} alt={label} /> : <span className="placeholder">📷</span>}
-        {uploading && <div className="overlay">Enviando…</div>}
+        {url ? <img src={url} alt={label} /> : <IconCamera size={22} className="placeholder" />}
+        {uploading && (
+          <div className="overlay">
+            <span className="spinner" aria-hidden />
+          </div>
+        )}
       </div>
       <div className="slot-info">
         <p className="slot-label">{label}</p>
@@ -105,7 +110,6 @@ function PhotoSlot({ label, hint, folder, field, initialUrl, shape }: PhotoSlotP
           object-fit: cover;
         }
         .placeholder {
-          font-size: 1.4rem;
           opacity: 0.5;
         }
         .overlay {
@@ -116,8 +120,19 @@ function PhotoSlot({ label, hint, folder, field, initialUrl, shape }: PhotoSlotP
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 0.65rem;
-          text-align: center;
+        }
+        .spinner {
+          width: 1.3rem;
+          height: 1.3rem;
+          border-radius: 999px;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-top-color: #fff;
+          animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
+          }
         }
         .slot-info {
           display: flex;

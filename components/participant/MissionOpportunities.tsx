@@ -66,7 +66,7 @@ export function MissionOpportunities({
             fontWeight: 700,
             textTransform: "uppercase",
             letterSpacing: "0.12em",
-            color: "#e8b646",
+            color: "var(--primary, #4f5fff)",
           }}
         >
           {mode === "first" ? "Escolha um pré-requisito" : "Ganhe mais números"}
@@ -145,7 +145,7 @@ function MissionCard({ mission: initial }: { mission: MissionOpportunity }) {
   }
 
   return (
-    <div style={{ ...cardBase, background: "rgba(232,182,70,0.08)", border: "1px solid rgba(232,182,70,0.35)" }}>
+    <div style={{ ...cardBase, background: "color-mix(in srgb, var(--primary, #4f5fff) 8%, transparent)", border: "1px solid color-mix(in srgb, var(--primary, #4f5fff) 35%, transparent)" }}>
       <h3 style={{ margin: "0 0 0.5rem", fontFamily: "Sora, system-ui, sans-serif", fontSize: "1.05rem" }}>
         {mission.title}
       </h3>
@@ -223,7 +223,7 @@ function MissionAction({
   }
 
   const confirmBtnStyle: React.CSSProperties = {
-    background: "#e8b646",
+    background: "var(--primary, #4f5fff)",
     color: "#12121a",
     border: "none",
     borderRadius: "999px",
@@ -234,11 +234,11 @@ function MissionAction({
   };
   const linkBtnStyle: React.CSSProperties = {
     display: "inline-block",
-    color: "#e8b646",
+    color: "var(--primary, #4f5fff)",
     fontSize: "0.83rem",
     fontWeight: 600,
     textDecoration: "none",
-    border: "1px solid rgba(232,182,70,0.4)",
+    border: "1px solid color-mix(in srgb, var(--primary, #4f5fff) 40%, transparent)",
     borderRadius: "999px",
     padding: "0.42rem 0.85rem",
     marginRight: "0.5rem",
@@ -273,8 +273,8 @@ function MissionAction({
                   gap: "0.5rem",
                   fontSize: "0.83rem",
                   padding: "0.4rem 0.55rem",
-                  border: `1px solid ${selected === i ? "#e8b646" : "rgba(255,255,255,0.15)"}`,
-                  background: selected === i ? "rgba(232,182,70,0.1)" : "transparent",
+                  border: `1px solid ${selected === i ? "var(--primary, #4f5fff)" : "rgba(255,255,255,0.15)"}`,
+                  background: selected === i ? "color-mix(in srgb, var(--primary, #4f5fff) 10%, transparent)" : "transparent",
                   borderRadius: "0.5rem",
                   cursor: "pointer",
                   textAlign: "left",
@@ -315,7 +315,7 @@ function MissionAction({
             <label
               style={{
                 display: "inline-block",
-                background: "#e8b646",
+                background: "var(--primary, #4f5fff)",
                 color: "#12121a",
                 borderRadius: "999px",
                 padding: "0.6rem 1.3rem",

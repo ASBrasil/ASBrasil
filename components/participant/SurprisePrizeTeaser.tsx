@@ -81,14 +81,14 @@ export function SurprisePrizeTeaser({
           border-radius: 1.1rem;
           text-align: center;
           background: rgba(255, 255, 255, 0.05);
-          border: 1px dashed rgba(232, 182, 70, 0.35);
+          border: 1px dashed color-mix(in srgb, var(--primary, #4f5fff) 35%, transparent);
         }
         .eyebrow {
           display: inline-block;
           font-size: 0.78rem;
           font-weight: 700;
           letter-spacing: 0.03em;
-          color: #e8b646;
+          color: var(--primary, #4f5fff);
           margin-bottom: 0.75rem;
         }
         .text {
@@ -109,7 +109,7 @@ export function SurprisePrizeTeaser({
           margin: 0 0 1.4rem;
         }
         .notify-btn {
-          background: #e8b646;
+          background: var(--primary, #4f5fff);
           color: #12121a;
           border: none;
           border-radius: 999px;

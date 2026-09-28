@@ -6,6 +6,7 @@ import { getSessionAdminId } from "@/lib/auth";
 import { getGlobalRanking } from "@/lib/ranking";
 import { ParticipantTopNav } from "@/components/participant/ParticipantTopNav";
 import { RankingList } from "@/components/participant/RankingList";
+import { IconController, IconCardBack } from "@/components/participant/GameIcons";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,10 @@ export default async function UniversoAsPage() {
       <section className="content">
         <div className="page-heading">
           <span className="eyebrow">Jogue e colecione</span>
-          <h1>🎮 Universo AS</h1>
+          <h1>
+            <IconController size={28} className="title-icon" />
+            Universo AS
+          </h1>
           <p className="subtitle">
             Jogue os desafios de qualquer evento, ganhe cards pro seu álbum e, quando estiver
             inscrito no evento do jogo, concorra a números extras no sorteio.
@@ -93,7 +97,10 @@ export default async function UniversoAsPage() {
           </div>
         )}
 
-        <h2 className="album-title">🎴 Meu álbum de figurinhas</h2>
+        <h2 className="album-title">
+          <IconCardBack size={19} className="title-icon" />
+          Meu álbum de figurinhas
+        </h2>
         {cards.length === 0 ? (
           <p className="empty">Ainda não existe nenhuma carta no álbum do Universo AS.</p>
         ) : (
@@ -105,7 +112,9 @@ export default async function UniversoAsPage() {
                   {owned && card.imageUrl ? (
                     <img src={card.imageUrl} alt={card.name} className="album-thumb" />
                   ) : (
-                    <div className="album-thumb placeholder">{owned ? "🎴" : "?"}</div>
+                    <div className="album-thumb placeholder">
+                      {owned ? <IconCardBack size={26} /> : "?"}
+                    </div>
                   )}
                   <p className="album-name">{owned ? card.name : "???"}</p>
                 </div>
@@ -133,13 +142,24 @@ export default async function UniversoAsPage() {
           color: #8b9aff;
           margin-bottom: 0.6rem;
         }
-        h1 { margin: 0 0 0.6rem; font-family: "Sora", system-ui, sans-serif; font-size: clamp(1.8rem, 3.5vw, 2.4rem); }
+        h1 {
+          margin: 0 0 0.6rem;
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          font-family: "Sora", system-ui, sans-serif;
+          font-size: clamp(1.8rem, 3.5vw, 2.4rem);
+        }
         .subtitle { color: rgba(255, 255, 255, 0.6); margin: 0; line-height: 1.6; }
         h2 {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
           font-family: "Sora", system-ui, sans-serif;
           font-size: 1.15rem;
           margin: 0 0 1.25rem;
         }
+        .title-icon { color: #8b9aff; flex-shrink: 0; }
         .album-title, .section-spaced { margin-top: 3rem; }
         .ranking-hint { color: rgba(255, 255, 255, 0.55); font-size: 0.8rem; margin: -0.75rem 0 1.25rem; }
         .empty { color: rgba(255, 255, 255, 0.6); font-size: 0.9rem; }

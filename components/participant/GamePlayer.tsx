@@ -217,9 +217,14 @@ export function GamePlayer({
     await postComplete({ rounds });
   }
 
+  // CSS var com a cor primária do tema do jogo - usada pelos elementos que
+  // antes tinham dourado fixo (quiz, reação, etc), pra ficar consistente com
+  // o resto do app quando o evento tem uma cor de tema própria.
+  const themeVars = { "--primary": game.theme?.primaryColor || "#4f5fff" } as React.CSSProperties;
+
   if (phases.length === 0) {
     return (
-      <div className="wrap" style={{ background: bg }}>
+      <div className="wrap" style={{ background: bg, ...themeVars }}>
         <div className="card">
           <p className="empty">Esse jogo ainda não tem fases prontas. Volte mais tarde!</p>
         </div>
@@ -229,7 +234,7 @@ export function GamePlayer({
   }
 
   return (
-    <div className="wrap" style={{ background: bg }}>
+    <div className="wrap" style={{ background: bg, ...themeVars }}>
       <div className="card">
         <div className="progress-dots">
           {phases.map((p, i) => (
@@ -1416,7 +1421,7 @@ function Styles() {
       .reaction-tier {
         text-align: center;
         font-weight: 700;
-        color: #e8b646;
+        color: var(--primary, #4f5fff);
         margin: -0.5rem 0 1rem;
       }
       .reaction-stage {
@@ -1604,7 +1609,7 @@ function Styles() {
       }
       .pick-btn {
         width: 100%;
-        background: #e8b646;
+        background: var(--primary, #4f5fff);
         color: #12121a;
         border: none;
         border-radius: 999px;
@@ -1636,7 +1641,7 @@ function Styles() {
         background: rgba(255, 255, 255, 0.2);
       }
       .dot.done {
-        background: #e8b646;
+        background: var(--primary, #4f5fff);
       }
       .dot.active {
         background: #fff;
@@ -1702,8 +1707,8 @@ function Styles() {
         cursor: pointer;
       }
       .option.selected {
-        border-color: #e8b646;
-        background: rgba(232, 182, 70, 0.1);
+        border-color: var(--primary, #4f5fff);
+        background: color-mix(in srgb, var(--primary, #4f5fff) 12%, transparent);
       }
       .error {
         color: #fca5a5;
@@ -1714,7 +1719,7 @@ function Styles() {
       .submit-btn {
         display: block;
         width: 100%;
-        background: #e8b646;
+        background: var(--primary, #4f5fff);
         color: #12121a;
         border: none;
         border-radius: 999px;
@@ -1734,7 +1739,7 @@ function Styles() {
         width: 6.5rem;
         height: 6.5rem;
         border-radius: 999px;
-        border: 3px solid #e8b646;
+        border: 3px solid var(--primary, #4f5fff);
         display: flex;
         flex-direction: column;
         align-items: center;

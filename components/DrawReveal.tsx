@@ -71,8 +71,8 @@ function Digit({ target, isLocked, delay }: { target: string; isLocked: boolean;
         height: "4.25rem",
         overflow: "hidden",
         borderRadius: "0.5rem",
-        background: "var(--surface, #1B1B26)",
-        border: "1px solid color-mix(in srgb, var(--primary, #E8B646) 35%, transparent)",
+        background: "var(--surface, #141B3D)",
+        border: "1px solid color-mix(in srgb, var(--primary, #4F5FFF) 35%, transparent)",
         position: "relative",
       }}
     >
@@ -84,7 +84,7 @@ function Digit({ target, isLocked, delay }: { target: string; isLocked: boolean;
           fontFamily: "var(--font-mono, monospace)",
           fontSize: "2.5rem",
           fontWeight: 700,
-          color: "var(--primary, #E8B646)",
+          color: "var(--primary, #4F5FFF)",
           lineHeight: "4.25rem",
           textAlign: "center",
           animation: isLocked ? "none" : "spin 0.35s linear infinite",

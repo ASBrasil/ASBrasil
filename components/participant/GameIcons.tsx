@@ -285,6 +285,55 @@ export function IconSuitcase({ size = 18, className }: IconProps) {
   );
 }
 
+// Controle de jogo genérico - usado no lugar do emoji 🎮 (título do
+// /universo-as). Forma simples, sem nenhuma marca de console real.
+export function IconController({ size = 18, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className}>
+      <path
+        d="M6.5 6.5h11a4.5 4.5 0 014.4 5.4l-.9 4.4a2.6 2.6 0 01-4.6 1.1l-1.3-1.7H9.9l-1.3 1.7a2.6 2.6 0 01-4.6-1.1l-.9-4.4a4.5 4.5 0 014.4-5.4z"
+        fill="currentColor"
+      />
+      <rect x="6.2" y="9.7" width="3.6" height="1.4" rx="0.7" fill="#0a0e20" opacity="0.55" />
+      <rect x="7.2" y="8.7" width="1.4" height="3.4" rx="0.7" fill="#0a0e20" opacity="0.55" />
+      <circle cx="17" cy="10" r="1.1" fill="#0a0e20" opacity="0.55" />
+      <circle cx="14.6" cy="12.4" r="1.1" fill="#0a0e20" opacity="0.55" />
+    </svg>
+  );
+}
+
+// Cadeado genérico - usado no lugar do emoji 🔒 (conquista/card bloqueado).
+export function IconLock({ size = 18, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className}>
+      <path
+        d="M7.5 10V7.8a4.5 4.5 0 019 0V10"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <rect x="5.5" y="10" width="13" height="10" rx="2.2" fill="currentColor" />
+      <circle cx="12" cy="14.2" r="1.6" fill="#0a0e20" opacity="0.55" />
+      <rect x="11.2" y="15" width="1.6" height="2.6" rx="0.8" fill="#0a0e20" opacity="0.55" />
+    </svg>
+  );
+}
+
+// Alerta genérico (triângulo + exclamação) - usado no lugar do emoji ⚠️.
+export function IconAlertTriangle({ size = 18, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className}>
+      <path
+        d="M12 3.2l10 17.3H2z"
+        fill="currentColor"
+      />
+      <rect x="11.1" y="9.5" width="1.8" height="5.6" rx="0.9" fill="#0a0e20" opacity="0.7" />
+      <circle cx="12" cy="17.3" r="1.1" fill="#0a0e20" opacity="0.7" />
+    </svg>
+  );
+}
+
 export function IconCompass({ size = 18, className }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}>

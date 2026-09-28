@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getParticipantEmail } from "@/lib/participant-session";
 import { ParticipantTopNav } from "@/components/participant/ParticipantTopNav";
+import { IconTrophy, IconLock, IconCardBack } from "@/components/participant/GameIcons";
 
 export const dynamic = "force-dynamic";
 
@@ -122,7 +123,9 @@ export default async function ConquistasPage() {
         <div className="badges-grid">
           {badges.map((b) => (
             <div key={b.id} className={`badge-card ${b.earned ? "earned" : "locked"}`}>
-              <span className="badge-icon">{b.earned ? "🏅" : "🔒"}</span>
+              <span className="badge-icon">
+                {b.earned ? <IconTrophy size={22} /> : <IconLock size={20} />}
+              </span>
               <p className="badge-name">{b.name}</p>
               <p className="badge-desc">{b.description}</p>
             </div>
@@ -139,7 +142,9 @@ export default async function ConquistasPage() {
                 {card.imageUrl ? (
                   <img src={card.imageUrl} alt={card.name} className="album-thumb" />
                 ) : (
-                  <div className="album-thumb placeholder">🎴</div>
+                  <div className="album-thumb placeholder">
+                    <IconCardBack size={26} />
+                  </div>
                 )}
                 <p className="album-name">{card.name}</p>
                 <p className="album-rarity">{card.rarity}</p>
@@ -228,10 +233,29 @@ export default async function ConquistasPage() {
           border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 1rem;
           padding: 1.1rem 1.25rem;
+          transition: border-color 0.15s, transform 0.15s;
         }
-        .badge-card.locked { opacity: 0.5; }
-        .badge-icon { font-size: 1.6rem; }
-        .badge-name { margin: 0.5rem 0 0.25rem; font-weight: 700; font-size: 0.95rem; }
+        .badge-card.earned {
+          border-color: rgba(139, 154, 255, 0.4);
+          background: linear-gradient(160deg, rgba(79, 95, 255, 0.14), rgba(255, 255, 255, 0.03));
+          box-shadow: 0 0.5rem 1.4rem rgba(79, 95, 255, 0.12);
+        }
+        .badge-card.locked { opacity: 0.55; }
+        .badge-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 2.6rem;
+          height: 2.6rem;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.06);
+          color: rgba(255, 255, 255, 0.4);
+        }
+        .badge-card.earned .badge-icon {
+          background: linear-gradient(135deg, #4f5fff, #8b9aff);
+          color: #fff;
+        }
+        .badge-name { margin: 0.6rem 0 0.25rem; font-weight: 700; font-size: 0.95rem; }
         .badge-desc { margin: 0; font-size: 0.78rem; color: rgba(255, 255, 255, 0.6); line-height: 1.4; }
         .album-grid {
           display: grid;

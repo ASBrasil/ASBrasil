@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { getParticipantEmail } from "@/lib/participant-session";
 import { ProfileForm } from "@/components/participant/ProfileForm";
 import { ProfilePhotos } from "@/components/participant/ProfilePhotos";
+import { ParticipantTopNav } from "@/components/participant/ParticipantTopNav";
+import { IconAlertTriangle } from "@/components/participant/GameIcons";
 
 export const dynamic = "force-dynamic";
 
@@ -47,15 +49,7 @@ export default async function PerfilPage() {
 
   return (
     <main className="page">
-      <header className="topbar">
-        <Link href="/meus-eventos" className="brand">
-          <span aria-hidden className="dot">●</span>
-          AS BRASIL
-        </Link>
-        <Link href="/meus-eventos" className="back">
-          ← Voltar
-        </Link>
-      </header>
+      <ParticipantTopNav />
 
       <section className="content">
         <div className="page-heading">
@@ -66,7 +60,8 @@ export default async function PerfilPage() {
 
         {profileIncomplete && (
           <div className="incomplete-banner">
-            ⚠️ Falta pouco: adicione uma foto de perfil e um apelido pra completar seu cadastro.
+            <IconAlertTriangle size={18} className="banner-icon" />
+            Falta pouco: adicione uma foto de perfil e um apelido pra completar seu cadastro.
           </div>
         )}
 
@@ -121,43 +116,13 @@ export default async function PerfilPage() {
           font-family: system-ui, sans-serif;
           color: #f5f6fa;
         }
-        .topbar {
-          position: sticky;
-          top: 0;
-          z-index: 40;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 1rem;
-          padding: 0.85rem 1.75rem;
-          background: rgba(8, 12, 30, 0.72);
-          backdrop-filter: blur(14px);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-          font-size: 0.85rem;
-        }
-        .brand {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          color: white;
-          text-decoration: none;
-          font-weight: 800;
-          font-size: 0.85rem;
-          letter-spacing: 0.03em;
-        }
-        .brand .dot { color: #4f5fff; }
-        .back {
-          color: white;
-          text-decoration: none;
-          opacity: 0.8;
-          font-weight: 600;
-          font-size: 0.82rem;
-        }
-        .back:hover { opacity: 1; }
-        .content { max-width: 56rem; margin: 0 auto; padding: 3.5rem 2rem 6rem; }
+        .content { max-width: 56rem; margin: 0 auto; padding: 2.5rem 2rem 6rem; }
         .page-heading { max-width: 32rem; margin-bottom: 2rem; }
         .incomplete-banner {
           max-width: 56rem;
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
           background: rgba(232, 182, 70, 0.12);
           border: 1px solid rgba(232, 182, 70, 0.4);
           color: #f3d38a;
@@ -166,6 +131,7 @@ export default async function PerfilPage() {
           font-size: 0.85rem;
           margin-bottom: 2rem;
         }
+        .banner-icon { flex-shrink: 0; color: #e8b646; }
         .eyebrow {
           display: block;
           font-size: 0.72rem;
@@ -180,7 +146,14 @@ export default async function PerfilPage() {
         .columns {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 3rem;
+          gap: 1.5rem;
+          align-items: start;
+        }
+        .col {
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 1rem;
+          padding: 1.5rem 1.5rem 1.75rem;
         }
         h2 {
           font-family: "Sora", system-ui, sans-serif;

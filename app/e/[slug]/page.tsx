@@ -27,10 +27,10 @@ export default async function EventPage({ params }: { params: { slug: string } }
     <main
       style={
         {
-          "--primary": colors.primary ?? "#E8B646",
-          "--background": colors.background ?? "#12121A",
-          "--surface": colors.surface ?? "#1B1B26",
-          "--text": colors.text ?? "#F5F0E6",
+          "--primary": colors.primary ?? "#4F5FFF",
+          "--background": colors.background ?? "#0A1330",
+          "--surface": colors.surface ?? "#141B3D",
+          "--text": colors.text ?? "#F5F6FA",
           background: "var(--background)",
           color: "var(--text)",
           minHeight: "100vh",

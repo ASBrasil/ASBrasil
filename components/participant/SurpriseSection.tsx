@@ -60,7 +60,7 @@ export function SurpriseSection({ mission: initial }: { mission: SurpriseData })
         style={{
           ...cardBase,
           background: "rgba(255, 255, 255, 0.05)",
-          border: "1px dashed rgba(232, 182, 70, 0.35)",
+          border: "1px dashed color-mix(in srgb, var(--primary, #4f5fff) 35%, transparent)",
         }}
       >
         <span
@@ -69,7 +69,7 @@ export function SurpriseSection({ mission: initial }: { mission: SurpriseData })
             fontSize: "0.78rem",
             fontWeight: 700,
             letterSpacing: "0.03em",
-            color: "#e8b646",
+            color: "var(--primary, #4f5fff)",
             marginBottom: "0.85rem",
           }}
         >
@@ -132,11 +132,11 @@ export function SurpriseSection({ mission: initial }: { mission: SurpriseData })
     <section
       style={{
         ...cardBase,
-        background: "rgba(232, 182, 70, 0.08)",
-        border: "1px solid rgba(232, 182, 70, 0.35)",
+        background: "color-mix(in srgb, var(--primary, #4f5fff) 8%, transparent)",
+        border: "1px solid color-mix(in srgb, var(--primary, #4f5fff) 35%, transparent)",
       }}
     >
-      <span style={{ display: "inline-block", fontSize: "0.85rem", fontWeight: 700, color: "#e8b646", marginBottom: "0.75rem" }}>
+      <span style={{ display: "inline-block", fontSize: "0.85rem", fontWeight: 700, color: "var(--primary, #4f5fff)", marginBottom: "0.75rem" }}>
         🎉 SURPRESA DESBLOQUEADA
       </span>
       <h3 style={{ fontFamily: "Sora, system-ui, sans-serif", margin: "0 0 0.6rem" }}>{mission.title}</h3>
@@ -212,7 +212,7 @@ function SurpriseAction({
   }
 
   const confirmBtnStyle: React.CSSProperties = {
-    background: "#e8b646",
+    background: "var(--primary, #4f5fff)",
     color: "#12121a",
     border: "none",
     borderRadius: "999px",
@@ -223,11 +223,11 @@ function SurpriseAction({
   };
   const linkBtnStyle: React.CSSProperties = {
     display: "inline-block",
-    color: "#e8b646",
+    color: "var(--primary, #4f5fff)",
     fontSize: "0.85rem",
     fontWeight: 600,
     textDecoration: "none",
-    border: "1px solid rgba(232, 182, 70, 0.4)",
+    border: "1px solid color-mix(in srgb, var(--primary, #4f5fff) 40%, transparent)",
     borderRadius: "999px",
     padding: "0.45rem 0.9rem",
   };
@@ -261,8 +261,8 @@ function SurpriseAction({
                   gap: "0.5rem",
                   fontSize: "0.85rem",
                   padding: "0.45rem 0.6rem",
-                  border: `1px solid ${selected === i ? "#e8b646" : "rgba(255,255,255,0.15)"}`,
-                  background: selected === i ? "rgba(232, 182, 70, 0.1)" : "transparent",
+                  border: `1px solid ${selected === i ? "var(--primary, #4f5fff)" : "rgba(255,255,255,0.15)"}`,
+                  background: selected === i ? "color-mix(in srgb, var(--primary, #4f5fff) 10%, transparent)" : "transparent",
                   borderRadius: "0.5rem",
                   cursor: "pointer",
                   textAlign: "left",
@@ -305,7 +305,7 @@ function SurpriseAction({
             <label
               style={{
                 display: "inline-block",
-                background: "#e8b646",
+                background: "var(--primary, #4f5fff)",
                 color: "#12121a",
                 borderRadius: "999px",
                 padding: "0.6rem 1.3rem",
