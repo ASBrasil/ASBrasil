@@ -80,6 +80,7 @@ model Experience {
   updatedAt   DateTime @updatedAt
 
   events      Event[]
+  characters  Character[]
 
   @@index([active])
 }
@@ -618,9 +619,18 @@ model UniverseProfile {
   displayName String?
   avatarUrl   String?
   winnerPhotoUrl String?
+
+  // Personagem desbloqueado escolhido como avatar - quando setado, tem
+  // precedência sobre avatarUrl (foto livre) na exibição (perfil, ranking).
+  // onDelete SetNull: se o personagem for excluído do admin, a pessoa só
+  // volta a usar a foto livre, não fica com um avatar quebrado.
+  avatarCharacterId String?
+  avatarCharacter   Character? @relation(fields: [avatarCharacterId], references: [id], onDelete: SetNull)
+
   createdAt   DateTime @default(now())
 
   cards       PlayerCard[]
+  characters  PlayerCharacter[]
   progress    PlayerPhaseProgress[]
 }
 
@@ -663,6 +673,13 @@ model GamePhase {
 
   rewardCardId String?
   rewardCard   GameCard? @relation(fields: [rewardCardId], references: [id], onDelete: SetNull)
+
+  // Personagem colecionável concedido ao completar essa fase com nota
+  // máxima - mesmo gatilho/condição de rewardCardId (isPerfect na rota
+  // complete/route.ts), só que alimenta o álbum de Personagens da
+  // Experience em vez do álbum de figurinhas. Ver model Character.
+  rewardCharacterId String?
+  rewardCharacter   Character? @relation(fields: [rewardCharacterId], references: [id], onDelete: SetNull)
 
   // Quando true, completar essa fase concede um número extra no sorteio
   // do evento (Game.eventId) - igual ParticipantSource.GAME - MAS só pra
@@ -711,6 +728,45 @@ model PlayerCard {
 
   @@unique([email, cardId])
   @@index([cardId])
+}
+
+// Elenco de personagens de uma Experience (ex: os mascotes do evento do
+// BTS) - sistema novo e separado de GameCard/PlayerCard (decisão do Paulo em
+// 28/09), mesmo sendo conceitualmente parecido (item colecionável com
+// raridade e concessão automática), porque Personagens tem regras próprias
+// (avatar, escopo por Experience) que não fazem sentido misturadas no
+// álbum de figurinhas genérico. Só uma imagem por personagem por enquanto -
+// suporte a múltiplas poses/sprites fica pra uma versão futura.
+model Character {
+  id           String     @id @default(cuid())
+  experienceId String
+  experience   Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  imageUrl    String?
+  rarity      String     @default("comum")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rewardOfPhases GamePhase[]
+  owners         PlayerCharacter[]
+  avatarOf       UniverseProfile[]
+
+  @@index([experienceId])
+}
+
+model PlayerCharacter {
+  id          String          @id @default(cuid())
+  email       String
+  profile     UniverseProfile @relation(fields: [email], references: [email], onDelete: Cascade)
+  characterId String
+  character   Character       @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  obtainedAt  DateTime        @default(now())
+
+  @@unique([email, characterId])
+  @@index([characterId])
 }
 
 // Só a primeira tentativa pontua (firstScore) pro ranking/XP - joga de

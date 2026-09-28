@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getParticipantEmail } from "@/lib/participant-session";
 import { ProfileForm } from "@/components/participant/ProfileForm";
 import { ProfilePhotos } from "@/components/participant/ProfilePhotos";
+import { CharacterAvatarPicker } from "@/components/participant/CharacterAvatarPicker";
 import { ParticipantTopNav } from "@/components/participant/ParticipantTopNav";
 import { IconAlertTriangle } from "@/components/participant/GameIcons";
 
@@ -19,13 +20,18 @@ export default async function PerfilPage() {
   const email = await getParticipantEmail();
   if (!email) redirect("/entrar");
 
-  const [rows, universeProfile] = await Promise.all([
+  const [rows, universeProfile, ownedCharacters] = await Promise.all([
     db.participant.findMany({
       where: { email, event: { archived: false } },
       include: { event: { select: { id: true, slug: true, name: true, active: true } } },
       orderBy: { createdAt: "desc" },
     }),
     db.universeProfile.findUnique({ where: { email } }),
+    db.playerCharacter.findMany({
+      where: { email },
+      include: { character: { select: { id: true, name: true, rarity: true, imageUrl: true } } },
+      orderBy: { obtainedAt: "desc" },
+    }),
   ]);
 
   const latest = rows[0];
@@ -71,6 +77,10 @@ export default async function PerfilPage() {
             <ProfilePhotos
               initialAvatarUrl={universeProfile?.avatarUrl ?? null}
               initialWinnerPhotoUrl={universeProfile?.winnerPhotoUrl ?? null}
+            />
+            <CharacterAvatarPicker
+              characters={ownedCharacters.map(({ character }) => character)}
+              initialAvatarCharacterId={universeProfile?.avatarCharacterId ?? null}
             />
             <ProfileForm
               initialName={latest?.name ?? ""}

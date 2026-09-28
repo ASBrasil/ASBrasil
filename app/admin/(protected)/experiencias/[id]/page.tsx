@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ExperienceThemeEditor } from "@/components/admin/ExperienceThemeEditor";
 import { ExperienceEventsManager } from "@/components/admin/ExperienceEventsManager";
 import { ExperienceGamesOverview } from "@/components/admin/ExperienceGamesOverview";
+import { ExperienceCharactersManager } from "@/components/admin/ExperienceCharactersManager";
 import { getExperienceRanking } from "@/lib/ranking";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ export default async function ExperienceDetailPage({ params }: { params: { id: s
   // agregada que o Paulo pediu ("ranking dos joguinhos" ao abrir a
   // experiência) juntamos por event.experienceId, igual a página pública já
   // faz em app/eventos/[slug]/page.tsx.
-  const [unassigned, games, ranking] = await Promise.all([
+  const [unassigned, games, ranking, characters] = await Promise.all([
     db.event.findMany({
       where: { experienceId: null, archived: false },
       orderBy: { name: "asc" },
@@ -37,6 +38,10 @@ export default async function ExperienceDetailPage({ params }: { params: { id: s
       orderBy: { createdAt: "desc" },
     }),
     getExperienceRanking(experience.id),
+    db.character.findMany({
+      where: { experienceId: experience.id },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
   return (
@@ -99,6 +104,17 @@ export default async function ExperienceDetailPage({ params }: { params: { id: s
           phaseCount: g.phases.length,
         }))}
         ranking={ranking}
+      />
+
+      <ExperienceCharactersManager
+        experienceId={experience.id}
+        characters={characters.map((c) => ({
+          id: c.id,
+          name: c.name,
+          rarity: c.rarity,
+          imageUrl: c.imageUrl,
+          description: c.description,
+        }))}
       />
 
       <style>{`

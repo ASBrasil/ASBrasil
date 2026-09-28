@@ -111,6 +111,11 @@ function Row({ entry, highlighted }: { entry: RankingEntry; highlighted?: boolea
   return (
     <div className={`row ${highlighted ? "me" : ""}`}>
       <span className="rank">{MEDALS[entry.rank - 1] ?? `#${entry.rank}`}</span>
+      {entry.avatarUrl ? (
+        <img src={entry.avatarUrl} alt="" className="avatar" />
+      ) : (
+        <span className="avatar placeholder" aria-hidden />
+      )}
       <span className="name">{entry.label}</span>
       <span className="xp">{entry.xp} pts</span>
 
@@ -118,7 +123,7 @@ function Row({ entry, highlighted }: { entry: RankingEntry; highlighted?: boolea
         .row {
           display: flex;
           align-items: center;
-          gap: 0.75rem;
+          gap: 0.6rem;
           background: rgba(255, 255, 255, 0.04);
           border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 0.6rem;
@@ -134,6 +139,17 @@ function Row({ entry, highlighted }: { entry: RankingEntry; highlighted?: boolea
           font-size: 0.9rem;
           font-weight: 700;
           flex-shrink: 0;
+        }
+        .avatar {
+          width: 1.9rem;
+          height: 1.9rem;
+          border-radius: 50%;
+          object-fit: cover;
+          flex-shrink: 0;
+          background: rgba(255, 255, 255, 0.08);
+        }
+        .avatar.placeholder {
+          border: 1px dashed rgba(255, 255, 255, 0.18);
         }
         .name {
           flex: 1;

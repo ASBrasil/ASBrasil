@@ -6,7 +6,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   await requireAdmin();
   const body = await req.json();
 
-  const { title, content, points, rewardCardId, grantsExtraTicket } = body;
+  const { title, content, points, rewardCardId, rewardCharacterId, grantsExtraTicket } = body;
   if (!title || !content) {
     return NextResponse.json({ error: "title e content são obrigatórios" }, { status: 400 });
   }
@@ -30,6 +30,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       content,
       points: typeof points === "number" ? points : 10,
       rewardCardId: rewardCardId || null,
+      rewardCharacterId: rewardCharacterId || null,
       grantsExtraTicket: !!grantsExtraTicket,
     },
   });

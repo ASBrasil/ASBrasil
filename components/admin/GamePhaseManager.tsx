@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Field, Input } from "@/components/ui/primitives";
+import { ImageUpload } from "@/components/admin/ImageUpload";
 
 type Visibility = "DRAFT" | "TESTING" | "LIVE";
 type GameType = "QUIZ" | "MEMORY" | "RHYTHM" | "HUNT" | "CARDS" | "REACTION" | "RUN" | "TICKET" | "PICK";
@@ -21,6 +22,9 @@ interface ReactionContent {
 interface MemoryContent {
   pairs?: number;
   timeLimitSeconds?: number;
+  // Imagens customizadas por par (28/09) - opcional, um índice vazio usa o
+  // ícone SVG padrão nessa posição (ver GameIcons.tsx::MEMORY_ICONS).
+  images?: (string | null)[];
 }
 
 interface RunContent {
@@ -46,10 +50,17 @@ interface Phase {
   content: QuizContent & ReactionContent & MemoryContent & RunContent & TicketContent & PickContent;
   points: number;
   rewardCardId: string | null;
+  rewardCharacterId: string | null;
   grantsExtraTicket: boolean;
 }
 
 interface CardOption {
+  id: string;
+  name: string;
+  rarity: string;
+}
+
+interface CharacterOption {
   id: string;
   name: string;
   rarity: string;
@@ -68,6 +79,7 @@ const EMPTY_DRAFT = {
   correctIndex: 0,
   points: 10,
   rewardCardId: "",
+  rewardCharacterId: "",
   grantsExtraTicket: false,
   // Purple Reaction (11/09) - decoyChancePercent fica em 0-100 na UI só pra
   // ser mais natural de digitar, convertido pra 0-1 na hora de salvar.
@@ -76,6 +88,8 @@ const EMPTY_DRAFT = {
   // AS Memory (11/09) - timeLimitSeconds 0 = sem limite.
   pairs: 8,
   timeLimitSeconds: 0,
+  // Imagens customizadas por par (28/09) - opcional, ver MemoryContent.images.
+  memoryImages: [] as (string | null)[],
   // AS Run (12/09) e Ticket Rush (12/09) reaproveitam os dois campos abaixo.
   durationSeconds: 30,
   targetScore: 150,
@@ -91,12 +105,14 @@ export function GamePhaseManager({
   visibility: initialVisibility,
   phases: initialPhases,
   cards,
+  characters,
 }: {
   gameId: string;
   gameType: GameType;
   visibility: Visibility;
   phases: Phase[];
   cards: CardOption[];
+  characters: CharacterOption[];
 }) {
   const isReaction = gameType === "REACTION";
   const isMemory = gameType === "MEMORY";
@@ -142,11 +158,13 @@ export function GamePhaseManager({
       correctIndex: p.content?.correctIndex ?? 0,
       points: p.points,
       rewardCardId: p.rewardCardId ?? "",
+      rewardCharacterId: p.rewardCharacterId ?? "",
       grantsExtraTicket: p.grantsExtraTicket,
       rounds: p.content?.rounds ?? 5,
       decoyChancePercent: Math.round((p.content?.decoyChance ?? 0.25) * 100),
       pairs: p.content?.pairs ?? 8,
       timeLimitSeconds: p.content?.timeLimitSeconds ?? 0,
+      memoryImages: p.content?.images ?? [],
       durationSeconds: p.content?.durationSeconds ?? 30,
       targetScore: p.content?.targetScore ?? 150,
       startMs: p.content?.startMs ?? 2400,
@@ -193,6 +211,7 @@ export function GamePhaseManager({
       ? {
           pairs: Number(draft.pairs) || 8,
           timeLimitSeconds: Number(draft.timeLimitSeconds) || 0,
+          images: draft.memoryImages.slice(0, Number(draft.pairs) || 8),
         }
       : isRun
       ? {
@@ -223,6 +242,7 @@ export function GamePhaseManager({
       content,
       points: Number(draft.points) || 0,
       rewardCardId: draft.rewardCardId || null,
+      rewardCharacterId: draft.rewardCharacterId || null,
       // Reaction/Memory nunca concedem número extra de sorteio (pontuação
       // depende de cronômetro/contagem no navegador da pessoa) - ver
       // canGrantTicket na rota complete/route.ts. Forçado aqui pra UI nem
@@ -299,6 +319,7 @@ export function GamePhaseManager({
           draft={draft}
           setDraft={setDraft}
           cards={cards}
+          characters={characters}
           isReaction={isReaction}
           isMemory={isMemory}
           isRun={isRun}
@@ -323,6 +344,7 @@ export function GamePhaseManager({
               draft={draft}
               setDraft={setDraft}
               cards={cards}
+              characters={characters}
               isReaction={isReaction}
               isMemory={isMemory}
               isRun={isRun}
@@ -346,6 +368,7 @@ export function GamePhaseManager({
                 <p className="meta">
                   {phase.points} pts
                   {phase.rewardCardId && ` · 🎴 concede card`}
+                  {phase.rewardCharacterId && ` · 🧸 concede personagem`}
                   {phase.grantsExtraTicket && ` · 🎟️ número extra pra quem está no sorteio`}
                 </p>
               </div>
@@ -499,6 +522,7 @@ function PhaseForm({
   draft,
   setDraft,
   cards,
+  characters,
   isReaction,
   isMemory,
   isRun,
@@ -513,6 +537,7 @@ function PhaseForm({
   draft: typeof EMPTY_DRAFT;
   setDraft: (d: typeof EMPTY_DRAFT) => void;
   cards: CardOption[];
+  characters: CharacterOption[];
   isReaction: boolean;
   isMemory: boolean;
   isRun: boolean;
@@ -586,6 +611,27 @@ function PhaseForm({
               value={draft.timeLimitSeconds}
               onChange={(e) => setDraft({ ...draft, timeLimitSeconds: Number(e.target.value) })}
             />
+          </Field>
+          <Field
+            label="Imagens das cartas"
+            hint="Opcional, por par - quando não enviar uma imagem, a carta usa o ícone padrão nessa posição."
+          >
+            <div className="memory-images-grid">
+              {Array.from({ length: Math.max(0, Number(draft.pairs) || 0) }).map((_, i) => (
+                <ImageUpload
+                  key={i}
+                  label={`Carta ${i + 1}`}
+                  value={draft.memoryImages[i] ?? null}
+                  onChange={(url) => {
+                    const next = [...draft.memoryImages];
+                    next[i] = url;
+                    setDraft({ ...draft, memoryImages: next });
+                  }}
+                  folder="memory-cards"
+                  aspectRatio="1 / 1"
+                />
+              ))}
+            </div>
           </Field>
         </>
       ) : isRun ? (
@@ -718,6 +764,27 @@ function PhaseForm({
           ))}
         </select>
       </Field>
+      <Field
+        label="Personagem de recompensa"
+        hint={
+          characters.length === 0
+            ? "Essa Experiência ainda não tem personagens cadastrados (aba Personagens na página da Experiência)."
+            : "Opcional - o jogador desbloqueia esse personagem (Universo AS → coleção) ao completar a fase."
+        }
+      >
+        <select
+          value={draft.rewardCharacterId}
+          onChange={(e) => setDraft({ ...draft, rewardCharacterId: e.target.value })}
+          disabled={characters.length === 0}
+        >
+          <option value="">Nenhum</option>
+          {characters.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name} ({c.rarity})
+            </option>
+          ))}
+        </select>
+      </Field>
       {isReaction || isMemory || isRun || isTicket || isPick ? (
         <p className="reaction-note">
           Fases desse tipo nunca concedem número extra de sorteio (a pontuação depende de um
@@ -752,6 +819,11 @@ function PhaseForm({
           border-radius: 0.75rem;
           padding: 1.1rem 1.25rem;
           margin-bottom: 0.75rem;
+        }
+        .memory-images-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+          gap: 0.6rem;
         }
         select {
           width: 100%;

@@ -253,15 +253,22 @@ export function reactionSpeedMultiplier(avgMs: number | null): number {
 export interface MemoryConfig {
   pairs: number;
   timeLimitSeconds: number; // 0 = sem limite (mas ainda usado como teto do clamp de velocidade)
+  // Imagens customizadas por par (28/09) - recurso livre e independente do
+  // sistema de Personagens (qualquer imagem pode virar carta de memória, não
+  // precisa ser um Personagem desbloqueável). Puramente visual: não entra em
+  // nenhum cálculo de pontuação/anti-fraude, por isso não precisa de
+  // validação forte aqui - `null` num índice = usa o ícone SVG padrão
+  // (MEMORY_ICONS) nessa posição, ver GamePlayer.tsx::MemoryStage.
+  images: (string | null)[];
 }
 
-const MEMORY_DEFAULTS: MemoryConfig = { pairs: 8, timeLimitSeconds: 0 };
+const MEMORY_DEFAULTS: MemoryConfig = { pairs: 8, timeLimitSeconds: 0, images: [] };
 const MEMORY_MIN_PAIRS = 4;
 const MEMORY_MAX_PAIRS = 18;
 
 /** Lê a config de uma fase MEMORY a partir do content (Json livre) - sempre volta um valor seguro. */
 export function normalizeMemoryConfig(content: unknown): MemoryConfig {
-  if (!content || typeof content !== "object") return { ...MEMORY_DEFAULTS };
+  if (!content || typeof content !== "object") return { ...MEMORY_DEFAULTS, images: [] };
   const c = content as Record<string, unknown>;
   const pairs =
     typeof c.pairs === "number"
@@ -269,7 +276,10 @@ export function normalizeMemoryConfig(content: unknown): MemoryConfig {
       : MEMORY_DEFAULTS.pairs;
   const timeLimitSeconds =
     typeof c.timeLimitSeconds === "number" ? Math.max(0, Math.round(c.timeLimitSeconds)) : MEMORY_DEFAULTS.timeLimitSeconds;
-  return { pairs, timeLimitSeconds };
+  const images = Array.isArray(c.images)
+    ? c.images.slice(0, pairs).map((x) => (typeof x === "string" && x ? x : null))
+    : [];
+  return { pairs, timeLimitSeconds, images };
 }
 
 export interface MemoryOutcome {

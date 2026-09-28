@@ -71,6 +71,7 @@ export default async function PlayGamePage({ params }: { params: { slug: string 
       points: p.points,
       grantsExtraTicket: p.grantsExtraTicket,
       hasRewardCard: !!p.rewardCardId,
+      hasRewardCharacter: !!p.rewardCharacterId,
       // Reaction, Memory, Run, Ticket e Pick não têm "resposta certa" pra
       // esconder (nenhum deles depende de um segredo guardado no servidor) -
       // só o quiz precisa tirar a correctIndex antes de mandar pro cliente.

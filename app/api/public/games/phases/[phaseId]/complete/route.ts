@@ -24,6 +24,7 @@ import {
   perfectPickSpeedMultiplier,
 } from "@/lib/games";
 import { grantGamePerfectCards } from "@/lib/cards";
+import { grantPhaseRewardCharacter } from "@/lib/characters";
 import { ParticipantSource } from "@prisma/client";
 
 export async function POST(req: NextRequest, { params }: { params: { phaseId: string } }) {
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: { phaseId: st
 
   const phase = await db.gamePhase.findUnique({
     where: { id: params.phaseId },
-    include: { game: true, rewardCard: true },
+    include: { game: true, rewardCard: true, rewardCharacter: true },
   });
   if (!phase) return NextResponse.json({ error: "Fase não encontrada" }, { status: 404 });
 
@@ -197,6 +198,7 @@ export async function POST(req: NextRequest, { params }: { params: { phaseId: st
   });
 
   let cardWon: { id: string; name: string; rarity: string; imageUrl: string | null } | null = null;
+  let characterWon: { id: string; name: string; rarity: string; imageUrl: string | null } | null = null;
   let extraTicketNumber: number | null = null;
 
   if (isPerfect && phase.rewardCard) {
@@ -212,6 +214,20 @@ export async function POST(req: NextRequest, { params }: { params: { phaseId: st
         create: { email, cardId: phase.rewardCard.id },
         update: {},
       });
+    }
+  }
+
+  // Personagem colecionável (28/09) - mesma condição (isPerfect, só na
+  // primeira tentativa) e mesmo padrão do card acima, ver lib/characters.ts.
+  if (isPerfect && phase.rewardCharacter) {
+    characterWon = {
+      id: phase.rewardCharacter.id,
+      name: phase.rewardCharacter.name,
+      rarity: phase.rewardCharacter.rarity,
+      imageUrl: phase.rewardCharacter.imageUrl,
+    };
+    if (isFirstAttempt) {
+      await grantPhaseRewardCharacter(email, phase.rewardCharacter.id);
     }
   }
 
@@ -263,6 +279,7 @@ export async function POST(req: NextRequest, { params }: { params: { phaseId: st
     isPerfect,
     alreadyPlayed: !isFirstAttempt,
     cardWon,
+    characterWon,
     extraTicketNumber,
     // speedFactor só passa de 1 quando teve bônus de verdade (Rush ligado, ou
     // Reaction), então isso já cobre os dois tipos sem precisar saber qual é.

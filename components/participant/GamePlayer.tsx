@@ -56,6 +56,7 @@ interface Phase {
   points: number;
   grantsExtraTicket: boolean;
   hasRewardCard: boolean;
+  hasRewardCharacter: boolean;
   questions: Question[];
   reactionConfig: ReactionConfig | null;
   memoryConfig: MemoryConfig | null;
@@ -94,6 +95,7 @@ interface CompleteResponse {
   isPerfect: boolean;
   alreadyPlayed: boolean;
   cardWon: { id: string; name: string; rarity: string; imageUrl: string | null } | null;
+  characterWon: { id: string; name: string; rarity: string; imageUrl: string | null } | null;
   extraTicketNumber: number | null;
   speedMultiplier: number | null;
   // Só presentes em fases REACTION/MEMORY/RUN/TICKET/PICK (ver rota complete/route.ts, `...extra`).
@@ -456,6 +458,9 @@ function ResultScreen({
       {!result.isPerfect && !result.alreadyPlayed && phase.hasRewardCard && (
         <p className="note">Essa fase tinha uma carta pra quem acerta tudo - na próxima fase você pode tentar de novo!</p>
       )}
+      {!result.isPerfect && !result.alreadyPlayed && !phase.hasRewardCard && phase.hasRewardCharacter && (
+        <p className="note">Essa fase tinha um personagem pra quem acerta tudo - na próxima fase você pode tentar de novo!</p>
+      )}
 
       {result.cardWon && (
         <div className="card-won">
@@ -492,6 +497,26 @@ function ResultScreen({
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {result.characterWon && (
+        <div className="card-won">
+          <p className="card-won-label">
+            <IconCardBack size={16} className="inline-icon" /> Você desbloqueou um personagem!
+          </p>
+          <div className="card-image-wrap">
+            {result.characterWon.imageUrl ? (
+              <img src={result.characterWon.imageUrl} alt={result.characterWon.name} className="card-image" />
+            ) : (
+              <div className="card-image placeholder">
+                <IconCardBack size={44} />
+              </div>
+            )}
+          </div>
+          <p className="card-name">{result.characterWon.name}</p>
+          <span className="card-rarity">{result.characterWon.rarity}</span>
+          <p className="character-hint">Ele já entrou na sua coleção - escolha como avatar em Meu perfil.</p>
         </div>
       )}
 
@@ -683,6 +708,7 @@ function MemoryStage({
       <div className="memory-grid" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
         {deck.map((card, i) => {
           const isFaceUp = card.matched || flipped.includes(i);
+          const customImage = config.images?.[card.symbol] ?? null;
           const Icon = MEMORY_ICONS[card.symbol] ?? MEMORY_ICONS[0];
           return (
             <button
@@ -693,7 +719,15 @@ function MemoryStage({
               disabled={isFaceUp}
               aria-label={isFaceUp ? `Carta ${card.symbol + 1}` : "Carta virada pra baixo"}
             >
-              {isFaceUp ? <Icon size={26} /> : "?"}
+              {isFaceUp ? (
+                customImage ? (
+                  <img src={customImage} alt="" className="memory-card-image" />
+                ) : (
+                  <Icon size={26} />
+                )
+              ) : (
+                "?"
+              )}
             </button>
           );
         })}
@@ -1503,14 +1537,20 @@ function Styles() {
         transform: scale(0.94);
       }
       .memory-card.face-up {
-        background: rgba(232, 182, 70, 0.18);
-        border-color: rgba(232, 182, 70, 0.4);
+        background: color-mix(in srgb, var(--primary, #4f5fff) 18%, transparent);
+        border-color: color-mix(in srgb, var(--primary, #4f5fff) 40%, transparent);
         cursor: default;
       }
       .memory-card.matched {
         background: rgba(22, 163, 74, 0.18);
         border-color: rgba(22, 163, 74, 0.4);
         opacity: 0.85;
+      }
+      .memory-card-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: inherit;
       }
       .run-stage {
         display: flex;
@@ -1795,6 +1835,11 @@ function Styles() {
         font-size: 0.72rem;
         text-transform: uppercase;
         opacity: 0.65;
+      }
+      .character-hint {
+        margin: 0.75rem 0 0;
+        font-size: 0.78rem;
+        opacity: 0.7;
       }
       .card-actions {
         display: flex;

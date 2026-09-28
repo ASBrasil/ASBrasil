@@ -14,6 +14,7 @@ export async function PATCH(
   if (body.content !== undefined) data.content = body.content;
   if (body.points !== undefined) data.points = body.points;
   if (body.rewardCardId !== undefined) data.rewardCardId = body.rewardCardId || null;
+  if (body.rewardCharacterId !== undefined) data.rewardCharacterId = body.rewardCharacterId || null;
   if (body.grantsExtraTicket !== undefined) data.grantsExtraTicket = !!body.grantsExtraTicket;
   if (body.order !== undefined) data.order = body.order;
 

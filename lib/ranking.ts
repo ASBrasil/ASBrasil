@@ -5,6 +5,7 @@ export interface RankingEntry {
   email: string;
   label: string;
   xp: number;
+  avatarUrl: string | null;
 }
 
 /**
@@ -25,15 +26,27 @@ async function withLabels(
   if (grouped.length === 0) return [];
   const profiles = await db.universeProfile.findMany({
     where: { email: { in: grouped.map((g) => g.email) } },
-    select: { email: true, displayName: true },
+    select: {
+      email: true,
+      displayName: true,
+      avatarUrl: true,
+      avatarCharacter: { select: { imageUrl: true } },
+    },
   });
-  const nameByEmail = new Map(profiles.map((p) => [p.email, p.displayName]));
-  return grouped.map((g, i) => ({
-    rank: i + 1,
-    email: g.email,
-    label: labelFor(g.email, nameByEmail.get(g.email)),
-    xp: g._sum.firstScore ?? 0,
-  }));
+  const profileByEmail = new Map(profiles.map((p) => [p.email, p]));
+  return grouped.map((g, i) => {
+    const profile = profileByEmail.get(g.email);
+    // Avatar de personagem (quando escolhido) tem precedência sobre a foto
+    // livre - mesma regra aplicada em /perfil, ver CharacterAvatarPicker.
+    const avatarUrl = profile?.avatarCharacter?.imageUrl ?? profile?.avatarUrl ?? null;
+    return {
+      rank: i + 1,
+      email: g.email,
+      label: labelFor(g.email, profile?.displayName),
+      xp: g._sum.firstScore ?? 0,
+      avatarUrl,
+    };
+  });
 }
 
 /** Ranking geral do Universo AS - soma de todas as fases de todos os jogos. */

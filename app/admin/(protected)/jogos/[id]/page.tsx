@@ -11,16 +11,28 @@ export default async function GameDetailPage({ params }: { params: { id: string 
   const game = await db.game.findUnique({
     where: { id: params.id },
     include: {
-      event: { select: { name: true, slug: true } },
+      event: { select: { name: true, slug: true, experienceId: true } },
       phases: { orderBy: { order: "asc" } },
     },
   });
   if (!game) notFound();
 
-  const cards = await db.gameCard.findMany({
-    select: { id: true, name: true, rarity: true },
-    orderBy: { name: "asc" },
-  });
+  // Personagens são por Experience (não por Game/Event) - um sorteio avulso
+  // sem experienceId simplesmente não tem elenco pra oferecer aqui (ver nota
+  // em claude/universo-as-ideias-jogos.md sobre essa restrição).
+  const [cards, characters] = await Promise.all([
+    db.gameCard.findMany({
+      select: { id: true, name: true, rarity: true },
+      orderBy: { name: "asc" },
+    }),
+    game.event.experienceId
+      ? db.character.findMany({
+          where: { experienceId: game.event.experienceId },
+          select: { id: true, name: true, rarity: true },
+          orderBy: { name: "asc" },
+        })
+      : Promise.resolve([]),
+  ]);
 
   return (
     <div>
@@ -50,9 +62,11 @@ export default async function GameDetailPage({ params }: { params: { id: string 
           content: p.content,
           points: p.points,
           rewardCardId: p.rewardCardId,
+          rewardCharacterId: p.rewardCharacterId,
           grantsExtraTicket: p.grantsExtraTicket,
         }))}
         cards={cards}
+        characters={characters}
       />
 
       <style>{`

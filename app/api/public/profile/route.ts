@@ -20,8 +20,30 @@ export async function PATCH(req: NextRequest) {
     });
   }
 
+  // Avatar de personagem (28/09) - só aceita um characterId que a pessoa
+  // realmente já tenha desbloqueado (PlayerCharacter), pra não dar pra
+  // "roubar" o avatar de um personagem que não é seu só mandando o id certo
+  // no PATCH. null limpa a escolha e volta a valer a foto livre (avatarUrl).
+  let avatarCharacterId: string | null | undefined;
+  if (body.avatarCharacterId !== undefined) {
+    if (body.avatarCharacterId === null) {
+      avatarCharacterId = null;
+    } else {
+      const owns = await db.playerCharacter.findUnique({
+        where: { email_characterId: { email, characterId: String(body.avatarCharacterId) } },
+      });
+      if (!owns) {
+        return NextResponse.json({ error: "Você ainda não desbloqueou esse personagem." }, { status: 400 });
+      }
+      avatarCharacterId = owns.characterId;
+    }
+  }
+
   const wantsProfileUpdate =
-    body.displayName !== undefined || body.avatarUrl !== undefined || body.winnerPhotoUrl !== undefined;
+    body.displayName !== undefined ||
+    body.avatarUrl !== undefined ||
+    body.winnerPhotoUrl !== undefined ||
+    avatarCharacterId !== undefined;
   if (wantsProfileUpdate) {
     const displayName = body.displayName !== undefined ? String(body.displayName).trim() || null : undefined;
     const avatarUrl = body.avatarUrl !== undefined ? body.avatarUrl || null : undefined;
@@ -34,11 +56,13 @@ export async function PATCH(req: NextRequest) {
         displayName: displayName ?? null,
         avatarUrl: avatarUrl ?? null,
         winnerPhotoUrl: winnerPhotoUrl ?? null,
+        avatarCharacterId: avatarCharacterId ?? null,
       },
       update: {
         ...(displayName !== undefined ? { displayName } : {}),
         ...(avatarUrl !== undefined ? { avatarUrl } : {}),
         ...(winnerPhotoUrl !== undefined ? { winnerPhotoUrl } : {}),
+        ...(avatarCharacterId !== undefined ? { avatarCharacterId } : {}),
       },
     });
   }
