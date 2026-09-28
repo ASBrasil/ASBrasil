@@ -58,6 +58,21 @@ export default async function UniversoAsPage() {
           </p>
         </div>
 
+        <Link href="/universo-as/arcade" className="arcade-banner">
+          <div className="arcade-banner-text">
+            <span className="arcade-banner-tag">Bônus - só diversão</span>
+            <p className="arcade-banner-title">
+              <IconController size={20} className="title-icon" />
+              AS Game Universe
+            </p>
+            <p className="arcade-banner-desc">
+              4 mini-jogos de arcade com os personagens do Universo AS. Não vale ticket nem
+              pontuação no ranking - é só pra jogar.
+            </p>
+          </div>
+          <span className="arcade-banner-cta">Jogar →</span>
+        </Link>
+
         <h2>Ranking global</h2>
         <p className="ranking-hint">Soma de todos os eventos - jogue qualquer jogo pra entrar.</p>
         <RankingList entries={ranking} highlightEmail={email} />
@@ -225,6 +240,50 @@ export default async function UniversoAsPage() {
         .album-card.locked .album-thumb.placeholder { opacity: 0.5; }
         .album-name { margin: 0; font-size: 0.75rem; opacity: 0.75; }
         .album-card.locked .album-name { opacity: 0.4; }
+        .arcade-banner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1.25rem;
+          text-decoration: none;
+          color: inherit;
+          background: linear-gradient(145deg, rgba(79, 95, 255, 0.18), rgba(255, 79, 163, 0.12));
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          border-radius: 1.1rem;
+          padding: 1.1rem 1.4rem;
+          margin-bottom: 2.5rem;
+          transition: border-color 0.15s, transform 0.15s;
+        }
+        .arcade-banner:hover { border-color: rgba(255, 255, 255, 0.32); transform: translateY(-2px); }
+        .arcade-banner-tag {
+          display: inline-block;
+          font-size: 0.65rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: #ffe56d;
+          margin-bottom: 0.35rem;
+        }
+        .arcade-banner-title {
+          margin: 0 0 0.3rem;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-family: "Sora", system-ui, sans-serif;
+          font-weight: 700;
+          font-size: 1.05rem;
+        }
+        .arcade-banner-desc { margin: 0; font-size: 0.8rem; color: rgba(255, 255, 255, 0.65); max-width: 32rem; }
+        .arcade-banner-cta {
+          flex-shrink: 0;
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: #7ce7ff;
+          white-space: nowrap;
+        }
+        @media (max-width: 640px) {
+          .arcade-banner { flex-direction: column; align-items: flex-start; }
+        }
       `}</style>
     </main>
   );
