@@ -92,7 +92,7 @@ export function GameManager({
   async function createGame() {
     setError(null);
     if (!eventId) {
-      setError("Escolha o evento do jogo.");
+      setError("Escolha o sorteio do jogo.");
       return;
     }
     if (!name.trim() || !slug.trim()) {
@@ -125,9 +125,9 @@ export function GameManager({
 
       {creating && (
         <div className="card form">
-          <Field label="Evento" required hint="O jogo fica sempre amarrado a um evento do sorteio.">
+          <Field label="Sorteio" required hint="O jogo fica sempre amarrado a um sorteio.">
             <select value={eventId} onChange={(e) => setEventId(e.target.value)}>
-              {events.length === 0 && <option value="">Nenhum evento cadastrado</option>}
+              {events.length === 0 && <option value="">Nenhum sorteio cadastrado</option>}
               {events.map((ev) => (
                 <option key={ev.id} value={ev.id}>
                   {ev.name}
@@ -186,8 +186,8 @@ export function GameManager({
             <span
               className="swatch"
               style={{
-                background: `linear-gradient(160deg, ${game.theme?.primaryColor || "#3B55E6"}, ${
-                  game.theme?.secondaryColor || "#0c2a5b"
+                background: `linear-gradient(160deg, ${game.theme?.primaryColor || "#4f5fff"}, ${
+                  game.theme?.secondaryColor || "#0a1330"
                 })`,
               }}
             />

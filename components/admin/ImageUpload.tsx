@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export function ImageUpload({
   label,
@@ -22,6 +23,12 @@ export function ImageUpload({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  // Preview ampliada (pedido do Paulo: "algo a ampliar pra poder ver
+  // melhor") - clicar na miniatura abre a imagem em tamanho grande, num
+  // overlay renderizado via portal (mesma técnica usada no menu mobile do
+  // participante, pra não ficar preso a nenhum ancestral com overflow/
+  // backdrop-filter que corte o modal).
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   async function upload(file: File) {
     setUploading(true);
@@ -55,8 +62,17 @@ export function ImageUpload({
 
       {value ? (
         <div className="preview" style={{ aspectRatio }}>
-          <img src={value} alt="" />
+          <img
+            src={value}
+            alt=""
+            className="zoomable"
+            onClick={() => setLightboxOpen(true)}
+            title="Clique para ampliar"
+          />
           <div className="preview-actions">
+            <button type="button" onClick={() => setLightboxOpen(true)} disabled={uploading}>
+              Ampliar
+            </button>
             <button type="button" onClick={() => inputRef.current?.click()} disabled={uploading}>
               Trocar
             </button>
@@ -105,6 +121,65 @@ export function ImageUpload({
 
       {hint && !error && <span className="hint">{hint}</span>}
       {error && <span className="error">{error}</span>}
+
+      {lightboxOpen &&
+        value &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="lightbox" onClick={() => setLightboxOpen(false)}>
+            <button
+              type="button"
+              className="lightbox-close"
+              onClick={() => setLightboxOpen(false)}
+              aria-label="Fechar"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M5 5l14 14M19 5 5 19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+            <img src={value} alt="" onClick={(e) => e.stopPropagation()} />
+            <style jsx>{`
+              .lightbox {
+                position: fixed;
+                inset: 0;
+                z-index: 200;
+                background: rgba(5, 8, 18, 0.85);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 3rem 1.5rem;
+                cursor: zoom-out;
+              }
+              .lightbox img {
+                max-width: min(90vw, 60rem);
+                max-height: 85vh;
+                object-fit: contain;
+                border-radius: 0.5rem;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+                cursor: default;
+              }
+              .lightbox-close {
+                position: fixed;
+                top: 1.25rem;
+                right: 1.5rem;
+                width: 2.4rem;
+                height: 2.4rem;
+                border-radius: 999px;
+                border: none;
+                background: rgba(255, 255, 255, 0.12);
+                color: white;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+              }
+              .lightbox-close:hover {
+                background: rgba(255, 255, 255, 0.22);
+              }
+            `}</style>
+          </div>,
+          document.body
+        )}
 
       <style jsx>{`
         .field {
@@ -161,6 +236,9 @@ export function ImageUpload({
           height: 100%;
           object-fit: cover;
           display: block;
+        }
+        .preview img.zoomable {
+          cursor: zoom-in;
         }
         .preview-actions {
           position: absolute;

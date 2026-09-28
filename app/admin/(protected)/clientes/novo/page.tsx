@@ -15,7 +15,7 @@ export default async function NovoClientePage() {
       <div className="header">
         <h1>Adicionar cliente</h1>
         <p className="subtitle">
-          Cadastra a pessoa direto, sem precisar de planilha. Marca em quais eventos ela participa
+          Cadastra a pessoa direto, sem precisar de planilha. Marca em quais sorteios ela participa
           — se marcar mais de um, ela ganha um número novo em cada um.
         </p>
       </div>

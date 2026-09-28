@@ -69,11 +69,11 @@ export default async function UniversoAsPage() {
                   className="game-banner"
                   style={{
                     background: game.theme?.backgroundImageUrl
-                      ? `linear-gradient(180deg, ${game.theme.primaryColor || "#3B55E6"}cc, ${
-                          game.theme.secondaryColor || "#0c2a5b"
+                      ? `linear-gradient(180deg, ${game.theme.primaryColor || "#4f5fff"}cc, ${
+                          game.theme.secondaryColor || "#0a1330"
                         }cc), url(${game.theme.backgroundImageUrl}) center/cover`
-                      : `linear-gradient(160deg, ${game.theme?.primaryColor || "#3B55E6"}, ${
-                          game.theme?.secondaryColor || "#0c2a5b"
+                      : `linear-gradient(160deg, ${game.theme?.primaryColor || "#4f5fff"}, ${
+                          game.theme?.secondaryColor || "#0a1330"
                         })`,
                   }}
                 >

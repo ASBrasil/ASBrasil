@@ -55,7 +55,7 @@ export function ImportHistoryClient({ eventId }: { eventId: string }) {
   }
 
   if (batches.length === 0) {
-    return <p className="muted">Nenhuma importação registrada para este evento ainda.</p>;
+    return <p className="muted">Nenhuma importação registrada para este sorteio ainda.</p>;
   }
 
   return (

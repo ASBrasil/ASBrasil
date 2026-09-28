@@ -15,22 +15,22 @@ export default async function EventMissionsPage({ params }: { params: { id: stri
   return (
     <div>
       <Link href={`/admin/events/${event.id}/edit`} className="back">
-        ← Voltar pra edição do evento
+        ← Voltar pra edição do sorteio
       </Link>
 
       <div className="header">
         <h1>🎯 Missões — {event.name}</h1>
         <p className="subtitle">
           Pré-requisitos que a pessoa precisa cumprir antes de ver seus números e resultados
-          neste evento. Missões marcadas como obrigatórias bloqueiam o acesso; as opcionais só
+          neste sorteio. Missões marcadas como obrigatórias bloqueiam o acesso; as opcionais só
           ficam visíveis. Missões com "🎟️ Gera um número" formam as opções de pré-requisito à
           escolha — a pessoa completa qualquer uma delas pra ganhar seu primeiro número (ou mais
-          um, se já tiver completado outra antes). Isso só funciona com o evento em "Com Missões".
+          um, se já tiver completado outra antes). Isso só funciona com o sorteio em "Com Missões".
         </p>
         {event.missionMode !== "MISSIONS" && (
           <p className="warning">
-            ⚠️ Esse evento está marcado como "Simples" — as missões abaixo não vão bloquear
-            ninguém até você mudar para "Com missões" na edição do evento.
+            ⚠️ Esse sorteio está marcado como "Simples" — as missões abaixo não vão bloquear
+            ninguém até você mudar para "Com missões" na edição do sorteio.
           </p>
         )}
       </div>

@@ -50,9 +50,9 @@ export default async function AdminRankingPage({
 
       <form method="GET" className="filters">
         <div className="field">
-          <label htmlFor="eventId">Evento</label>
+          <label htmlFor="eventId">Sorteio</label>
           <select id="eventId" name="eventId" defaultValue={eventId ?? ""}>
-            <option value="">Todos os eventos</option>
+            <option value="">Todos os sorteios</option>
             {events.map((e) => (
               <option key={e.id} value={e.id}>
                 {e.name}
@@ -63,7 +63,7 @@ export default async function AdminRankingPage({
         <div className="field">
           <label htmlFor="gameId">Jogo</label>
           <select id="gameId" name="gameId" defaultValue={activeGameId ?? ""}>
-            <option value="">Todos os jogos{eventId ? " deste evento" : ""}</option>
+            <option value="">Todos os jogos{eventId ? " deste sorteio" : ""}</option>
             {gamesForSelectedEvent.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.name} {!eventId && `— ${g.event.name}`}

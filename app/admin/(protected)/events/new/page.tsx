@@ -50,7 +50,7 @@ export default function NewEventWizard() {
     setSaving(false);
     if (!res.ok) {
       const data = await res.json();
-      setError(data.error ?? "Não foi possível criar o evento.");
+      setError(data.error ?? "Não foi possível criar o sorteio.");
       return;
     }
     const { event } = await res.json();
@@ -66,17 +66,17 @@ export default function NewEventWizard() {
 
       {step === 0 && (
         <Card icon="🎟️">
-          <h2>Vamos começar pelo seu evento</h2>
+          <h2>Vamos começar pelo seu sorteio</h2>
           <p className="subtitle">É assim que os participantes vão reconhecer a campanha.</p>
 
-          <Field label="Nome do evento" required>
+          <Field label="Nome do sorteio" required>
             <Input
               placeholder="BTS – Sorteio Exclusivo"
               value={form.name}
               onChange={(e) => update("name", e.target.value)}
             />
           </Field>
-          <Field label="Campanha" hint="Agrupa eventos relacionados, opcional.">
+          <Field label="Campanha" hint="Agrupa sorteios relacionados, opcional.">
             <Input
               placeholder="BTS"
               value={form.campaign}
@@ -129,7 +129,7 @@ export default function NewEventWizard() {
           </div>
           {form.missionMode === "MISSIONS" && (
             <p className="missions-hint">
-              Depois de criar o evento, configure as missões em <strong>Editar → Tipo de sorteio →
+              Depois de criar o sorteio, configure as missões em <strong>Editar → Tipo de sorteio →
               Gerenciar missões</strong>.
             </p>
           )}

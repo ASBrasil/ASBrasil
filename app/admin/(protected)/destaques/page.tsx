@@ -22,15 +22,15 @@ export default async function FeaturedEventsPage() {
       <div className="header">
         <h1>Destaques da tela de login</h1>
         <p className="subtitle">
-          Escolha quais eventos aparecem no banner rotativo da página onde o participante digita
+          Escolha quais sorteios aparecem no banner rotativo da página onde o participante digita
           o e-mail (<code>/entrar</code>), e escreva o texto que quiser pra cada um. Deixando em
-          branco, usa “Campanha — Nome do evento” automaticamente.
+          branco, usa “Campanha — Nome do sorteio” automaticamente.
         </p>
       </div>
 
       {events.length === 0 ? (
         <div className="empty">
-          <p>Nenhum evento ativo no momento.</p>
+          <p>Nenhum sorteio ativo no momento.</p>
         </div>
       ) : (
         <div className="list">

@@ -50,8 +50,8 @@ export default async function ExperienceLandingPage({ params }: { params: { slug
     secondaryColor?: string;
     backgroundImageUrl?: string | null;
   } | null;
-  const primary = theme?.primaryColor || "#3B55E6";
-  const secondary = theme?.secondaryColor || "#0c2a5b";
+  const primary = theme?.primaryColor || "#4f5fff";
+  const secondary = theme?.secondaryColor || "#0a1330";
   const bannerUrl = theme?.backgroundImageUrl;
 
   return (
@@ -123,8 +123,8 @@ export default async function ExperienceLandingPage({ params }: { params: { slug
                     className="game-banner"
                     style={{
                       background: game.theme
-                        ? `linear-gradient(160deg, ${(game.theme as any)?.primaryColor || "#3B55E6"}, ${
-                            (game.theme as any)?.secondaryColor || "#0c2a5b"
+                        ? `linear-gradient(160deg, ${(game.theme as any)?.primaryColor || "#4f5fff"}, ${
+                            (game.theme as any)?.secondaryColor || "#0a1330"
                           })`
                         : `linear-gradient(160deg, ${primary}, ${secondary})`,
                     }}

@@ -99,7 +99,7 @@ export default async function ApprovalsPage({
   return (
     <div>
       <Link href={`/admin/events/${event.id}`} className="back">
-        ← Voltar pro evento
+        ← Voltar pro sorteio
       </Link>
 
       <div className="header">
@@ -126,7 +126,7 @@ export default async function ApprovalsPage({
             : "Inscrições novas são aprovadas automaticamente, sem passar por revisão nenhuma."}
         </span>
         <strong className="second">
-          {photoField ? "📸" : "—"} Print/comprovante: {photoField ? (photoField.required ? "obrigatório" : "opcional") : "não configurado neste evento"}
+          {photoField ? "📸" : "—"} Print/comprovante: {photoField ? (photoField.required ? "obrigatório" : "opcional") : "não configurado neste sorteio"}
         </strong>
         <span className="detail-line">
           "Exigir aprovação manual": {event.requireSignupApproval ? "ligada" : "desligada"}

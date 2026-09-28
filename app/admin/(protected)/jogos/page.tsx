@@ -21,7 +21,7 @@ export default async function JogosPage() {
         <p className="subtitle">
           Cada jogo nasce em <strong>Rascunho</strong> (só o admin vê) e só fica visível pra
           participantes de verdade quando você mudar pra Teste (com testadores) ou Ao vivo.
-          Qualquer pessoa do Universo AS pode jogar, mas só quem está inscrito no evento do jogo
+          Qualquer pessoa do Universo AS pode jogar, mas só quem está inscrito no sorteio do jogo
           pode receber o brinde configurado numa fase.
         </p>
       </div>

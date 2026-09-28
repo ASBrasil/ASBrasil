@@ -122,8 +122,8 @@ export function ExperienceManager({ experiences: initial }: { experiences: Exper
             <span
               className="swatch"
               style={{
-                background: `linear-gradient(160deg, ${exp.theme?.primaryColor || "#3B55E6"}, ${
-                  exp.theme?.secondaryColor || "#0c2a5b"
+                background: `linear-gradient(160deg, ${exp.theme?.primaryColor || "#4f5fff"}, ${
+                  exp.theme?.secondaryColor || "#0a1330"
                 })`,
               }}
             />

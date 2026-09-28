@@ -135,12 +135,12 @@ export default async function AcessosPage({
 
       {byEventGroups.length > 0 && (
         <>
-          <h2>Acessos por evento</h2>
+          <h2>Acessos por sorteio</h2>
           <div className="by-event">
             <ul>
               {byEventGroups.map((g) => (
                 <li key={g.eventName}>
-                  <span className="event-name">{g.eventName ?? "Sem evento"}</span>
+                  <span className="event-name">{g.eventName ?? "Sem sorteio"}</span>
                   <span className="bar-track">
                     <span
                       className="bar-fill"
@@ -162,7 +162,7 @@ export default async function AcessosPage({
             <tr>
               <th>Nome</th>
               <th>E-mail</th>
-              <th>Evento</th>
+              <th>Sorteio</th>
               <th>Data e hora</th>
             </tr>
           </thead>

@@ -144,8 +144,8 @@ export function ExperienceExplorer({ experiences }: { experiences: ExperienceWit
 
 function ExperienceCard({ experience }: { experience: ExperienceWithProgress }) {
   const theme = experience.theme as any;
-  const primary = theme?.primaryColor || "#3B55E6";
-  const secondary = theme?.secondaryColor || "#0c2a5b";
+  const primary = theme?.primaryColor || "#4f5fff";
+  const secondary = theme?.secondaryColor || "#0a1330";
   const bannerUrl = theme?.backgroundImageUrl as string | undefined;
 
   return (

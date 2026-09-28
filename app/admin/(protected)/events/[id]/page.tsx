@@ -204,7 +204,7 @@ export default async function EventDashboardPage({ params }: { params: { id: str
     <div>
       <div className="header">
         <div>
-          <span className="eyebrow">{event.campaign ?? "Evento"}</span>
+          <span className="eyebrow">{event.campaign ?? "Sorteio"}</span>
           <h1>{event.name}</h1>
         </div>
         <div className="header-actions">

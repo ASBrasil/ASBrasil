@@ -351,7 +351,7 @@ export function MissionManager({
         <span>
           <strong>🎟️ Gera um número da sorte ao completar</strong>
           <small>
-            Se a pessoa ainda não tem número nesse evento, completar essa vira o PRIMEIRO número
+            Se a pessoa ainda não tem número nesse sorteio, completar essa vira o PRIMEIRO número
             dela (dentre as opções de pré-requisito disponíveis). Se já tem, gera um número A MAIS,
             adicional. Cada pessoa só pode ganhar isso uma vez por missão.
           </small>

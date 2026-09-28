@@ -77,7 +77,7 @@ export default async function ClienteDetailPage({ params }: { params: { email: s
       <div className="stats">
         <div className="stat-card">
           <strong>{participations.length}</strong>
-          <span>{participations.length === 1 ? "Evento" : "Eventos"}</span>
+          <span>{participations.length === 1 ? "Sorteio" : "Sorteios"}</span>
         </div>
         <div className="stat-card">
           <strong>{totalTickets}</strong>
@@ -89,7 +89,7 @@ export default async function ClienteDetailPage({ params }: { params: { email: s
         </div>
       </div>
 
-      <h2>Histórico por evento</h2>
+      <h2>Histórico por sorteio</h2>
       <div className="list">
         {participations.map(({ event, numbers, wins }) => (
           <div key={event.id} className="row">

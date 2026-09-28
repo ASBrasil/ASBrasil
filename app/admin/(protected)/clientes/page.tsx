@@ -66,7 +66,7 @@ export default async function ClientesPage({
         <div>
           <h1>Clientes</h1>
           <p className="subtitle">
-            Todo mundo que já se cadastrou em algum evento, cruzando todos os sorteios ({total}{" "}
+            Todo mundo que já se cadastrou em algum sorteio, cruzando todos os sorteios ({total}{" "}
             {total === 1 ? "cliente" : "clientes"}
             {eventId || q ? " encontrados" : " no total"}). Clica no nome pra ver o histórico
             completo dessa pessoa com a gente.
@@ -94,7 +94,7 @@ export default async function ClientesPage({
 
       {porEvento.length > 0 && (
         <div className="by-event">
-          <h2>Cadastrados por evento</h2>
+          <h2>Cadastrados por sorteio</h2>
           <ul>
             {porEvento.map((e) => (
               <li key={e.id}>
@@ -123,7 +123,7 @@ export default async function ClientesPage({
           className="search"
         />
         <select name="eventId" defaultValue={eventId ?? ""}>
-          <option value="">Todos os eventos</option>
+          <option value="">Todos os sorteios</option>
           {events.map((e) => (
             <option key={e.id} value={e.id}>
               {e.name}
@@ -150,7 +150,7 @@ export default async function ClientesPage({
             <tr>
               <th>Nome</th>
               <th>E-mail</th>
-              <th>Ingressos{eventId ? " neste evento" : ""}</th>
+              <th>Ingressos{eventId ? " neste sorteio" : ""}</th>
               <th />
             </tr>
           </thead>

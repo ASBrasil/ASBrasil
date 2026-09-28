@@ -36,12 +36,12 @@ export default async function EventsListPage({
         <Header />
         <Tabs tab={tab} />
         <p className="banners-hint">
-          Escolha quais eventos aparecem no carrossel do topo de "Meus Eventos" - a imagem usada é
+          Escolha quais sorteios aparecem no carrossel do topo de "Meus Eventos" - a imagem usada é
           a mesma do banner configurado em Editar → Tema.
         </p>
         {rows.length === 0 ? (
           <div className="empty">
-            <p>Nenhum evento publicado no momento.</p>
+            <p>Nenhum sorteio publicado no momento.</p>
           </div>
         ) : (
           <div className="banner-list">
@@ -71,8 +71,8 @@ export default async function EventsListPage({
         <div className="empty">
           <p>
             {showArchived
-              ? "Nenhum evento arquivado."
-              : "Nenhum evento ainda. Crie o primeiro para começar a sortear."}
+              ? "Nenhum sorteio arquivado."
+              : "Nenhum sorteio ainda. Crie o primeiro para começar a sortear."}
           </p>
         </div>
       ) : (
@@ -110,11 +110,11 @@ function Header() {
   return (
     <div className="header">
       <div>
-        <h1>Eventos</h1>
+        <h1>Sorteios</h1>
         <p className="subtitle">Campanhas de sorteio criadas até agora.</p>
       </div>
       <Link href="/admin/events/new" className="new-btn">
-        + Novo evento
+        + Novo sorteio
       </Link>
     </div>
   );

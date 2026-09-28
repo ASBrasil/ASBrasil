@@ -87,8 +87,8 @@ export default async function MeusEventosPage() {
         subtitle: exp.subtitle,
         ctaLabel: "Ver experiência →",
         bannerUrl: (theme?.backgroundImageUrl as string | undefined) ?? null,
-        primary: theme?.primaryColor || "#3B55E6",
-        secondary: theme?.secondaryColor || "#0c2a5b",
+        primary: theme?.primaryColor || "#4f5fff",
+        secondary: theme?.secondaryColor || "#0a1330",
       };
     }),
     ...heroEventsRaw.map((e) => {

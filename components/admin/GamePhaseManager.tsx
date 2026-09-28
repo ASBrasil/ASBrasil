@@ -346,7 +346,7 @@ export function GamePhaseManager({
                 <p className="meta">
                   {phase.points} pts
                   {phase.rewardCardId && ` · 🎴 concede card`}
-                  {phase.grantsExtraTicket && ` · 🎟️ número extra pra quem está no evento`}
+                  {phase.grantsExtraTicket && ` · 🎟️ número extra pra quem está no sorteio`}
                 </p>
               </div>
               <div className="actions">
@@ -599,7 +599,7 @@ function PhaseForm({
           </Field>
           <Field
             label="Pontuação pra 100%"
-            hint="Referência de 'desempenho cheio' pra essa corrida - ajuste conforme a dificuldade que quiser pro evento."
+            hint="Referência de 'desempenho cheio' pra essa corrida - ajuste conforme a dificuldade que quiser pro sorteio."
           >
             <Input
               type="number"
@@ -619,7 +619,7 @@ function PhaseForm({
           </Field>
           <Field
             label="Pontuação pra 100%"
-            hint="Referência de 'desempenho cheio' pra essa fase - ajuste conforme a dificuldade que quiser pro evento."
+            hint="Referência de 'desempenho cheio' pra essa fase - ajuste conforme a dificuldade que quiser pro sorteio."
           >
             <Input
               type="number"
@@ -731,7 +731,7 @@ function PhaseForm({
             onChange={(e) => setDraft({ ...draft, grantsExtraTicket: e.target.checked })}
           />
           <span>
-            Concede número extra no sorteio do evento (só pra quem já está inscrito no evento)
+            Concede número extra no sorteio (só pra quem já está inscrito nele)
           </span>
         </label>
       )}

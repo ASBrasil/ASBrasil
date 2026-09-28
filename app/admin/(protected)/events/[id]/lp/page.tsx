@@ -15,14 +15,14 @@ export default async function EventLpPage({ params }: { params: { id: string } }
   return (
     <div>
       <Link href={`/admin/events/${event.id}`} className="back">
-        ← Voltar pro evento
+        ← Voltar pro sorteio
       </Link>
 
       <div className="header">
         <div>
           <h1>🎨 Editar LP — {event.name}</h1>
           <p className="subtitle">
-            Monte a página pública do evento com blocos de conteúdo — texto, imagem, ou cards.
+            Monte a página pública do sorteio com blocos de conteúdo — texto, imagem, ou cards.
             Aparecem entre o topo e a lista de prêmios, na ordem que você definir aqui.
           </p>
         </div>

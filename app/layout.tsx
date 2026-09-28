@@ -1,8 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Sistema de Sorteios",
-  description: "Sorteios para eventos e campanhas promocionais",
+  title: "Universo AS",
+  description: "Sorteios, jogos e experiências AS Brasil",
 };
 
 export const viewport = {
@@ -36,7 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
             <div className="ld-brand">
               <span className="ld-brand-name">AS Brasil</span>
-              <span className="ld-brand-tag">Sistema de Sorteios</span>
+              <span className="ld-brand-tag">Universo AS</span>
             </div>
             <div className="ld-divider" />
             <div className="ld-progress-wrap">

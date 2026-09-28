@@ -54,7 +54,7 @@ export function NewClientForm({ events }: { events: EventOption[] }) {
             <>
               {" "}
               · {result.skipped}{" "}
-              {result.skipped === 1 ? "evento ignorado" : "eventos ignorados"} (já estava
+              {result.skipped === 1 ? "sorteio ignorado" : "sorteios ignorados"} (já estava
               cadastrado)
             </>
           )}
@@ -121,10 +121,10 @@ export function NewClientForm({ events }: { events: EventOption[] }) {
       </Field>
 
       <div className="divider">
-        <span>Eventos</span>
+        <span>Sorteios</span>
       </div>
       {events.length === 0 ? (
-        <p className="empty">Nenhum evento ativo no momento.</p>
+        <p className="empty">Nenhum sorteio ativo no momento.</p>
       ) : (
         <div className="event-list">
           {events.map((e) => (

@@ -31,7 +31,7 @@ export default async function GameDetailPage({ params }: { params: { id: string 
       <div className="header">
         <h1>{game.name}</h1>
         <p className="subtitle">
-          Evento: <strong>{game.event.name}</strong> · slug: <code>{game.slug}</code>
+          Sorteio: <strong>{game.event.name}</strong> · slug: <code>{game.slug}</code>
         </p>
       </div>
 

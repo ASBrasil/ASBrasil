@@ -12,8 +12,8 @@ interface ExperienceTheme {
 }
 
 const DEFAULT_THEME: Required<ExperienceTheme> = {
-  primaryColor: "#3B55E6",
-  secondaryColor: "#0c2a5b",
+  primaryColor: "#4f5fff",
+  secondaryColor: "#0a1330",
   backgroundImageUrl: null,
 };
 

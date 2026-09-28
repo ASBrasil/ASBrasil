@@ -81,7 +81,7 @@ export function GameCardManager({
   function unlockLabel(card: GameCard) {
     if (card.unlockEventId) {
       const ev = events.find((e) => e.id === card.unlockEventId);
-      return `🎟️ Ao se inscrever em: ${ev?.name ?? "evento removido"}`;
+      return `🎟️ Ao se inscrever em: ${ev?.name ?? "sorteio removido"}`;
     }
     if (card.unlockGameId) {
       const gm = games.find((g) => g.id === card.unlockGameId);
@@ -316,7 +316,7 @@ function GrantPanel({
           disabled={sending}
           onClick={() => send({ backfillEvent: true })}
         >
-          ↺ Aplicar a todo mundo já inscrito nesse evento
+          ↺ Aplicar a todo mundo já inscrito nesse sorteio
         </button>
       )}
       {result && <p className="grant-result">{result}</p>}

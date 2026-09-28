@@ -23,7 +23,7 @@ export default async function GameCardsPage() {
       <div className="header">
         <h1>🎴 Álbum de figurinhas — Universo AS</h1>
         <p className="subtitle">
-          Catálogo único e compartilhado entre todos os jogos e eventos - cresce a cada jogo
+          Catálogo único e compartilhado entre todos os jogos e sorteios - cresce a cada jogo
           lançado, e o jogador mantém a coleção pra sempre no perfil do Universo AS.
         </p>
       </div>

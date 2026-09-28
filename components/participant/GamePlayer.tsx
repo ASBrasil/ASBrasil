@@ -159,8 +159,8 @@ export function GamePlayer({
   }, [rushEnabled, index, result, timeLimitMs]);
 
   const bg = game.theme?.backgroundImageUrl
-    ? `linear-gradient(180deg, ${game.theme.primaryColor || "#3B55E6"}dd, ${
-        game.theme.secondaryColor || "#0c2a5b"
+    ? `linear-gradient(180deg, ${game.theme.primaryColor || "#4f5fff"}dd, ${
+        game.theme.secondaryColor || "#0a1330"
       }ee), url(${game.theme.backgroundImageUrl}) center/cover fixed`
     : `radial-gradient(ellipse 80% 60% at 50% -10%, ${game.theme?.primaryColor || "#1b2a5c"} 0%, ${
         game.theme?.secondaryColor || "#0a1330"
