@@ -470,9 +470,9 @@ function WorldAdventureStyles() {
       .arcade-shell:has(.wa-play) .game-head button{pointer-events:auto;background:rgba(5,11,27,.62);border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(14px);box-shadow:0 8px 30px #0005}
       .arcade-shell:has(.wa-play) .game-head div{display:none}
       .arcade-shell:has(.wa-play) .game-head img{margin-left:auto;width:48px;height:48px;padding:5px;border-radius:16px;background:rgba(5,11,27,.58);border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(14px)}
-      .wa-play{position:relative;width:100vw;height:100dvh;overflow:hidden;background:#050914}
-      .wa-play .canvas-wrap{position:absolute;inset:0;padding:0!important;border:0!important;border-radius:0!important;background:#050914!important;box-shadow:none!important}
-      .wa-play .canvas-wrap canvas{display:block;width:100%!important;height:100%!important;max-height:none!important;object-fit:cover!important;border-radius:0!important}
+      .wa-play{position:relative;width:100vw;height:100dvh;overflow:hidden;background:radial-gradient(circle at 50% 30%,#1c2b5c 0%,#0e1638 48%,#050914 100%);display:flex;align-items:center;justify-content:center}
+      .wa-play .canvas-wrap{position:relative;width:min(100vw,calc(100dvh * 12 / 7));height:min(100dvh,calc(100vw * 7 / 12));padding:0!important;border:0!important;border-radius:16px!important;background:#050914!important;overflow:hidden;box-shadow:0 0 0 2px rgba(79,95,255,.55),0 0 46px 8px rgba(79,95,255,.3),0 30px 80px rgba(0,0,0,.55)!important}
+      .wa-play .canvas-wrap canvas{display:block;width:100%!important;height:100%!important;max-height:none!important;object-fit:fill!important;border-radius:inherit!important}
       .wa-play .wa-hud{position:absolute;z-index:12;top:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:7px;padding:7px 9px;background:rgba(5,11,27,.58);border:1px solid rgba(255,255,255,.18);border-radius:999px;backdrop-filter:blur(14px);box-shadow:0 10px 34px #0005}
       .wa-hud-item{color:#fff;font-weight:800;font-size:13px;line-height:1;padding:7px 9px;border-radius:999px;background:rgba(255,255,255,.08);text-shadow:0 2px 8px #000}
       .wa-boss-hp{color:#ff7fc8}
