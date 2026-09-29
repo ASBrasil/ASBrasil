@@ -645,6 +645,7 @@ model UniverseProfile {
   characters  PlayerCharacter[]
   progress    PlayerPhaseProgress[]
   arcadeProgress ArcadeProgress[]
+  cityRunProgress CityRunProgress[]
 }
 
 // Um "lançamento" de jogo, sempre amarrado a um evento do sorteio (é o
@@ -808,6 +809,31 @@ model ArcadeProgress {
 
   @@unique([email, city])
   @@index([city])
+}
+
+// Mesmo padrão de ArcadeProgress, só que pro AS City Run (rotas da turnê em
+// vez de cidades) - ver ROUTE_ORDER em lib/city-run.ts. bestScore entra na
+// mesma soma de XP do Ranking geral (lib/ranking.ts), junto com
+// ArcadeProgress e PlayerPhaseProgress.
+model CityRunProgress {
+  id      String          @id @default(cuid())
+  email   String
+  profile UniverseProfile @relation(fields: [email], references: [email], onDelete: Cascade)
+
+  // "01_incheon" | "02_seoul" | ... - ver ROUTE_ORDER em lib/city-run.ts
+  route String
+
+  cleared    Boolean @default(false)
+  stars      Int     @default(0)
+  bestScore  Int     @default(0)
+  bestTimeMs Int?
+  attempts   Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([email, route])
+  @@index([route])
 }
 
 // Visibilidade de cada um dos 4 jogos do hub /universo-as/arcade
