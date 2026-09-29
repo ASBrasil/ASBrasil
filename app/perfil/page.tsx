@@ -11,9 +11,9 @@ import { IconAlertTriangle } from "@/components/participant/GameIcons";
 export const dynamic = "force-dynamic";
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
-  PENDING: { label: "Pendente de aprovação", color: "#e8b646" },
-  APPROVED: { label: "Aprovado", color: "#4f5fff" },
-  REJECTED: { label: "Recusado", color: "#f87171" },
+  PENDING: { label: "Pendente de aprovação", color: "#ffd75a" },
+  APPROVED: { label: "Aprovado", color: "#4ddcff" },
+  REJECTED: { label: "Recusado", color: "#ff667d" },
 };
 
 export default async function PerfilPage() {
@@ -54,14 +54,14 @@ export default async function PerfilPage() {
   const events = [...byEvent.values()];
 
   return (
-    <main className="page">
+    <main className="as-shell page">
       <ParticipantTopNav />
 
       <section className="content">
         <div className="page-heading">
-          <span className="eyebrow">Sua conta</span>
-          <h1>Meu perfil</h1>
-          <p className="subtitle">Edite seus dados e veja de quais campanhas você já participou.</p>
+          <span className="as-eyebrow">Sua conta</span>
+          <h1 className="as-title">Meu perfil</h1>
+          <p className="as-subtitle">Edite seus dados e veja de quais campanhas você já participou.</p>
         </div>
 
         {profileIncomplete && (
@@ -72,7 +72,7 @@ export default async function PerfilPage() {
         )}
 
         <div className="columns">
-          <div className="col">
+          <div className="as-card col">
             <h2>Dados pessoais</h2>
             <ProfilePhotos
               initialAvatarUrl={universeProfile?.avatarUrl ?? null}
@@ -90,7 +90,7 @@ export default async function PerfilPage() {
             <p className="email-note">E-mail: {email} (usado pra entrar, não pode ser alterado aqui)</p>
           </div>
 
-          <div className="col">
+          <div className="as-card col">
             <h2>Suas participações</h2>
             {events.length === 0 ? (
               <p className="empty">Nenhuma participação encontrada.</p>
@@ -98,7 +98,7 @@ export default async function PerfilPage() {
               <ul className="events-list">
                 {events.map((e) => (
                   <li key={e.slug}>
-                    <Link href={`/e/${e.slug}/painel`} className="event-link">
+                    <Link href={`/e/${e.slug}/painel`} className="as-card event-link">
                       <span className="event-name">{e.name}</span>
                       {e.statuses.includes("PENDING") && (
                         <span className="status-tag" style={{ color: STATUS_LABEL.PENDING.color }}>
@@ -120,39 +120,29 @@ export default async function PerfilPage() {
       </section>
 
       <style>{`
+        /* AS Brasil UI V4 (29/09) - tela migrada pro kit novo (ver
+           app/globals.css e claude/pendencias-sorteios.md). .page só cuida
+           do layout; o fundo escuro vem de .as-shell, aplicado no <main>. */
         .page {
           min-height: 100vh;
-          background: radial-gradient(ellipse 80% 50% at 50% -10%, #1b2a5c 0%, #0a1330 55%, #05070f 100%);
-          font-family: system-ui, sans-serif;
-          color: #f5f6fa;
         }
         .content { max-width: 56rem; margin: 0 auto; padding: 2.5rem 2rem 6rem; }
         .page-heading { max-width: 32rem; margin-bottom: 2rem; }
+        .page-heading .as-title { margin-bottom: 0.6rem; }
         .incomplete-banner {
           max-width: 56rem;
           display: flex;
           align-items: center;
           gap: 0.6rem;
-          background: rgba(232, 182, 70, 0.12);
-          border: 1px solid rgba(232, 182, 70, 0.4);
-          color: #f3d38a;
-          border-radius: 0.7rem;
+          background: rgba(255, 215, 90, 0.1);
+          border: 1px solid rgba(255, 215, 90, 0.24);
+          color: #ffe07b;
+          border-radius: 14px;
           padding: 0.75rem 1.1rem;
           font-size: 0.85rem;
           margin-bottom: 2rem;
         }
-        .banner-icon { flex-shrink: 0; color: #e8b646; }
-        .eyebrow {
-          display: block;
-          font-size: 0.72rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.14em;
-          color: #8b9aff;
-          margin-bottom: 0.6rem;
-        }
-        h1 { margin: 0 0 0.6rem; font-family: "Sora", system-ui, sans-serif; font-size: clamp(1.8rem, 3.5vw, 2.4rem); }
-        .subtitle { color: rgba(255, 255, 255, 0.6); margin: 0; line-height: 1.6; }
+        .banner-icon { flex-shrink: 0; color: var(--as-yellow, #e8b646); }
         .columns {
           display: grid;
           grid-template-columns: 1fr 1fr;
@@ -160,9 +150,6 @@ export default async function PerfilPage() {
           align-items: start;
         }
         .col {
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 1rem;
           padding: 1.5rem 1.5rem 1.75rem;
         }
         h2 {
@@ -172,7 +159,7 @@ export default async function PerfilPage() {
         }
         .email-note {
           font-size: 0.78rem;
-          color: rgba(255, 255, 255, 0.5);
+          color: var(--as-muted, rgba(255, 255, 255, 0.5));
           margin-top: 1rem;
         }
         .empty { color: rgba(255, 255, 255, 0.6); font-size: 0.9rem; }
@@ -191,19 +178,24 @@ export default async function PerfilPage() {
           gap: 0.75rem;
           text-decoration: none;
           color: inherit;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 0.6rem;
           padding: 0.85rem 1rem;
-          transition: border-color 0.15s;
+          transition: transform 0.18s ease, border-color 0.18s ease;
         }
         .event-link:hover {
-          border-color: rgba(255, 255, 255, 0.25);
+          transform: translateY(-2px);
+          border-color: rgba(77, 220, 255, 0.35);
         }
-        .event-name { font-weight: 600; font-size: 0.92rem; }
+        .event-name { font-weight: 700; font-size: 0.92rem; }
         .status-tag {
-          font-size: 0.72rem;
-          font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+          min-height: 24px;
+          padding: 0 9px;
+          border-radius: 99px;
+          background: rgba(255, 255, 255, 0.08);
+          font-size: 0.68rem;
+          font-weight: 900;
+          letter-spacing: 0.03em;
           text-transform: uppercase;
           white-space: nowrap;
         }

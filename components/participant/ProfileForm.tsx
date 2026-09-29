@@ -39,16 +39,17 @@ export function ProfileForm({
   return (
     <div className="form">
       <div className="field">
-        <label>Nome</label>
-        <input value={name} onChange={(e) => setName(e.target.value)} />
+        <label className="as-label">Nome</label>
+        <input className="as-input" value={name} onChange={(e) => setName(e.target.value)} />
       </div>
       <div className="field">
-        <label>Telefone</label>
-        <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Opcional" />
+        <label className="as-label">Telefone</label>
+        <input className="as-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Opcional" />
       </div>
       <div className="field">
-        <label>Apelido / nome social</label>
+        <label className="as-label">Apelido / nome social</label>
         <input
+          className="as-input"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
           placeholder="Como você quer aparecer no ranking do Universo AS"
@@ -57,7 +58,7 @@ export function ProfileForm({
       </div>
       {error && <p className="error">{error}</p>}
       <div className="actions">
-        <button type="button" onClick={save} disabled={saving || !name.trim()}>
+        <button type="button" className="as-btn as-btn-primary" onClick={save} disabled={saving || !name.trim()}>
           {saving ? "Salvando…" : "Salvar alterações"}
         </button>
         {saved && <span className="saved">Salvo ✓</span>}
@@ -75,24 +76,11 @@ export function ProfileForm({
           flex-direction: column;
           gap: 0.4rem;
         }
-        label {
-          font-size: 0.85rem;
-          font-weight: 600;
-        }
-        input {
-          padding: 0.8rem 1rem;
-          border-radius: 0.6rem;
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          background: rgba(255, 255, 255, 0.95);
-          color: #12121a;
-          font-size: 16px;
-        }
-        input:focus {
-          outline: none;
-          border-color: var(--primary, #4f5fff);
+        .as-input {
+          font-size: 16px; /* abaixo disso, Safari no iPhone dá zoom automático ao focar o campo */
         }
         .error {
-          color: #fca5a5;
+          color: var(--as-red, #fca5a5);
           font-size: 0.85rem;
           margin: 0;
         }
@@ -101,23 +89,9 @@ export function ProfileForm({
           align-items: center;
           gap: 0.85rem;
         }
-        button {
-          background: linear-gradient(135deg, var(--primary, #4f5fff), color-mix(in srgb, var(--primary, #4f5fff) 100%, black 28%));
-          color: #12121a;
-          border: none;
-          border-radius: 999px;
-          padding: 0.75rem 1.5rem;
-          font-weight: 700;
-          font-size: 0.9rem;
-          cursor: pointer;
-        }
-        button:disabled {
-          opacity: 0.6;
-          cursor: default;
-        }
         .saved {
           font-size: 0.82rem;
-          color: #16a34a;
+          color: var(--as-green, #48e6a0);
           font-weight: 600;
         }
       `}</style>

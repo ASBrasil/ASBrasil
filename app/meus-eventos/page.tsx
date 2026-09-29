@@ -158,7 +158,7 @@ export default async function MeusEventosPage() {
   const discoverableDrawn = discoverableAll.filter((e) => e.prizes.some((pr) => pr.status === "DRAWN"));
 
   return (
-    <main className="page">
+    <main className="as-shell page">
       <AnnouncementPopup popup={activePopup} />
 
       <ParticipantTopNav />
@@ -171,23 +171,23 @@ export default async function MeusEventosPage() {
 
       <section className="content">
         <div className="page-heading">
-          <span className="eyebrow">Meus sorteios</span>
-          <h1>Suas experiências</h1>
-          <p className="subtitle">Acompanhe seus sorteios, números e conquistas em cada evento.</p>
+          <span className="as-eyebrow">Meus sorteios</span>
+          <h1 className="as-title">Suas experiências</h1>
+          <p className="as-subtitle">Acompanhe seus sorteios, números e conquistas em cada evento.</p>
           {totalSorteios > 0 && (
-            <div className="stats-row">
-              <div className="stat">
-                <strong>{totalParticipacoes}</strong>
-                <span>{totalParticipacoes === 1 ? "participação" : "participações"}</span>
+            <div className="as-kpi-grid stats-row">
+              <div className="as-card as-kpi">
+                <div className="as-kpi-label">{totalParticipacoes === 1 ? "Participação" : "Participações"}</div>
+                <div className="as-kpi-value">{totalParticipacoes}</div>
               </div>
-              <div className="stat">
-                <strong>{totalSorteios}</strong>
-                <span>{totalSorteios === 1 ? "sorteio" : "sorteios"}</span>
+              <div className="as-card as-kpi">
+                <div className="as-kpi-label">{totalSorteios === 1 ? "Sorteio" : "Sorteios"}</div>
+                <div className="as-kpi-value">{totalSorteios}</div>
               </div>
               {experiences.length > 0 && (
-                <div className="stat">
-                  <strong>{experiences.length}</strong>
-                  <span>{experiences.length === 1 ? "experiência" : "experiências"}</span>
+                <div className="as-card as-kpi">
+                  <div className="as-kpi-label">{experiences.length === 1 ? "Experiência" : "Experiências"}</div>
+                  <div className="as-kpi-value">{experiences.length}</div>
                 </div>
               )}
             </div>
@@ -203,7 +203,7 @@ export default async function MeusEventosPage() {
             {ativos.length > 0 && (
               <>
                 <div className="section-heading">
-                  <span className="eyebrow">Avulsos</span>
+                  <span className="as-eyebrow">Avulsos</span>
                   <h2>Seus sorteios</h2>
                 </div>
                 <EventsCarousel>
@@ -217,9 +217,9 @@ export default async function MeusEventosPage() {
             {discoverable.length > 0 && (
               <>
                 <div className="section-heading">
-                  <span className="eyebrow">Descubra</span>
+                  <span className="as-eyebrow">Descubra</span>
                   <h2>Mais sorteios</h2>
-                  <p className="subtitle small">Campanhas abertas que você ainda não está participando.</p>
+                  <p className="as-subtitle small">Campanhas abertas que você ainda não está participando.</p>
                 </div>
                 <EventsCarousel>
                   {discoverable.map((event) => (
@@ -232,7 +232,7 @@ export default async function MeusEventosPage() {
             {(historico.length > 0 || discoverableDrawn.length > 0) && (
               <>
                 <div className="section-heading">
-                  <span className="eyebrow">Arquivo</span>
+                  <span className="as-eyebrow">Arquivo</span>
                   <h2>Resultados</h2>
                 </div>
                 <EventsCarousel>
@@ -252,36 +252,20 @@ export default async function MeusEventosPage() {
       </section>
 
       <style>{`
+        /* AS Brasil UI V4 (29/09) - tela migrada pro kit novo (ver
+           app/globals.css e claude/pendencias-sorteios.md pro histórico).
+           .page só cuida do layout agora; o fundo escuro vem de .as-shell,
+           que também está na classe do <main> logo acima. */
         .page {
           min-height: 100vh;
-          background: radial-gradient(ellipse 80% 50% at 50% -10%, #1b2a5c 0%, #0a1330 55%, #05070f 100%);
-          font-family: system-ui, sans-serif;
-          color: #f5f6fa;
         }
         .content { max-width: 64rem; margin: 0 auto; padding: 2.5rem 2rem 6rem; }
         .page-heading { max-width: 34rem; margin-bottom: 2rem; }
-        .stats-row { display: flex; gap: 1.75rem; margin-top: 1.4rem; flex-wrap: wrap; }
-        .stat { display: flex; flex-direction: column; }
-        .stat strong {
-          font-family: "Sora", system-ui, sans-serif;
-          font-size: 1.4rem;
-          line-height: 1.2;
-        }
-        .stat span { font-size: 0.76rem; color: rgba(255, 255, 255, 0.55); }
-        .eyebrow {
-          display: block;
-          font-size: 0.72rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.14em;
-          color: #8b9aff;
-          margin-bottom: 0.6rem;
-        }
-        h1 { margin: 0 0 0.6rem; font-family: "Sora", system-ui, sans-serif; font-size: clamp(1.8rem, 3.5vw, 2.4rem); }
+        .page-heading .as-title { margin-bottom: 0.6rem; }
+        .stats-row.as-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 30rem; margin-top: 1.4rem; }
         .section-heading { margin: 3.25rem 0 1.75rem; }
         h2 { margin: 0; font-family: "Sora", system-ui, sans-serif; font-size: 1.4rem; }
-        .subtitle { color: rgba(255, 255, 255, 0.6); margin: 0; line-height: 1.6; }
-        .subtitle.small { margin-top: 0.4rem; font-size: 0.9rem; }
+        .as-subtitle.small { margin-top: 0.4rem; font-size: 0.9rem; }
         .empty { color: rgba(255, 255, 255, 0.6); }
         .grid {
           display: grid;
@@ -301,18 +285,20 @@ export default async function MeusEventosPage() {
         .card {
           position: relative;
           text-decoration: none;
-          color: #f5f6fa;
-          background: #141b3d;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 1rem;
+          color: var(--as-text, #f5f6fa);
+          background: linear-gradient(145deg, rgba(20, 37, 70, 0.92), rgba(9, 20, 40, 0.92));
+          border: 1px solid var(--as-line, rgba(148, 181, 255, 0.16));
+          border-radius: var(--as-radius, 1rem);
+          box-shadow: var(--as-shadow-soft, 0 8px 28px rgba(0, 0, 0, 0.18));
           overflow: hidden;
           display: flex;
           flex-direction: column;
           height: 100%;
-          transition: border-color 0.15s;
+          transition: transform 0.18s ease, border-color 0.18s ease;
         }
         .card:hover {
-          border-color: #4f5fff;
+          transform: translateY(-2px);
+          border-color: rgba(77, 220, 255, 0.35);
         }
         .card.muted {
           opacity: 0.65;
@@ -320,7 +306,7 @@ export default async function MeusEventosPage() {
         .card.vip {
           border: 1.5px solid transparent;
           background:
-            linear-gradient(#141b3d, #141b3d) padding-box,
+            linear-gradient(145deg, rgba(20, 37, 70, 0.92), rgba(9, 20, 40, 0.92)) padding-box,
             linear-gradient(135deg, #e8b646, #c9962f) border-box;
           box-shadow: 0 0.4rem 1.2rem rgba(232, 182, 70, 0.15);
         }
@@ -418,9 +404,10 @@ export default async function MeusEventosPage() {
           align-self: flex-start;
           gap: 0.35rem;
           font-size: 0.78rem;
-          font-weight: 700;
-          color: #12121a;
-          background: #fff;
+          font-weight: 800;
+          color: #c8d5f3;
+          background: transparent;
+          border: 1px solid #263b63;
           border-radius: 999px;
           padding: 0.42rem 0.95rem;
           margin-top: auto;
@@ -429,7 +416,7 @@ export default async function MeusEventosPage() {
           font-size: 0.75rem;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: #8b9aff;
+          color: var(--as-muted, rgba(255, 255, 255, 0.5));
         }
         /* Limita a 2 linhas com altura sempre reservada pra esse tanto -
            títulos curtos ("Stray Kids") e longos ("BTS World Tour ARIRANG")
@@ -472,10 +459,16 @@ export default async function MeusEventosPage() {
           font-family: monospace;
         }
         .cta {
-          display: inline-block;
-          font-size: 0.8rem;
-          color: #8b9aff;
-          font-weight: 600;
+          display: inline-flex;
+          align-items: center;
+          align-self: flex-start;
+          font-size: 0.76rem;
+          font-weight: 800;
+          color: #c8d5f3;
+          background: transparent;
+          border: 1px solid #263b63;
+          border-radius: 999px;
+          padding: 0.4rem 0.9rem;
           margin-top: auto;
         }
       `}</style>

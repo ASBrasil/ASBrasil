@@ -82,7 +82,7 @@ export function CharacterAvatarPicker({
         .picker-hint {
           margin: 0 0 0.7rem;
           font-size: 0.78rem;
-          color: rgba(255, 255, 255, 0.55);
+          color: var(--as-muted, rgba(255, 255, 255, 0.55));
           line-height: 1.5;
         }
         .options {
@@ -94,7 +94,7 @@ export function CharacterAvatarPicker({
           width: 3.4rem;
           height: 3.4rem;
           border-radius: 0.7rem;
-          border: 2px solid rgba(255, 255, 255, 0.15);
+          border: 2px solid var(--as-line, rgba(255, 255, 255, 0.15));
           background: rgba(255, 255, 255, 0.05);
           padding: 0;
           overflow: hidden;
@@ -109,7 +109,7 @@ export function CharacterAvatarPicker({
           cursor: default;
         }
         .option.active {
-          border-color: #4f5fff;
+          border-color: var(--as-cyan, #4f5fff);
         }
         .option img {
           width: 100%;
@@ -123,7 +123,7 @@ export function CharacterAvatarPicker({
         .photo-option {
           font-size: 0.7rem;
           font-weight: 700;
-          color: rgba(255, 255, 255, 0.7);
+          color: var(--as-muted, rgba(255, 255, 255, 0.7));
         }
       `}</style>
     </div>

@@ -63,7 +63,7 @@ function PhotoSlot({ label, hint, folder, field, initialUrl, shape }: PhotoSlotP
       <div className="slot-info">
         <p className="slot-label">{label}</p>
         <p className="slot-hint">{hint}</p>
-        <button type="button" onClick={() => inputRef.current?.click()} disabled={uploading}>
+        <button type="button" className="as-btn as-btn-ghost" onClick={() => inputRef.current?.click()} disabled={uploading}>
           {url ? "Trocar foto" : "Adicionar foto"}
         </button>
         {error && <p className="error">{error}</p>}
@@ -147,28 +147,19 @@ function PhotoSlot({ label, hint, folder, field, initialUrl, shape }: PhotoSlotP
         .slot-hint {
           margin: 0;
           font-size: 0.75rem;
-          color: rgba(255, 255, 255, 0.55);
+          color: var(--as-muted, rgba(255, 255, 255, 0.55));
         }
-        button {
+        .as-btn {
           align-self: flex-start;
           margin-top: 0.2rem;
-          background: none;
-          border: 1px solid rgba(255, 255, 255, 0.3);
-          color: #fff;
-          border-radius: 999px;
+          min-height: unset;
           padding: 0.35rem 0.9rem;
           font-size: 0.78rem;
-          font-weight: 600;
-          cursor: pointer;
-        }
-        button:disabled {
-          opacity: 0.6;
-          cursor: default;
         }
         .error {
           margin: 0.2rem 0 0;
           font-size: 0.75rem;
-          color: #fca5a5;
+          color: var(--as-red, #fca5a5);
         }
       `}</style>
     </div>

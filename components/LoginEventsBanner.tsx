@@ -24,7 +24,7 @@ export function LoginEventsBanner({ events }: { events: FeaturedEvent[] }) {
 
   return (
     <div className="banner">
-      <span className="label">Sorteando agora</span>
+      <span className="as-badge as-badge-success label">● Sorteando agora</span>
       <div className="rotator">
         <a
           key={current.id}
@@ -46,25 +46,25 @@ export function LoginEventsBanner({ events }: { events: FeaturedEvent[] }) {
 
       <style jsx>{`
         .banner {
-          margin-top: 0;
+          margin: 0 0 1.4rem;
+          padding: 12px 14px;
+          border-radius: 14px;
+          background: rgba(77, 220, 255, 0.07);
+          border: 1px solid rgba(77, 220, 255, 0.2);
         }
         .label {
-          display: block;
-          font-size: 0.7rem;
           text-transform: uppercase;
-          letter-spacing: 0.15em;
-          opacity: 0.5;
-          margin-bottom: 0.6rem;
         }
         .rotator {
           min-height: 1.6rem;
+          margin-top: 8px;
         }
         .event-name {
           display: inline-block;
-          color: white;
+          color: var(--as-text, white);
           text-decoration: none;
-          font-weight: 600;
-          font-size: 1rem;
+          font-weight: 700;
+          font-size: 0.98rem;
           animation: fadeIn 0.4s ease;
         }
         .event-name:hover {

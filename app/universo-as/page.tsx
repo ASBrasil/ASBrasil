@@ -42,23 +42,23 @@ export default async function UniversoAsPage() {
   const ownedCardIds = new Set(ownedCards.map((c: { cardId: string }) => c.cardId));
 
   return (
-    <main className="page">
+    <main className="as-shell page">
       <ParticipantTopNav eventName="Universo AS" />
 
       <section className="content">
         <div className="page-heading">
-          <span className="eyebrow">Jogue e colecione</span>
-          <h1>
+          <span className="as-eyebrow">Jogue e colecione</span>
+          <h1 className="as-title">
             <IconController size={28} className="title-icon" />
             Universo AS
           </h1>
-          <p className="subtitle">
+          <p className="as-subtitle">
             Jogue os desafios de qualquer evento, ganhe cards pro seu álbum e, quando estiver
             inscrito no evento do jogo, concorra a números extras no sorteio.
           </p>
         </div>
 
-        <Link href="/universo-as/arcade" className="arcade-banner">
+        <Link href="/universo-as/arcade" className="as-hero-mini arcade-banner">
           <div className="arcade-banner-text">
             <span className="arcade-banner-tag">Bônus - só diversão</span>
             <p className="arcade-banner-title">
@@ -70,7 +70,7 @@ export default async function UniversoAsPage() {
               pontuação no ranking - é só pra jogar.
             </p>
           </div>
-          <span className="arcade-banner-cta">Jogar →</span>
+          <span className="as-btn as-btn-secondary arcade-banner-cta">Jogar →</span>
         </Link>
 
         <h2>Ranking global</h2>
@@ -83,7 +83,7 @@ export default async function UniversoAsPage() {
         ) : (
           <div className="games-grid">
             {games.map((game: any) => (
-              <Link key={game.id} href={`/universo-as/jogos/${game.slug}`} className="game-card">
+              <Link key={game.id} href={`/universo-as/jogos/${game.slug}`} className="as-card game-card">
                 <div
                   className="game-banner"
                   style={{
@@ -123,7 +123,7 @@ export default async function UniversoAsPage() {
             {cards.map((card: any) => {
               const owned = ownedCardIds.has(card.id);
               return (
-                <div key={card.id} className={`album-card ${owned ? "owned" : "locked"}`}>
+                <div key={card.id} className={`as-card album-card ${owned ? "owned" : "locked"}`}>
                   {owned && card.imageUrl ? (
                     <img src={card.imageUrl} alt={card.name} className="album-thumb" />
                   ) : (
@@ -140,32 +140,15 @@ export default async function UniversoAsPage() {
       </section>
 
       <style>{`
+        /* AS Brasil UI V4 (29/09) - tela migrada pro kit novo (ver
+           app/globals.css e claude/pendencias-sorteios.md). .page só cuida
+           do layout; o fundo escuro vem de .as-shell, aplicado no <main>. */
         .page {
           min-height: 100vh;
-          background: radial-gradient(ellipse 80% 50% at 50% -10%, #1b2a5c 0%, #0a1330 55%, #05070f 100%);
-          font-family: system-ui, sans-serif;
-          color: #f5f6fa;
         }
         .content { max-width: 64rem; margin: 0 auto; padding: 3rem 2rem 6rem; }
         .page-heading { max-width: 34rem; margin-bottom: 2.5rem; }
-        .eyebrow {
-          display: block;
-          font-size: 0.72rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.14em;
-          color: #8b9aff;
-          margin-bottom: 0.6rem;
-        }
-        h1 {
-          margin: 0 0 0.6rem;
-          display: flex;
-          align-items: center;
-          gap: 0.6rem;
-          font-family: "Sora", system-ui, sans-serif;
-          font-size: clamp(1.8rem, 3.5vw, 2.4rem);
-        }
-        .subtitle { color: rgba(255, 255, 255, 0.6); margin: 0; line-height: 1.6; }
+        .page-heading .as-title { margin-bottom: 0.6rem; }
         h2 {
           display: flex;
           align-items: center;
@@ -174,9 +157,9 @@ export default async function UniversoAsPage() {
           font-size: 1.15rem;
           margin: 0 0 1.25rem;
         }
-        .title-icon { color: #8b9aff; flex-shrink: 0; }
+        .title-icon { color: var(--as-cyan, #8b9aff); flex-shrink: 0; }
         .album-title, .section-spaced { margin-top: 3rem; }
-        .ranking-hint { color: rgba(255, 255, 255, 0.55); font-size: 0.8rem; margin: -0.75rem 0 1.25rem; }
+        .ranking-hint { color: var(--as-muted, rgba(255, 255, 255, 0.55)); font-size: 0.8rem; margin: -0.75rem 0 1.25rem; }
         .empty { color: rgba(255, 255, 255, 0.6); font-size: 0.9rem; }
         .games-grid {
           display: grid;
@@ -185,17 +168,6 @@ export default async function UniversoAsPage() {
         }
         .game-card {
           display: block;
-          text-decoration: none;
-          color: inherit;
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 1rem;
-          overflow: hidden;
-          transition: border-color 0.15s, transform 0.15s;
-        }
-        .game-card:hover {
-          border-color: rgba(255, 255, 255, 0.3);
-          transform: translateY(-2px);
         }
         .game-banner {
           height: 6rem;
@@ -215,13 +187,13 @@ export default async function UniversoAsPage() {
         }
         .game-info { padding: 1rem 1.1rem 1.2rem; }
         .game-name { margin: 0 0 0.3rem; font-weight: 700; font-size: 0.95rem; }
-        .game-meta { margin: 0; font-size: 0.78rem; opacity: 0.65; }
+        .game-meta { margin: 0; font-size: 0.78rem; color: var(--as-muted, rgba(255, 255, 255, 0.65)); }
         .album-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
           gap: 1rem;
         }
-        .album-card { text-align: center; }
+        .album-card { text-align: center; padding: 0.6rem; }
         .album-thumb {
           width: 100%;
           aspect-ratio: 1 / 1;
@@ -240,6 +212,10 @@ export default async function UniversoAsPage() {
         .album-card.locked .album-thumb.placeholder { opacity: 0.5; }
         .album-name { margin: 0; font-size: 0.75rem; opacity: 0.75; }
         .album-card.locked .album-name { opacity: 0.4; }
+        /* Banner do arcade - reaproveita o visual "as-hero" (navy/violeta com
+           brilho), mas em versão compacta pra caber numa faixa horizontal.
+           O CTA usa as-btn-secondary (não o gradiente primary) porque o
+           Paulo achou o botão colorido "muito claro" de mais aqui. */
         .arcade-banner {
           display: flex;
           align-items: center;
@@ -247,21 +223,34 @@ export default async function UniversoAsPage() {
           gap: 1.25rem;
           text-decoration: none;
           color: inherit;
-          background: linear-gradient(145deg, rgba(79, 95, 255, 0.18), rgba(255, 79, 163, 0.12));
-          border: 1px solid rgba(255, 255, 255, 0.14);
-          border-radius: 1.1rem;
           padding: 1.1rem 1.4rem;
           margin-bottom: 2.5rem;
-          transition: border-color 0.15s, transform 0.15s;
         }
-        .arcade-banner:hover { border-color: rgba(255, 255, 255, 0.32); transform: translateY(-2px); }
+        .as-hero-mini {
+          position: relative;
+          overflow: hidden;
+          background: linear-gradient(120deg, #10264c 0%, #17245d 44%, #542d7a 100%);
+          border: 1px solid rgba(143, 180, 255, 0.22);
+          box-shadow: var(--as-shadow, 0 20px 60px rgba(0, 0, 0, 0.28));
+          transition: transform 0.18s ease, border-color 0.18s ease;
+        }
+        .as-hero-mini:before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(circle at 78% 25%, rgba(77, 220, 255, 0.18), transparent 30%),
+            radial-gradient(circle at 22% 110%, rgba(239, 95, 255, 0.18), transparent 35%);
+          pointer-events: none;
+        }
+        .as-hero-mini > * { position: relative; z-index: 1; }
+        .as-hero-mini:hover { transform: translateY(-2px); border-color: rgba(77, 220, 255, 0.35); }
         .arcade-banner-tag {
           display: inline-block;
           font-size: 0.65rem;
-          font-weight: 700;
+          font-weight: 900;
           text-transform: uppercase;
           letter-spacing: 0.08em;
-          color: #ffe56d;
+          color: var(--as-yellow, #ffe56d);
           margin-bottom: 0.35rem;
         }
         .arcade-banner-title {
@@ -273,12 +262,9 @@ export default async function UniversoAsPage() {
           font-weight: 700;
           font-size: 1.05rem;
         }
-        .arcade-banner-desc { margin: 0; font-size: 0.8rem; color: rgba(255, 255, 255, 0.65); max-width: 32rem; }
+        .arcade-banner-desc { margin: 0; font-size: 0.8rem; color: var(--as-muted, rgba(255, 255, 255, 0.65)); max-width: 32rem; }
         .arcade-banner-cta {
           flex-shrink: 0;
-          font-size: 0.8rem;
-          font-weight: 700;
-          color: #7ce7ff;
           white-space: nowrap;
         }
         @media (max-width: 640px) {

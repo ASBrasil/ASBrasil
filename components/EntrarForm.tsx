@@ -33,11 +33,12 @@ export function EntrarForm() {
 
   return (
     <form onSubmit={handleSubmit} className="form">
-      <label className="field-label" htmlFor="entrar-email">
+      <label className="as-label field-label" htmlFor="entrar-email">
         E-mail
       </label>
       <input
         id="entrar-email"
+        className="as-input"
         type="email"
         required
         placeholder="seu@email.com"
@@ -47,10 +48,11 @@ export function EntrarForm() {
 
       {message && <p className="message">{message}</p>}
 
-      <button type="submit" disabled={loading}>
+      <button type="submit" className="as-btn as-btn-primary submit-btn" disabled={loading}>
         {loading ? "Verificando…" : "Continuar →"}
       </button>
 
+      <div className="as-divider" />
       <div className="support">
         <p>Não conseguiu acessar?</p>
         <p>
@@ -70,69 +72,34 @@ export function EntrarForm() {
           flex-direction: column;
         }
         .field-label {
-          color: rgba(255, 255, 255, 0.85);
-          font-size: 0.82rem;
-          font-weight: 600;
           margin-bottom: 0.5rem;
         }
-        input {
-          width: 100%;
-          box-sizing: border-box;
-          padding: 0.8rem 1rem;
-          border-radius: 0.75rem;
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          background: rgba(255, 255, 255, 0.96);
+        .as-input {
           margin-bottom: 1.1rem;
           font-size: 16px; /* abaixo disso, Safari no iPhone dá zoom automático ao focar o campo */
-          color: #12121a;
-        }
-        input::placeholder {
-          color: #9ca3af;
         }
         .message {
           font-size: 0.85rem;
-          color: #fca5a5;
+          color: var(--as-red, #fca5a5);
           margin: -0.5rem 0 1rem;
         }
-        button {
-          padding: 0.85rem;
-          border-radius: 999px;
-          border: none;
-          background: linear-gradient(135deg, #4f5fff, #7c5cff);
-          color: white;
-          font-weight: 700;
-          letter-spacing: 0.02em;
-          cursor: pointer;
-          font-size: 0.95rem;
-          box-shadow: 0 0.5rem 1.5rem rgba(79, 95, 255, 0.35);
-          transition: filter 0.15s;
-        }
-        button:hover:not(:disabled) {
-          filter: brightness(1.08);
-        }
-        button:disabled {
-          opacity: 0.6;
-          cursor: default;
-        }
-        .support {
-          margin-top: 1.75rem;
-          padding-top: 1.25rem;
-          border-top: 1px solid rgba(255, 255, 255, 0.1);
+        .submit-btn {
+          width: 100%;
         }
         .support p {
           margin: 0;
           font-size: 0.8rem;
-          color: rgba(255, 255, 255, 0.55);
+          color: var(--as-muted, rgba(255, 255, 255, 0.55));
           line-height: 1.5;
         }
         .support p:first-child {
-          font-weight: 600;
-          color: rgba(255, 255, 255, 0.85);
-          margin-bottom: 0.2rem;
+          font-weight: 700;
+          color: #dce5f7;
+          margin-bottom: 0.25rem;
         }
         .support a {
-          color: #a5b4ff;
-          font-weight: 600;
+          color: var(--as-cyan, #a5b4ff);
+          font-weight: 700;
           text-decoration: none;
         }
         .support a:hover {
