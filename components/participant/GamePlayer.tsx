@@ -8,6 +8,10 @@ import {
   type RunConfig,
   type TicketConfig,
   type PerfectPickConfig,
+  type WorldConfig,
+  type MazeConfig,
+  type BlastConfig,
+  type CityRunConfig,
   perfectPickRoundDuration,
   RUN_LANES,
   RUN_MIN_SPAWN_MS,
@@ -21,6 +25,23 @@ import {
   TICKET_MAX_COMBO,
   TICKET_LIVES,
   TICKET_FAKE_CHANCE,
+  WORLD_MIN_SPAWN_MS,
+  WORLD_MAX_SPAWN_MS,
+  WORLD_POINTS_PER_COIN,
+  WORLD_LIVES,
+  MAZE_MOVE_INTERVAL_MS,
+  MAZE_POINTS_PER_DOT,
+  MAZE_LIVES,
+  BLAST_MIN_BOMB_INTERVAL_MS,
+  BLAST_POINTS_PER_BLOCK,
+  BLAST_MAX_HITS_PER_BOMB,
+  BLAST_LIVES,
+  CITYRUN_LANES,
+  CITYRUN_MIN_SPAWN_MS,
+  CITYRUN_MAX_SPAWN_MS,
+  CITYRUN_POINTS_PER_ITEM,
+  CITYRUN_MAX_COMBO,
+  CITYRUN_LIVES,
 } from "@/lib/games";
 import {
   IconStar,
@@ -52,7 +73,7 @@ interface Phase {
   id: string;
   order: number;
   title: string;
-  type: "QUIZ" | "REACTION" | "MEMORY" | "RUN" | "TICKET" | "PICK";
+  type: "QUIZ" | "REACTION" | "MEMORY" | "RUN" | "TICKET" | "PICK" | "WORLD" | "MAZE" | "BLAST" | "CITYRUN";
   points: number;
   grantsExtraTicket: boolean;
   hasRewardCard: boolean;
@@ -63,6 +84,10 @@ interface Phase {
   runConfig: RunConfig | null;
   ticketConfig: TicketConfig | null;
   pickConfig: PerfectPickConfig | null;
+  worldConfig: WorldConfig | null;
+  mazeConfig: MazeConfig | null;
+  blastConfig: BlastConfig | null;
+  cityRunConfig: CityRunConfig | null;
   result: PhaseResult | null;
 }
 
@@ -98,7 +123,8 @@ interface CompleteResponse {
   characterWon: { id: string; name: string; rarity: string; imageUrl: string | null } | null;
   extraTicketNumber: number | null;
   speedMultiplier: number | null;
-  // Só presentes em fases REACTION/MEMORY/RUN/TICKET/PICK (ver rota complete/route.ts, `...extra`).
+  // Só presentes em fases REACTION/MEMORY/RUN/TICKET/PICK/WORLD/MAZE/BLAST/
+  // CITYRUN (ver rota complete/route.ts, `...extra`).
   avgMs?: number | null;
   tier?: string;
   moves?: number;
@@ -219,6 +245,22 @@ export function GamePlayer({
     await postComplete({ rounds });
   }
 
+  async function submitWorld(result: { score: number; elapsedMs: number }) {
+    await postComplete(result);
+  }
+
+  async function submitMaze(result: { score: number; elapsedMs: number }) {
+    await postComplete(result);
+  }
+
+  async function submitBlast(result: { score: number; elapsedMs: number }) {
+    await postComplete(result);
+  }
+
+  async function submitCityRun(result: { score: number; maxCombo: number; elapsedMs: number }) {
+    await postComplete(result);
+  }
+
   // CSS var com a cor primária do tema do jogo - usada pelos elementos que
   // antes tinham dourado fixo (quiz, reação, etc), pra ficar consistente com
   // o resto do app quando o evento tem uma cor de tema própria.
@@ -301,6 +343,34 @@ export function GamePlayer({
               />
             ) : phase.type === "PICK" && phase.pickConfig ? (
               <PerfectPickStage key={phase.id} config={phase.pickConfig} onComplete={submitPick} />
+            ) : phase.type === "WORLD" && phase.worldConfig ? (
+              <WorldStage
+                key={phase.id}
+                config={phase.worldConfig}
+                onComplete={submitWorld}
+                accent={game.theme?.primaryColor || "#8b5cf6"}
+              />
+            ) : phase.type === "MAZE" && phase.mazeConfig ? (
+              <MazeStage
+                key={phase.id}
+                config={phase.mazeConfig}
+                onComplete={submitMaze}
+                accent={game.theme?.primaryColor || "#8b5cf6"}
+              />
+            ) : phase.type === "BLAST" && phase.blastConfig ? (
+              <BlastStage
+                key={phase.id}
+                config={phase.blastConfig}
+                onComplete={submitBlast}
+                accent={game.theme?.primaryColor || "#8b5cf6"}
+              />
+            ) : phase.type === "CITYRUN" && phase.cityRunConfig ? (
+              <CityRunStage
+                key={phase.id}
+                config={phase.cityRunConfig}
+                onComplete={submitCityRun}
+                accent={game.theme?.primaryColor || "#8b5cf6"}
+              />
             ) : (
               <>
                 <div className="questions">
@@ -1394,6 +1464,997 @@ function PerfectPickStage({
         {running ? "TOCAR!" : "…"}
       </button>
       <p className="pick-hint">Toque exatamente quando o marcador passar pelo centro da barra</p>
+    </div>
+  );
+}
+
+// --- AS Game Universe (29/09) - 4 jogos do arcade bônus viram fases
+// oficiais. Reaproveitam as classes .run-stage/.run-hud/.run-canvas/.run-hint
+// (idênticas às .ticket-*, então servem de container genérico) e os ícones de
+// HUD já existentes - sem CSS novo. Ver lib/games.ts pra config/pontuação.
+
+// --- AS World Adventure -----------------------------------------------
+const WORLD_CANVAS_W = 300;
+const WORLD_CANVAS_H = 300;
+const WORLD_GROUND_Y = WORLD_CANVAS_H - 70;
+const WORLD_PLAYER_X = 58;
+const WORLD_PLAYER_SIZE = 24;
+const WORLD_ITEM_SIZE = 24;
+const WORLD_SCROLL_PX_PER_MS = 0.19;
+const WORLD_JUMP_VY = -0.62;
+const WORLD_GRAVITY = 0.0026;
+// Altura mínima (em px acima do chão) que o jogador precisa estar pra
+// considerar que "pulou por cima" de um obstáculo ou "alcançou" uma moeda.
+const WORLD_JUMP_CLEARANCE = WORLD_PLAYER_SIZE * 0.9;
+
+interface WorldItem {
+  x: number;
+  kind: "coin" | "obstacle";
+  resolved: boolean;
+}
+
+function drawWorldBg(ctx: CanvasRenderingContext2D, offset: number, color: string) {
+  const grad = ctx.createLinearGradient(0, 0, 0, WORLD_CANVAS_H);
+  grad.addColorStop(0, "#1c1445");
+  grad.addColorStop(1, "#0a0620");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, WORLD_CANVAS_W, WORLD_CANVAS_H);
+
+  // Chão com linha de brilho e "ladrilhos" passando, pra dar noção de
+  // velocidade sem precisar desenhar cenário complexo.
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = 0.35;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, WORLD_GROUND_Y + WORLD_PLAYER_SIZE);
+  ctx.lineTo(WORLD_CANVAS_W, WORLD_GROUND_Y + WORLD_PLAYER_SIZE);
+  ctx.stroke();
+  ctx.globalAlpha = 0.15;
+  const tileW = 36;
+  const shift = offset % tileW;
+  for (let x = -shift; x < WORLD_CANVAS_W; x += tileW) {
+    ctx.beginPath();
+    ctx.moveTo(x, WORLD_GROUND_Y + WORLD_PLAYER_SIZE);
+    ctx.lineTo(x - 14, WORLD_CANVAS_H);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawWorldPlayer(ctx: CanvasRenderingContext2D, x: number, y: number, color: string) {
+  ctx.save();
+  ctx.fillStyle = color;
+  roundRect(ctx, x - WORLD_PLAYER_SIZE / 2, y - WORLD_PLAYER_SIZE, WORLD_PLAYER_SIZE, WORLD_PLAYER_SIZE, 6);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawWorldItem(ctx: CanvasRenderingContext2D, x: number, y: number, kind: "coin" | "obstacle", color: string) {
+  ctx.save();
+  if (kind === "coin") {
+    ctx.fillStyle = "#fbbf24";
+    ctx.beginPath();
+    ctx.arc(x, y, WORLD_ITEM_SIZE / 2, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x, y - WORLD_ITEM_SIZE);
+    ctx.lineTo(x + WORLD_ITEM_SIZE / 2, y);
+    ctx.lineTo(x - WORLD_ITEM_SIZE / 2, y);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function WorldStage({
+  config,
+  onComplete,
+  accent,
+}: {
+  config: WorldConfig;
+  onComplete: (result: { score: number; elapsedMs: number }) => void;
+  accent: string;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const itemsRef = useRef<WorldItem[]>([]);
+  const scoreRef = useRef(0);
+  const livesRef = useRef(WORLD_LIVES);
+  const playerYRef = useRef(WORLD_GROUND_Y);
+  const velocityRef = useRef(0);
+  const jumpingRef = useRef(false);
+  const scrollRef = useRef(0);
+  const startRef = useRef(0);
+  const rafRef = useRef(0);
+  const finishedRef = useRef(false);
+
+  const [hud, setHud] = useState({ score: 0, lives: WORLD_LIVES, timeLeft: config.durationSeconds });
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+
+    startRef.current = performance.now();
+    let lastFrame = startRef.current;
+    let lastSpawn = 0;
+    let lastHud = 0;
+
+    function finish() {
+      if (finishedRef.current) return;
+      finishedRef.current = true;
+      cancelAnimationFrame(rafRef.current);
+      onComplete({ score: Math.round(scoreRef.current), elapsedMs: performance.now() - startRef.current });
+    }
+
+    function jump() {
+      if (jumpingRef.current) return;
+      jumpingRef.current = true;
+      velocityRef.current = WORLD_JUMP_VY;
+    }
+
+    function draw() {
+      if (!ctx) return;
+      drawWorldBg(ctx, scrollRef.current, accent);
+      itemsRef.current.forEach((item) => {
+        const y = item.kind === "coin" ? WORLD_GROUND_Y - WORLD_JUMP_CLEARANCE - 10 : WORLD_GROUND_Y;
+        drawWorldItem(ctx, item.x, y + WORLD_PLAYER_SIZE, item.kind, accent);
+      });
+      drawWorldPlayer(ctx, WORLD_PLAYER_X, playerYRef.current + WORLD_PLAYER_SIZE, accent);
+    }
+
+    function loop(now: number) {
+      const elapsed = now - startRef.current;
+      const dt = now - lastFrame;
+      lastFrame = now;
+      scrollRef.current += dt * WORLD_SCROLL_PX_PER_MS;
+
+      velocityRef.current += WORLD_GRAVITY * dt;
+      playerYRef.current += velocityRef.current * dt;
+      if (playerYRef.current >= WORLD_GROUND_Y) {
+        playerYRef.current = WORLD_GROUND_Y;
+        velocityRef.current = 0;
+        jumpingRef.current = false;
+      }
+
+      if (elapsed >= config.durationSeconds * 1000 || livesRef.current <= 0) {
+        draw();
+        finish();
+        return;
+      }
+
+      const progress = Math.min(1, elapsed / (config.durationSeconds * 1000));
+      const spawnInterval = WORLD_MAX_SPAWN_MS - (WORLD_MAX_SPAWN_MS - WORLD_MIN_SPAWN_MS) * progress;
+      if (elapsed - lastSpawn >= spawnInterval) {
+        lastSpawn = elapsed;
+        itemsRef.current.push({
+          x: WORLD_CANVAS_W + WORLD_ITEM_SIZE,
+          kind: Math.random() < 0.65 ? "coin" : "obstacle",
+          resolved: false,
+        });
+      }
+
+      itemsRef.current = itemsRef.current.filter((item) => {
+        item.x -= WORLD_SCROLL_PX_PER_MS * dt * 1.4;
+        if (!item.resolved && Math.abs(item.x - WORLD_PLAYER_X) < WORLD_ITEM_SIZE * 0.6) {
+          item.resolved = true;
+          const elevated = playerYRef.current < WORLD_GROUND_Y - WORLD_JUMP_CLEARANCE;
+          if (item.kind === "coin") {
+            if (elevated) scoreRef.current += WORLD_POINTS_PER_COIN;
+          } else if (!elevated) {
+            livesRef.current -= 1;
+          }
+          return false;
+        }
+        return item.x > -WORLD_ITEM_SIZE;
+      });
+
+      draw();
+      if (elapsed - lastHud >= 120) {
+        lastHud = elapsed;
+        setHud({
+          score: Math.round(scoreRef.current),
+          lives: Math.max(0, livesRef.current),
+          timeLeft: Math.max(0, Math.ceil(config.durationSeconds - elapsed / 1000)),
+        });
+      }
+      rafRef.current = requestAnimationFrame(loop);
+    }
+
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === " " || e.key === "ArrowUp" || e.key === "w") jump();
+    }
+    window.addEventListener("keydown", handleKey);
+    rafRef.current = requestAnimationFrame(loop);
+
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      window.removeEventListener("keydown", handleKey);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleTap() {
+    if (!jumpingRef.current) {
+      jumpingRef.current = true;
+      velocityRef.current = WORLD_JUMP_VY;
+    }
+  }
+
+  return (
+    <div className="run-stage">
+      <div className="run-hud">
+        <span className="hud-stat">
+          <IconClock size={15} /> {hud.timeLeft}s
+        </span>
+        <span className="hud-stat">
+          <IconStar size={15} /> {hud.score}
+        </span>
+        <span className="hud-stat">
+          <IconHeart size={15} />
+          {hud.lives}
+        </span>
+      </div>
+      <canvas
+        ref={canvasRef}
+        width={WORLD_CANVAS_W}
+        height={WORLD_CANVAS_H}
+        className="run-canvas"
+        onPointerDown={handleTap}
+      />
+      <p className="run-hint">Espaço, seta ↑ ou toque pra pular - pegue as moedas e desvie dos obstáculos</p>
+    </div>
+  );
+}
+
+// --- AS Neon Maze -------------------------------------------------------
+const MAZE_LAYOUT = [
+  "###############",
+  "#...........#.#",
+  "#.###.#####.#.#",
+  "#.#.......#...#",
+  "#.#.#####.###.#",
+  "#.......#.....#",
+  "#.#####.#.###.#",
+  "#.............#",
+  "###############",
+];
+const MAZE_ROWS = MAZE_LAYOUT.length;
+const MAZE_COLS = MAZE_LAYOUT[0].length;
+const MAZE_CELL = 20;
+const MAZE_CANVAS_W = MAZE_COLS * MAZE_CELL;
+const MAZE_CANVAS_H = MAZE_ROWS * MAZE_CELL;
+const MAZE_START = { row: 1, col: 1 };
+const MAZE_ENEMY_START = { row: 7, col: 13 };
+const MAZE_ENEMY_MOVE_MS = MAZE_MOVE_INTERVAL_MS * 1.5;
+
+function mazeKey(row: number, col: number) {
+  return `${row},${col}`;
+}
+
+function isMazeWall(row: number, col: number) {
+  return MAZE_LAYOUT[row]?.[col] !== "." && !(row === MAZE_START.row && col === MAZE_START.col);
+}
+
+function mazeWalkable(row: number, col: number) {
+  if (row < 0 || row >= MAZE_ROWS || col < 0 || col >= MAZE_COLS) return false;
+  return MAZE_LAYOUT[row][col] === "." || (row === MAZE_START.row && col === MAZE_START.col);
+}
+
+function buildMazeDots() {
+  const dots = new Set<string>();
+  for (let r = 0; r < MAZE_ROWS; r++) {
+    for (let c = 0; c < MAZE_COLS; c++) {
+      if (mazeWalkable(r, c) && !(r === MAZE_START.row && c === MAZE_START.col)) {
+        dots.add(mazeKey(r, c));
+      }
+    }
+  }
+  return dots;
+}
+
+function drawMazeBg(ctx: CanvasRenderingContext2D, color: string) {
+  ctx.fillStyle = "#0a0e1f";
+  ctx.fillRect(0, 0, MAZE_CANVAS_W, MAZE_CANVAS_H);
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = 0.6;
+  ctx.lineWidth = 1.5;
+  for (let r = 0; r < MAZE_ROWS; r++) {
+    for (let c = 0; c < MAZE_COLS; c++) {
+      if (isMazeWall(r, c)) {
+        ctx.strokeRect(c * MAZE_CELL + 1, r * MAZE_CELL + 1, MAZE_CELL - 2, MAZE_CELL - 2);
+      }
+    }
+  }
+  ctx.restore();
+}
+
+function MazeStage({
+  config,
+  onComplete,
+  accent,
+}: {
+  config: MazeConfig;
+  onComplete: (result: { score: number; elapsedMs: number }) => void;
+  accent: string;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const posRef = useRef({ ...MAZE_START });
+  const enemyRef = useRef({ ...MAZE_ENEMY_START });
+  const dirRef = useRef({ dr: 0, dc: 0 });
+  const dotsRef = useRef(buildMazeDots());
+  const scoreRef = useRef(0);
+  const livesRef = useRef(MAZE_LIVES);
+  const startRef = useRef(0);
+  const rafRef = useRef(0);
+  const finishedRef = useRef(false);
+
+  const [hud, setHud] = useState({ score: 0, lives: MAZE_LIVES, timeLeft: config.durationSeconds });
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+
+    startRef.current = performance.now();
+    let lastFrame = startRef.current;
+    let lastMove = 0;
+    let lastEnemyMove = 0;
+    let lastHud = 0;
+
+    function finish() {
+      if (finishedRef.current) return;
+      finishedRef.current = true;
+      cancelAnimationFrame(rafRef.current);
+      onComplete({ score: Math.round(scoreRef.current), elapsedMs: performance.now() - startRef.current });
+    }
+
+    function draw() {
+      if (!ctx) return;
+      drawMazeBg(ctx, accent);
+      ctx.save();
+      ctx.fillStyle = "#fbbf24";
+      dotsRef.current.forEach((key) => {
+        const [r, c] = key.split(",").map(Number);
+        ctx.beginPath();
+        ctx.arc(c * MAZE_CELL + MAZE_CELL / 2, r * MAZE_CELL + MAZE_CELL / 2, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.fillStyle = "#dc2626";
+      ctx.beginPath();
+      ctx.arc(
+        enemyRef.current.col * MAZE_CELL + MAZE_CELL / 2,
+        enemyRef.current.row * MAZE_CELL + MAZE_CELL / 2,
+        MAZE_CELL / 2.6,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+      ctx.fillStyle = accent;
+      ctx.beginPath();
+      ctx.arc(
+        posRef.current.col * MAZE_CELL + MAZE_CELL / 2,
+        posRef.current.row * MAZE_CELL + MAZE_CELL / 2,
+        MAZE_CELL / 2.6,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function registerHit() {
+      livesRef.current -= 1;
+      posRef.current = { ...MAZE_START };
+      enemyRef.current = { ...MAZE_ENEMY_START };
+      dirRef.current = { dr: 0, dc: 0 };
+    }
+
+    function loop(now: number) {
+      const elapsed = now - startRef.current;
+      lastFrame = now;
+
+      if (elapsed >= config.durationSeconds * 1000 || livesRef.current <= 0) {
+        draw();
+        finish();
+        return;
+      }
+
+      if (elapsed - lastMove >= MAZE_MOVE_INTERVAL_MS && (dirRef.current.dr !== 0 || dirRef.current.dc !== 0)) {
+        lastMove = elapsed;
+        const nr = posRef.current.row + dirRef.current.dr;
+        const nc = posRef.current.col + dirRef.current.dc;
+        if (mazeWalkable(nr, nc)) {
+          posRef.current = { row: nr, col: nc };
+          const key = mazeKey(nr, nc);
+          if (dotsRef.current.has(key)) {
+            dotsRef.current.delete(key);
+            scoreRef.current += MAZE_POINTS_PER_DOT;
+            if (dotsRef.current.size === 0) dotsRef.current = buildMazeDots();
+          }
+        }
+      }
+
+      if (elapsed - lastEnemyMove >= MAZE_ENEMY_MOVE_MS) {
+        lastEnemyMove = elapsed;
+        const dirs = [
+          { dr: -1, dc: 0 },
+          { dr: 1, dc: 0 },
+          { dr: 0, dc: -1 },
+          { dr: 0, dc: 1 },
+        ];
+        let best: { dr: number; dc: number } | null = null;
+        let bestDist = Infinity;
+        dirs
+          .sort(() => Math.random() - 0.5)
+          .forEach((d) => {
+            const nr = enemyRef.current.row + d.dr;
+            const nc = enemyRef.current.col + d.dc;
+            if (!mazeWalkable(nr, nc)) return;
+            const dist = Math.abs(nr - posRef.current.row) + Math.abs(nc - posRef.current.col);
+            if (dist < bestDist) {
+              bestDist = dist;
+              best = { dr: nr - enemyRef.current.row, dc: nc - enemyRef.current.col };
+            }
+          });
+        if (best) {
+          enemyRef.current = { row: enemyRef.current.row + (best as any).dr, col: enemyRef.current.col + (best as any).dc };
+        }
+      }
+
+      if (enemyRef.current.row === posRef.current.row && enemyRef.current.col === posRef.current.col) {
+        registerHit();
+      }
+
+      draw();
+      if (elapsed - lastHud >= 120) {
+        lastHud = elapsed;
+        setHud({
+          score: Math.round(scoreRef.current),
+          lives: Math.max(0, livesRef.current),
+          timeLeft: Math.max(0, Math.ceil(config.durationSeconds - elapsed / 1000)),
+        });
+      }
+      rafRef.current = requestAnimationFrame(loop);
+    }
+
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "ArrowUp" || e.key === "w") dirRef.current = { dr: -1, dc: 0 };
+      if (e.key === "ArrowDown" || e.key === "s") dirRef.current = { dr: 1, dc: 0 };
+      if (e.key === "ArrowLeft" || e.key === "a") dirRef.current = { dr: 0, dc: -1 };
+      if (e.key === "ArrowRight" || e.key === "d") dirRef.current = { dr: 0, dc: 1 };
+    }
+    window.addEventListener("keydown", handleKey);
+    rafRef.current = requestAnimationFrame(loop);
+
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      window.removeEventListener("keydown", handleKey);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleSwipe(e: React.PointerEvent<HTMLCanvasElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = e.clientX - cx;
+    const dy = e.clientY - cy;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      dirRef.current = { dr: 0, dc: dx > 0 ? 1 : -1 };
+    } else {
+      dirRef.current = { dr: dy > 0 ? 1 : -1, dc: 0 };
+    }
+  }
+
+  return (
+    <div className="run-stage">
+      <div className="run-hud">
+        <span className="hud-stat">
+          <IconClock size={15} /> {hud.timeLeft}s
+        </span>
+        <span className="hud-stat">
+          <IconStar size={15} /> {hud.score}
+        </span>
+        <span className="hud-stat">
+          <IconHeart size={15} />
+          {hud.lives}
+        </span>
+      </div>
+      <canvas
+        ref={canvasRef}
+        width={MAZE_CANVAS_W}
+        height={MAZE_CANVAS_H}
+        className="run-canvas"
+        onPointerDown={handleSwipe}
+      />
+      <p className="run-hint">Setas ou WASD pra andar - fuja do fantasma vermelho e colete os pontinhos</p>
+    </div>
+  );
+}
+
+// --- AS Blast Arena -------------------------------------------------------
+const BLAST_COLS = 11;
+const BLAST_ROWS = 7;
+const BLAST_CELL = 27;
+const BLAST_CANVAS_W = BLAST_COLS * BLAST_CELL;
+const BLAST_CANVAS_H = BLAST_ROWS * BLAST_CELL;
+const BLAST_MOVE_MS = 160;
+const BLAST_FUSE_MS = 850;
+const BLAST_START = { row: 1, col: 1 };
+
+function isBlastBorder(row: number, col: number) {
+  return row === 0 || row === BLAST_ROWS - 1 || col === 0 || col === BLAST_COLS - 1;
+}
+function isBlastPillar(row: number, col: number) {
+  return row % 2 === 0 && col % 2 === 0;
+}
+
+function buildBlastBlocks() {
+  const blocks = new Set<string>();
+  for (let r = 1; r < BLAST_ROWS - 1; r++) {
+    for (let c = 1; c < BLAST_COLS - 1; c++) {
+      if (isBlastPillar(r, c)) continue;
+      const nearStart = Math.abs(r - BLAST_START.row) + Math.abs(c - BLAST_START.col) <= 1;
+      if (!nearStart && Math.random() < 0.65) blocks.add(mazeKey(r, c));
+    }
+  }
+  return blocks;
+}
+
+function drawBlastGrid(ctx: CanvasRenderingContext2D, blocks: Set<string>, color: string) {
+  ctx.fillStyle = "#0d1512";
+  ctx.fillRect(0, 0, BLAST_CANVAS_W, BLAST_CANVAS_H);
+  for (let r = 0; r < BLAST_ROWS; r++) {
+    for (let c = 0; c < BLAST_COLS; c++) {
+      if (isBlastBorder(r, c) || isBlastPillar(r, c)) {
+        ctx.fillStyle = "#374151";
+        ctx.fillRect(c * BLAST_CELL + 1, r * BLAST_CELL + 1, BLAST_CELL - 2, BLAST_CELL - 2);
+      } else if (blocks.has(mazeKey(r, c))) {
+        ctx.fillStyle = color;
+        ctx.fillRect(c * BLAST_CELL + 2, r * BLAST_CELL + 2, BLAST_CELL - 4, BLAST_CELL - 4);
+      }
+    }
+  }
+}
+
+function BlastStage({
+  config,
+  onComplete,
+  accent,
+}: {
+  config: BlastConfig;
+  onComplete: (result: { score: number; elapsedMs: number }) => void;
+  accent: string;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const posRef = useRef({ ...BLAST_START });
+  const blocksRef = useRef(buildBlastBlocks());
+  const bombRef = useRef<{ row: number; col: number; plantedAt: number } | null>(null);
+  const flashRef = useRef<{ cells: string[]; until: number }>({ cells: [], until: 0 });
+  const scoreRef = useRef(0);
+  const livesRef = useRef(BLAST_LIVES);
+  const startRef = useRef(0);
+  const rafRef = useRef(0);
+  const finishedRef = useRef(false);
+  const lastMoveRef = useRef(0);
+  const lastBombRef = useRef(-Infinity);
+
+  const [hud, setHud] = useState({ score: 0, lives: BLAST_LIVES, timeLeft: config.durationSeconds });
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+
+    startRef.current = performance.now();
+
+    function finish() {
+      if (finishedRef.current) return;
+      finishedRef.current = true;
+      cancelAnimationFrame(rafRef.current);
+      onComplete({ score: Math.round(scoreRef.current), elapsedMs: performance.now() - startRef.current });
+    }
+
+    function canWalk(r: number, c: number) {
+      if (r < 0 || r >= BLAST_ROWS || c < 0 || c >= BLAST_COLS) return false;
+      if (isBlastBorder(r, c) || isBlastPillar(r, c)) return false;
+      if (blocksRef.current.has(mazeKey(r, c))) return false;
+      return true;
+    }
+
+    function explode(bomb: { row: number; col: number }) {
+      const cells = [
+        { row: bomb.row, col: bomb.col },
+        { row: bomb.row - 1, col: bomb.col },
+        { row: bomb.row + 1, col: bomb.col },
+        { row: bomb.row, col: bomb.col - 1 },
+        { row: bomb.row, col: bomb.col + 1 },
+      ];
+      const flashKeys: string[] = [];
+      let hitPlayer = false;
+      cells.forEach(({ row, col }) => {
+        if (row < 0 || row >= BLAST_ROWS || col < 0 || col >= BLAST_COLS) return;
+        if (isBlastBorder(row, col) || isBlastPillar(row, col)) return;
+        flashKeys.push(mazeKey(row, col));
+        const key = mazeKey(row, col);
+        if (blocksRef.current.has(key)) {
+          blocksRef.current.delete(key);
+          scoreRef.current += BLAST_POINTS_PER_BLOCK;
+        }
+        if (posRef.current.row === row && posRef.current.col === col) hitPlayer = true;
+      });
+      flashRef.current = { cells: flashKeys, until: performance.now() + 180 };
+      if (hitPlayer) {
+        livesRef.current -= 1;
+        posRef.current = { ...BLAST_START };
+      }
+      if (blocksRef.current.size < 6) blocksRef.current = buildBlastBlocks();
+    }
+
+    function draw() {
+      if (!ctx) return;
+      drawBlastGrid(ctx, blocksRef.current, accent);
+      if (performance.now() < flashRef.current.until) {
+        ctx.save();
+        ctx.fillStyle = "#f97316";
+        ctx.globalAlpha = 0.6;
+        flashRef.current.cells.forEach((key) => {
+          const [r, c] = key.split(",").map(Number);
+          ctx.fillRect(c * BLAST_CELL + 2, r * BLAST_CELL + 2, BLAST_CELL - 4, BLAST_CELL - 4);
+        });
+        ctx.restore();
+      }
+      if (bombRef.current) {
+        ctx.save();
+        ctx.fillStyle = "#111827";
+        ctx.beginPath();
+        ctx.arc(
+          bombRef.current.col * BLAST_CELL + BLAST_CELL / 2,
+          bombRef.current.row * BLAST_CELL + BLAST_CELL / 2,
+          BLAST_CELL / 3,
+          0,
+          Math.PI * 2
+        );
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.save();
+      ctx.fillStyle = accent;
+      ctx.beginPath();
+      ctx.arc(
+        posRef.current.col * BLAST_CELL + BLAST_CELL / 2,
+        posRef.current.row * BLAST_CELL + BLAST_CELL / 2,
+        BLAST_CELL / 2.6,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function placeBomb() {
+      const now = performance.now();
+      if (bombRef.current) return;
+      if (now - lastBombRef.current < BLAST_MIN_BOMB_INTERVAL_MS) return;
+      lastBombRef.current = now;
+      bombRef.current = { row: posRef.current.row, col: posRef.current.col, plantedAt: now };
+    }
+
+    function loop(now: number) {
+      const elapsed = now - startRef.current;
+
+      if (bombRef.current && now - bombRef.current.plantedAt >= BLAST_FUSE_MS) {
+        const bomb = bombRef.current;
+        bombRef.current = null;
+        explode(bomb);
+      }
+
+      if (elapsed >= config.durationSeconds * 1000 || livesRef.current <= 0) {
+        draw();
+        finish();
+        return;
+      }
+
+      draw();
+      setHud((prev) => {
+        const next = {
+          score: Math.round(scoreRef.current),
+          lives: Math.max(0, livesRef.current),
+          timeLeft: Math.max(0, Math.ceil(config.durationSeconds - elapsed / 1000)),
+        };
+        if (prev.score === next.score && prev.lives === next.lives && prev.timeLeft === next.timeLeft) return prev;
+        return next;
+      });
+      rafRef.current = requestAnimationFrame(loop);
+    }
+
+    function handleKey(e: KeyboardEvent) {
+      const now = performance.now();
+      if (e.key === " " || e.key === "Enter") {
+        placeBomb();
+        return;
+      }
+      let dr = 0;
+      let dc = 0;
+      if (e.key === "ArrowUp" || e.key === "w") dr = -1;
+      else if (e.key === "ArrowDown" || e.key === "s") dr = 1;
+      else if (e.key === "ArrowLeft" || e.key === "a") dc = -1;
+      else if (e.key === "ArrowRight" || e.key === "d") dc = 1;
+      else return;
+      if (now - lastMoveRef.current < BLAST_MOVE_MS) return;
+      const nr = posRef.current.row + dr;
+      const nc = posRef.current.col + dc;
+      if (canWalk(nr, nc)) {
+        posRef.current = { row: nr, col: nc };
+        lastMoveRef.current = now;
+      }
+    }
+    window.addEventListener("keydown", handleKey);
+    rafRef.current = requestAnimationFrame(loop);
+
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      window.removeEventListener("keydown", handleKey);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleTap() {
+    const now = performance.now();
+    if (bombRef.current) return;
+    if (now - lastBombRef.current < BLAST_MIN_BOMB_INTERVAL_MS) return;
+    lastBombRef.current = now;
+    bombRef.current = { row: posRef.current.row, col: posRef.current.col, plantedAt: now };
+  }
+
+  return (
+    <div className="run-stage">
+      <div className="run-hud">
+        <span className="hud-stat">
+          <IconClock size={15} /> {hud.timeLeft}s
+        </span>
+        <span className="hud-stat">
+          <IconStar size={15} /> {hud.score}
+        </span>
+        <span className="hud-stat">
+          <IconHeart size={15} />
+          {hud.lives}
+        </span>
+      </div>
+      <canvas
+        ref={canvasRef}
+        width={BLAST_CANVAS_W}
+        height={BLAST_CANVAS_H}
+        className="run-canvas"
+        onPointerDown={handleTap}
+      />
+      <p className="run-hint">Setas/WASD pra mover, espaço ou toque pra plantar bomba - saia de perto antes de explodir</p>
+    </div>
+  );
+}
+
+// --- AS City Run - deliberadamente igual a AS Run em mecânica/fórmula,
+// só muda o visual (skyline noturna) e as constantes CITYRUN_* de lib/games.ts.
+const CITYRUN_CANVAS_W = 300;
+const CITYRUN_CANVAS_H = 460;
+const CITYRUN_LANE_W = CITYRUN_CANVAS_W / CITYRUN_LANES;
+const CITYRUN_PLAYER_Y = CITYRUN_CANVAS_H - 64;
+const CITYRUN_ITEM_SIZE = 34;
+const CITYRUN_FALL_PX_PER_MS = 0.22;
+
+interface CityRunItem {
+  lane: number;
+  y: number;
+  kind: "good" | "bad";
+  resolved: boolean;
+}
+
+function drawCitySkyline(ctx: CanvasRenderingContext2D, offset: number, color: string) {
+  const grad = ctx.createLinearGradient(0, 0, 0, CITYRUN_CANVAS_H);
+  grad.addColorStop(0, "#0b1020");
+  grad.addColorStop(1, "#05070f");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, CITYRUN_CANVAS_W, CITYRUN_CANVAS_H);
+
+  // Silhueta de prédios fixa no topo, com janelinhas piscando com o offset.
+  ctx.save();
+  ctx.fillStyle = "#131a2e";
+  const buildingW = 30;
+  for (let i = 0, x = 0; x < CITYRUN_CANVAS_W; i++, x += buildingW) {
+    const h = 40 + ((i * 37) % 60);
+    ctx.fillRect(x, 0, buildingW - 4, h);
+    ctx.fillStyle = Math.floor((offset / 400 + i) % 3) === 0 ? "#fbbf2455" : "#00000000";
+    ctx.fillRect(x + 6, 8, 4, 4);
+    ctx.fillStyle = "#131a2e";
+  }
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = 0.16;
+  ctx.lineWidth = 2;
+  for (let i = 1; i < CITYRUN_LANES; i++) {
+    const x = i * CITYRUN_LANE_W;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, CITYRUN_CANVAS_H);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function CityRunStage({
+  config,
+  onComplete,
+  accent,
+}: {
+  config: CityRunConfig;
+  onComplete: (result: { score: number; maxCombo: number; elapsedMs: number }) => void;
+  accent: string;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const laneRef = useRef(1);
+  const itemsRef = useRef<CityRunItem[]>([]);
+  const scoreRef = useRef(0);
+  const comboStreakRef = useRef(0);
+  const maxComboRef = useRef(1);
+  const livesRef = useRef(CITYRUN_LIVES);
+  const startRef = useRef(0);
+  const rafRef = useRef(0);
+  const finishedRef = useRef(false);
+  const runnerPhaseRef = useRef(0);
+  const skylineOffsetRef = useRef(0);
+
+  const [hud, setHud] = useState({ score: 0, lives: CITYRUN_LIVES, combo: 1, timeLeft: config.durationSeconds });
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+
+    startRef.current = performance.now();
+    let lastFrame = startRef.current;
+    let lastSpawn = 0;
+    let lastHud = 0;
+
+    function finish() {
+      if (finishedRef.current) return;
+      finishedRef.current = true;
+      cancelAnimationFrame(rafRef.current);
+      onComplete({
+        score: Math.round(scoreRef.current),
+        maxCombo: maxComboRef.current,
+        elapsedMs: performance.now() - startRef.current,
+      });
+    }
+
+    function draw() {
+      if (!ctx) return;
+      drawCitySkyline(ctx, skylineOffsetRef.current, accent);
+      itemsRef.current.forEach((item) => {
+        drawRunItem(ctx, item.lane * CITYRUN_LANE_W + CITYRUN_LANE_W / 2, item.y, CITYRUN_ITEM_SIZE, item.kind, accent);
+      });
+      const moving = livesRef.current > 0;
+      drawRunner(
+        ctx,
+        laneRef.current * CITYRUN_LANE_W + CITYRUN_LANE_W / 2,
+        CITYRUN_PLAYER_Y,
+        moving ? runnerPhaseRef.current : 0,
+        accent
+      );
+    }
+
+    function loop(now: number) {
+      const elapsed = now - startRef.current;
+      const dt = now - lastFrame;
+      lastFrame = now;
+      skylineOffsetRef.current += dt;
+      runnerPhaseRef.current += dt * 0.012;
+
+      if (elapsed >= config.durationSeconds * 1000 || livesRef.current <= 0) {
+        draw();
+        finish();
+        return;
+      }
+
+      const progress = Math.min(1, elapsed / (config.durationSeconds * 1000));
+      const spawnInterval = CITYRUN_MAX_SPAWN_MS - (CITYRUN_MAX_SPAWN_MS - CITYRUN_MIN_SPAWN_MS) * progress;
+      if (elapsed - lastSpawn >= spawnInterval) {
+        lastSpawn = elapsed;
+        itemsRef.current.push({
+          lane: Math.floor(Math.random() * CITYRUN_LANES),
+          y: -CITYRUN_ITEM_SIZE,
+          kind: Math.random() < 0.7 ? "good" : "bad",
+          resolved: false,
+        });
+      }
+
+      itemsRef.current = itemsRef.current.filter((item) => {
+        item.y += CITYRUN_FALL_PX_PER_MS * dt;
+        if (
+          !item.resolved &&
+          Math.abs(item.y - CITYRUN_PLAYER_Y) < CITYRUN_ITEM_SIZE * 0.6 &&
+          item.lane === laneRef.current
+        ) {
+          item.resolved = true;
+          if (item.kind === "good") {
+            comboStreakRef.current += 1;
+            const multiplier = Math.min(CITYRUN_MAX_COMBO, 1 + Math.floor(comboStreakRef.current / 5));
+            maxComboRef.current = Math.max(maxComboRef.current, multiplier);
+            scoreRef.current += CITYRUN_POINTS_PER_ITEM * multiplier;
+          } else {
+            comboStreakRef.current = 0;
+            livesRef.current -= 1;
+          }
+          return false;
+        }
+        return item.y < CITYRUN_CANVAS_H + CITYRUN_ITEM_SIZE;
+      });
+
+      draw();
+      if (elapsed - lastHud >= 120) {
+        lastHud = elapsed;
+        const multiplier = Math.min(CITYRUN_MAX_COMBO, 1 + Math.floor(comboStreakRef.current / 5));
+        setHud({
+          score: Math.round(scoreRef.current),
+          lives: Math.max(0, livesRef.current),
+          combo: multiplier,
+          timeLeft: Math.max(0, Math.ceil(config.durationSeconds - elapsed / 1000)),
+        });
+      }
+      rafRef.current = requestAnimationFrame(loop);
+    }
+
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "ArrowLeft" || e.key === "a") laneRef.current = Math.max(0, laneRef.current - 1);
+      if (e.key === "ArrowRight" || e.key === "d")
+        laneRef.current = Math.min(CITYRUN_LANES - 1, laneRef.current + 1);
+    }
+    window.addEventListener("keydown", handleKey);
+    rafRef.current = requestAnimationFrame(loop);
+
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      window.removeEventListener("keydown", handleKey);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleTap(e: React.PointerEvent<HTMLCanvasElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    laneRef.current = Math.min(CITYRUN_LANES - 1, Math.max(0, Math.floor(ratio * CITYRUN_LANES)));
+  }
+
+  return (
+    <div className="run-stage">
+      <div className="run-hud">
+        <span className="hud-stat">
+          <IconClock size={15} /> {hud.timeLeft}s
+        </span>
+        <span className="hud-stat">
+          <IconStar size={15} /> {hud.score}
+        </span>
+        <span className="hud-stat">
+          <IconFlame size={15} /> x{hud.combo}
+        </span>
+        <span className="hud-stat">
+          <IconHeart size={15} />
+          {hud.lives}
+        </span>
+      </div>
+      <canvas
+        ref={canvasRef}
+        width={CITYRUN_CANVAS_W}
+        height={CITYRUN_CANVAS_H}
+        className="run-canvas"
+        onPointerDown={handleTap}
+      />
+      <p className="run-hint">Setas ← → ou toque numa faixa pra mudar - foge dos cones pela cidade</p>
     </div>
   );
 }

@@ -649,3 +649,190 @@ export function perfectPickSpeedMultiplier(avgQuality: number): number {
   const ratio = Math.max(0, Math.min(100, avgQuality)) / 100;
   return 1 + ratio * 0.5;
 }
+
+// --- AS Game Universe (29/09) - 4 jogos do arcade bônus viram fases oficiais.
+// Todos os 4 seguem exatamente o mesmo modelo de config e anti-fraude de
+// AS Run/Ticket Rush (ver comentário lá em cima): pontuação e progresso
+// calculados 100% no navegador (não tem segredo servidor pra recalcular a
+// física/colisão de um jogo de canvas), então o único cuidado possível é
+// clampar a pontuação a um teto fisicamente plausível dado o tempo
+// decorrido - o pior caso de manipulação vira "ganhar a pontuação máxima
+// plausível pro tempo jogado", nunca um valor absurdo. Igual Run/Ticket,
+// nenhum dos 4 gera número extra de sorteio (canGrantTicket em
+// complete/route.ts), só pontos/ranking/card/personagem de recompensa.
+
+export interface DurationScoreConfig {
+  durationSeconds: number;
+  targetScore: number;
+}
+
+const ARCADE_MIN_SECONDS = 15;
+const ARCADE_MAX_SECONDS = 90;
+
+function normalizeDurationScoreConfig(content: unknown, defaults: DurationScoreConfig): DurationScoreConfig {
+  if (!content || typeof content !== "object") return { ...defaults };
+  const c = content as Record<string, unknown>;
+  const durationSeconds =
+    typeof c.durationSeconds === "number"
+      ? Math.min(ARCADE_MAX_SECONDS, Math.max(ARCADE_MIN_SECONDS, Math.round(c.durationSeconds)))
+      : defaults.durationSeconds;
+  const targetScore = typeof c.targetScore === "number" ? Math.max(10, Math.round(c.targetScore)) : defaults.targetScore;
+  return { durationSeconds, targetScore };
+}
+
+function classifyArcadeTier(percent: number): string {
+  if (percent >= 100) return "🥇 Show garantido";
+  if (percent >= 75) return "🥈 Quase lá";
+  if (percent >= 45) return "🥉 No embalo";
+  return "🐣 Primeira corrida";
+}
+
+// AS World Adventure - plataforma: moeda vale WORLD_POINTS_PER_COIN, pulo
+// evita obstáculo (perder não soma nem tira ponto, só não anda).
+export const WORLD_POINTS_PER_COIN = 10;
+export const WORLD_MIN_SPAWN_MS = 420;
+export const WORLD_MAX_SPAWN_MS = 850;
+export const WORLD_LIVES = 3;
+
+export type WorldConfig = DurationScoreConfig;
+const WORLD_DEFAULTS: WorldConfig = { durationSeconds: 30, targetScore: 150 };
+
+export function normalizeWorldConfig(content: unknown): WorldConfig {
+  return normalizeDurationScoreConfig(content, WORLD_DEFAULTS);
+}
+
+export interface WorldOutcome {
+  score: number;
+  percent: number;
+  isPerfect: boolean;
+  tier: string;
+}
+
+/** Mesma lógica de teto plausível de evaluateRunResult, sem combo (o pulo já é o desafio). */
+export function evaluateWorldResult(rawScore: unknown, rawElapsedMs: unknown, config: WorldConfig): WorldOutcome {
+  const durationMs = config.durationSeconds * 1000;
+  const elapsedMs =
+    typeof rawElapsedMs === "number" && Number.isFinite(rawElapsedMs) ? Math.min(durationMs, Math.max(0, rawElapsedMs)) : durationMs;
+  const maxItems = Math.ceil(elapsedMs / WORLD_MIN_SPAWN_MS) + 1;
+  const ceiling = maxItems * WORLD_POINTS_PER_COIN;
+  const score =
+    typeof rawScore === "number" && Number.isFinite(rawScore) ? Math.max(0, Math.min(ceiling, Math.round(rawScore))) : 0;
+  const percent = config.targetScore > 0 ? Math.min(100, Math.round((score / config.targetScore) * 100)) : 0;
+  return { score, percent, isPerfect: percent >= 100, tier: classifyArcadeTier(percent) };
+}
+
+// AS Neon Maze - labirinto: cada ponto coletado vale MAZE_POINTS_PER_DOT, o
+// movimento é discreto (um tile a cada MAZE_MOVE_INTERVAL_MS no máximo).
+export const MAZE_POINTS_PER_DOT = 10;
+export const MAZE_MOVE_INTERVAL_MS = 140;
+export const MAZE_LIVES = 3;
+
+export type MazeConfig = DurationScoreConfig;
+const MAZE_DEFAULTS: MazeConfig = { durationSeconds: 30, targetScore: 150 };
+
+export function normalizeMazeConfig(content: unknown): MazeConfig {
+  return normalizeDurationScoreConfig(content, MAZE_DEFAULTS);
+}
+
+export interface MazeOutcome {
+  score: number;
+  percent: number;
+  isPerfect: boolean;
+  tier: string;
+}
+
+/** Teto plausível: um ponto por tile andado, no ritmo máximo (um tile a cada MAZE_MOVE_INTERVAL_MS). */
+export function evaluateMazeResult(rawScore: unknown, rawElapsedMs: unknown, config: MazeConfig): MazeOutcome {
+  const durationMs = config.durationSeconds * 1000;
+  const elapsedMs =
+    typeof rawElapsedMs === "number" && Number.isFinite(rawElapsedMs) ? Math.min(durationMs, Math.max(0, rawElapsedMs)) : durationMs;
+  const maxDots = Math.floor(elapsedMs / MAZE_MOVE_INTERVAL_MS) + 1;
+  const ceiling = maxDots * MAZE_POINTS_PER_DOT;
+  const score =
+    typeof rawScore === "number" && Number.isFinite(rawScore) ? Math.max(0, Math.min(ceiling, Math.round(rawScore))) : 0;
+  const percent = config.targetScore > 0 ? Math.min(100, Math.round((score / config.targetScore) * 100)) : 0;
+  return { score, percent, isPerfect: percent >= 100, tier: classifyArcadeTier(percent) };
+}
+
+// AS Blast Arena - bombas: cada bloco destruído vale BLAST_POINTS_PER_BLOCK,
+// uma bomba só pode ser colocada a cada BLAST_MIN_BOMB_INTERVAL_MS e destrói
+// no máximo BLAST_MAX_HITS_PER_BOMB blocos (uma cruz de até 2 tiles em 4
+// direções, para no primeiro bloco de cada lado).
+export const BLAST_POINTS_PER_BLOCK = 25;
+export const BLAST_MIN_BOMB_INTERVAL_MS = 900;
+export const BLAST_MAX_HITS_PER_BOMB = 4;
+export const BLAST_LIVES = 3;
+
+export type BlastConfig = DurationScoreConfig;
+const BLAST_DEFAULTS: BlastConfig = { durationSeconds: 30, targetScore: 150 };
+
+export function normalizeBlastConfig(content: unknown): BlastConfig {
+  return normalizeDurationScoreConfig(content, BLAST_DEFAULTS);
+}
+
+export interface BlastOutcome {
+  score: number;
+  percent: number;
+  isPerfect: boolean;
+  tier: string;
+}
+
+/** Teto plausível: uma bomba a cada BLAST_MIN_BOMB_INTERVAL_MS, sempre acertando o máximo de blocos possível. */
+export function evaluateBlastResult(rawScore: unknown, rawElapsedMs: unknown, config: BlastConfig): BlastOutcome {
+  const durationMs = config.durationSeconds * 1000;
+  const elapsedMs =
+    typeof rawElapsedMs === "number" && Number.isFinite(rawElapsedMs) ? Math.min(durationMs, Math.max(0, rawElapsedMs)) : durationMs;
+  const maxBombs = Math.floor(elapsedMs / BLAST_MIN_BOMB_INTERVAL_MS) + 1;
+  const ceiling = maxBombs * BLAST_MAX_HITS_PER_BOMB * BLAST_POINTS_PER_BLOCK;
+  const score =
+    typeof rawScore === "number" && Number.isFinite(rawScore) ? Math.max(0, Math.min(ceiling, Math.round(rawScore))) : 0;
+  const percent = config.targetScore > 0 ? Math.min(100, Math.round((score / config.targetScore) * 100)) : 0;
+  return { score, percent, isPerfect: percent >= 100, tier: classifyArcadeTier(percent) };
+}
+
+// AS City Run - corredor de 3 faixas: deliberadamente igual a AS Run em
+// mecânica e fórmula de teto (ver evaluateRunResult) - o Paulo preferiu
+// manter os dois como tipos distintos mesmo parecidos, pra poder ajustar
+// dificuldade/visual de cada um separado. Combo igual RUN.
+export const CITYRUN_LANES = 3;
+export const CITYRUN_POINTS_PER_ITEM = 10;
+export const CITYRUN_MAX_COMBO = 5;
+export const CITYRUN_LIVES = 3;
+export const CITYRUN_MIN_SPAWN_MS = 450;
+export const CITYRUN_MAX_SPAWN_MS = 900;
+
+export type CityRunConfig = DurationScoreConfig;
+const CITYRUN_DEFAULTS: CityRunConfig = { durationSeconds: 30, targetScore: 150 };
+
+export function normalizeCityRunConfig(content: unknown): CityRunConfig {
+  return normalizeDurationScoreConfig(content, CITYRUN_DEFAULTS);
+}
+
+export interface CityRunOutcome {
+  score: number;
+  maxCombo: number;
+  percent: number;
+  isPerfect: boolean;
+  tier: string;
+}
+
+export function evaluateCityRunResult(
+  rawScore: unknown,
+  rawMaxCombo: unknown,
+  rawElapsedMs: unknown,
+  config: CityRunConfig
+): CityRunOutcome {
+  const durationMs = config.durationSeconds * 1000;
+  const elapsedMs =
+    typeof rawElapsedMs === "number" && Number.isFinite(rawElapsedMs) ? Math.min(durationMs, Math.max(0, rawElapsedMs)) : durationMs;
+  const maxItems = Math.ceil(elapsedMs / CITYRUN_MIN_SPAWN_MS) + 1;
+  const ceiling = maxItems * CITYRUN_POINTS_PER_ITEM * CITYRUN_MAX_COMBO;
+  const score =
+    typeof rawScore === "number" && Number.isFinite(rawScore) ? Math.max(0, Math.min(ceiling, Math.round(rawScore))) : 0;
+  const maxCombo =
+    typeof rawMaxCombo === "number" && Number.isFinite(rawMaxCombo)
+      ? Math.max(1, Math.min(CITYRUN_MAX_COMBO, Math.round(rawMaxCombo)))
+      : 1;
+  const percent = config.targetScore > 0 ? Math.min(100, Math.round((score / config.targetScore) * 100)) : 0;
+  return { score, maxCombo, percent, isPerfect: percent >= 100, tier: classifyArcadeTier(percent) };
+}

@@ -5,13 +5,37 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button, Field, Input } from "@/components/ui/primitives";
 
-type GameType = "QUIZ" | "MEMORY" | "RHYTHM" | "HUNT" | "CARDS" | "REACTION" | "RUN" | "TICKET" | "PICK";
+type GameType =
+  | "QUIZ"
+  | "MEMORY"
+  | "RHYTHM"
+  | "HUNT"
+  | "CARDS"
+  | "REACTION"
+  | "RUN"
+  | "TICKET"
+  | "PICK"
+  | "WORLD"
+  | "MAZE"
+  | "BLAST"
+  | "CITYRUN";
 type GameVisibility = "DRAFT" | "TESTING" | "LIVE";
 
 // Tipos que já têm um jogador de verdade construído (ver GamePlayer.tsx) -
 // os outros existem no schema/admin mas ainda não são jogáveis, então ficam
 // desabilitados no seletor até terem seu componente de jogador.
-const PLAYABLE_TYPES: GameType[] = ["QUIZ", "REACTION", "MEMORY", "RUN", "TICKET", "PICK"];
+const PLAYABLE_TYPES: GameType[] = [
+  "QUIZ",
+  "REACTION",
+  "MEMORY",
+  "RUN",
+  "TICKET",
+  "PICK",
+  "WORLD",
+  "MAZE",
+  "BLAST",
+  "CITYRUN",
+];
 
 interface GameRow {
   id: string;
@@ -34,6 +58,10 @@ const TYPE_LABEL: Record<GameType, string> = {
   RUN: "Corrida (AS Run)",
   TICKET: "Ingressos (Ticket Rush)",
   PICK: "Precisão (Perfect Pick)",
+  WORLD: "Plataforma (AS World Adventure)",
+  MAZE: "Labirinto (AS Neon Maze)",
+  BLAST: "Bombas (AS Blast Arena)",
+  CITYRUN: "Corrida na cidade (AS City Run)",
 };
 
 const VISIBILITY_LABEL: Record<GameVisibility, string> = {

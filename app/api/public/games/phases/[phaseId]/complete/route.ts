@@ -22,6 +22,14 @@ import {
   normalizePerfectPickConfig,
   evaluatePerfectPickRounds,
   perfectPickSpeedMultiplier,
+  normalizeWorldConfig,
+  evaluateWorldResult,
+  normalizeMazeConfig,
+  evaluateMazeResult,
+  normalizeBlastConfig,
+  evaluateBlastResult,
+  normalizeCityRunConfig,
+  evaluateCityRunResult,
 } from "@/lib/games";
 import { grantGamePerfectCards } from "@/lib/cards";
 import { grantPhaseRewardCharacter } from "@/lib/characters";
@@ -134,6 +142,52 @@ export async function POST(req: NextRequest, { params }: { params: { phaseId: st
     isPerfect = outcome.isPerfect;
     speedFactor = isPerfect ? perfectPickSpeedMultiplier(outcome.avgQuality) : 1;
     extra = { avgQuality: outcome.avgQuality, tier: outcome.tier };
+  } else if (phase.type === "WORLD") {
+    // AS World Adventure: plataforma com moeda e obstáculo, pontuação
+    // calculada 100% no navegador (mesmo comentário de AS Run se aplica, ver
+    // lib/games.ts). Nunca gera número extra de sorteio, só XP/ranking.
+    const config = normalizeWorldConfig(phase.content);
+    const outcome = evaluateWorldResult(body.score, body.elapsedMs, config);
+    correctCount = outcome.score;
+    total = config.targetScore;
+    percent = outcome.percent;
+    isPerfect = outcome.isPerfect;
+    speedFactor = 1;
+    extra = { score: outcome.score, tier: outcome.tier };
+  } else if (phase.type === "MAZE") {
+    // AS Neon Maze: labirinto com coleta e perseguidores, mesmo comentário
+    // de AS Run se aplica. Nunca gera número extra de sorteio.
+    const config = normalizeMazeConfig(phase.content);
+    const outcome = evaluateMazeResult(body.score, body.elapsedMs, config);
+    correctCount = outcome.score;
+    total = config.targetScore;
+    percent = outcome.percent;
+    isPerfect = outcome.isPerfect;
+    speedFactor = 1;
+    extra = { score: outcome.score, tier: outcome.tier };
+  } else if (phase.type === "BLAST") {
+    // AS Blast Arena: bombas e blocos destrutíveis, mesmo comentário de AS
+    // Run se aplica. Nunca gera número extra de sorteio.
+    const config = normalizeBlastConfig(phase.content);
+    const outcome = evaluateBlastResult(body.score, body.elapsedMs, config);
+    correctCount = outcome.score;
+    total = config.targetScore;
+    percent = outcome.percent;
+    isPerfect = outcome.isPerfect;
+    speedFactor = 1;
+    extra = { score: outcome.score, tier: outcome.tier };
+  } else if (phase.type === "CITYRUN") {
+    // AS City Run: corredor de 3 faixas, deliberadamente separado de AS Run
+    // (ver schema.prisma) mas com a mesma fórmula de pontuação/teto. Nunca
+    // gera número extra de sorteio.
+    const config = normalizeCityRunConfig(phase.content);
+    const outcome = evaluateCityRunResult(body.score, body.maxCombo, body.elapsedMs, config);
+    correctCount = outcome.score;
+    total = config.targetScore;
+    percent = outcome.percent;
+    isPerfect = outcome.isPerfect;
+    speedFactor = 1;
+    extra = { score: outcome.score, maxCombo: outcome.maxCombo, tier: outcome.tier };
   } else {
     // QUIZ (e qualquer fase antiga sem type explícito, que sempre foi quiz).
     const answers: unknown[] = Array.isArray(body.answers) ? body.answers : [];

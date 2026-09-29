@@ -11,11 +11,20 @@ import {
   normalizeRunConfig,
   normalizeTicketConfig,
   normalizePerfectPickConfig,
+  normalizeWorldConfig,
+  normalizeMazeConfig,
+  normalizeBlastConfig,
+  normalizeCityRunConfig,
 } from "@/lib/games";
 import { GamePlayer } from "@/components/participant/GamePlayer";
 import { ParticipantTopNav } from "@/components/participant/ParticipantTopNav";
 
 export const dynamic = "force-dynamic";
+
+// Tipos cuja pontuação vem 100% do navegador (canvas/cronômetro), sem
+// segredo nenhum guardado no servidor pra esconder do participante - ver
+// comentário completo em lib/games.ts e complete/route.ts.
+const NO_SECRET_TYPES = new Set(["REACTION", "MEMORY", "RUN", "TICKET", "PICK", "WORLD", "MAZE", "BLAST", "CITYRUN"]);
 
 export default async function PlayGamePage({ params }: { params: { slug: string } }) {
   const email = await getParticipantEmail();
@@ -72,18 +81,20 @@ export default async function PlayGamePage({ params }: { params: { slug: string 
       grantsExtraTicket: p.grantsExtraTicket,
       hasRewardCard: !!p.rewardCardId,
       hasRewardCharacter: !!p.rewardCharacterId,
-      // Reaction, Memory, Run, Ticket e Pick não têm "resposta certa" pra
-      // esconder (nenhum deles depende de um segredo guardado no servidor) -
-      // só o quiz precisa tirar a correctIndex antes de mandar pro cliente.
-      questions:
-        p.type === "REACTION" || p.type === "MEMORY" || p.type === "RUN" || p.type === "TICKET" || p.type === "PICK"
-          ? []
-          : stripCorrectAnswers(normalizeQuizQuestions(p.content)),
+      // Reaction, Memory, Run, Ticket, Pick e os 4 do AS Game Universe não
+      // têm "resposta certa" pra esconder (nenhum deles depende de um
+      // segredo guardado no servidor) - só o quiz precisa tirar a
+      // correctIndex antes de mandar pro cliente.
+      questions: NO_SECRET_TYPES.has(p.type) ? [] : stripCorrectAnswers(normalizeQuizQuestions(p.content)),
       reactionConfig: p.type === "REACTION" ? normalizeReactionConfig(p.content) : null,
       memoryConfig: p.type === "MEMORY" ? normalizeMemoryConfig(p.content) : null,
       runConfig: p.type === "RUN" ? normalizeRunConfig(p.content) : null,
       ticketConfig: p.type === "TICKET" ? normalizeTicketConfig(p.content) : null,
       pickConfig: p.type === "PICK" ? normalizePerfectPickConfig(p.content) : null,
+      worldConfig: p.type === "WORLD" ? normalizeWorldConfig(p.content) : null,
+      mazeConfig: p.type === "MAZE" ? normalizeMazeConfig(p.content) : null,
+      blastConfig: p.type === "BLAST" ? normalizeBlastConfig(p.content) : null,
+      cityRunConfig: p.type === "CITYRUN" ? normalizeCityRunConfig(p.content) : null,
       result: existing
         ? { completed: existing.completed, firstScore: existing.firstScore, attempts: existing.attempts }
         : null,

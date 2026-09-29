@@ -598,6 +598,18 @@ enum GameType {
   // exatamente quando ele passa pelo centro, rodada a rodada mais rápido.
   // Ver GamePhase.content e lib/games.ts.
   PICK
+  // AS Game Universe (29/09) - os 4 jogos do arcade bônus (/universo-as/arcade)
+  // viram tipos oficiais de fase, com pontuação validada no servidor igual
+  // RUN/TICKET/PICK (mesmo motivo, mesmo padrão - ver lib/games.ts). Content
+  // de todos os 4: {durationSeconds, targetScore}, igual RUN/TICKET.
+  // WORLD = AS World Adventure (plataforma), MAZE = AS Neon Maze (labirinto),
+  // BLAST = AS Blast Arena (bombas), CITYRUN = AS City Run (corredor de 3
+  // faixas - deliberadamente separado de RUN mesmo sendo parecido, o Paulo
+  // preferiu manter os dois como opções distintas pro admin escolher).
+  WORLD
+  MAZE
+  BLAST
+  CITYRUN
 }
 
 // DRAFT: só aparece no admin. TESTING: aparece pro participante, mas só

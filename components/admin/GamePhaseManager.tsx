@@ -6,7 +6,20 @@ import { Button, Field, Input } from "@/components/ui/primitives";
 import { ImageUpload } from "@/components/admin/ImageUpload";
 
 type Visibility = "DRAFT" | "TESTING" | "LIVE";
-type GameType = "QUIZ" | "MEMORY" | "RHYTHM" | "HUNT" | "CARDS" | "REACTION" | "RUN" | "TICKET" | "PICK";
+type GameType =
+  | "QUIZ"
+  | "MEMORY"
+  | "RHYTHM"
+  | "HUNT"
+  | "CARDS"
+  | "REACTION"
+  | "RUN"
+  | "TICKET"
+  | "PICK"
+  | "WORLD"
+  | "MAZE"
+  | "BLAST"
+  | "CITYRUN";
 
 interface QuizContent {
   question: string;
@@ -119,10 +132,17 @@ export function GamePhaseManager({
   const isRun = gameType === "RUN";
   const isTicket = gameType === "TICKET";
   const isPick = gameType === "PICK";
+  const isWorld = gameType === "WORLD";
+  const isMaze = gameType === "MAZE";
+  const isBlast = gameType === "BLAST";
+  const isCityRun = gameType === "CITYRUN";
+  // Run/Ticket/World/Maze/Blast/CityRun (AS Game Universe, 29/09) têm todos
+  // exatamente a mesma config (duração + pontuação-alvo) - ver lib/games.ts.
+  const isArcadeDuration = isRun || isTicket || isWorld || isMaze || isBlast || isCityRun;
   // Tipos cuja pontuação depende de um cronômetro/contagem no navegador da
   // pessoa, sem verificação de servidor - nunca concedem número extra de
   // sorteio (ver canGrantTicket em complete/route.ts), só pontos/ranking.
-  const noTicket = isReaction || isMemory || isRun || isTicket || isPick;
+  const noTicket = isReaction || isMemory || isArcadeDuration || isPick;
   const router = useRouter();
   const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
   const [phases, setPhases] = useState(initialPhases);
@@ -174,11 +194,10 @@ export function GamePhaseManager({
 
   function validate(): string | null {
     if (!draft.title.trim()) return "Escreva um título pra fase.";
-    if (isReaction || isMemory || isRun || isTicket || isPick) {
-      // Rounds/decoy/pares/duração sempre têm um valor seguro
-      // (normalizeReactionConfig/normalizeMemoryConfig/normalizeRunConfig/
-      // normalizeTicketConfig/normalizePerfectPickConfig clampam tudo no
-      // servidor), então não tem muito o que validar aqui.
+    if (isReaction || isMemory || isArcadeDuration || isPick) {
+      // Rounds/decoy/pares/duração sempre têm um valor seguro (as várias
+      // normalize*Config em lib/games.ts clampam tudo no servidor), então
+      // não tem muito o que validar aqui.
       return null;
     }
     if (!draft.question.trim()) return "Escreva a pergunta do quiz.";
@@ -213,12 +232,7 @@ export function GamePhaseManager({
           timeLimitSeconds: Number(draft.timeLimitSeconds) || 0,
           images: draft.memoryImages.slice(0, Number(draft.pairs) || 8),
         }
-      : isRun
-      ? {
-          durationSeconds: Number(draft.durationSeconds) || 30,
-          targetScore: Number(draft.targetScore) || 150,
-        }
-      : isTicket
+      : isArcadeDuration
       ? {
           durationSeconds: Number(draft.durationSeconds) || 30,
           targetScore: Number(draft.targetScore) || 150,
@@ -300,7 +314,7 @@ export function GamePhaseManager({
 
       <div className="section-header">
         <p className="section-title">
-          Fases ({isReaction ? "reação" : isMemory ? "memória" : isRun ? "corrida" : isTicket ? "tickets" : isPick ? "precisão" : "quiz"})
+          Fases ({isReaction ? "reação" : isMemory ? "memória" : isRun ? "corrida" : isTicket ? "tickets" : isPick ? "precisão" : isWorld ? "plataforma" : isMaze ? "labirinto" : isBlast ? "bombas" : isCityRun ? "corrida na cidade" : "quiz"})
         </p>
         {!creating && !editingId && (
           <Button
@@ -325,6 +339,10 @@ export function GamePhaseManager({
           isRun={isRun}
           isTicket={isTicket}
           isPick={isPick}
+          isWorld={isWorld}
+          isMaze={isMaze}
+          isBlast={isBlast}
+          isCityRun={isCityRun}
           error={error}
           saving={saving}
           onCancel={() => {
@@ -350,6 +368,10 @@ export function GamePhaseManager({
               isRun={isRun}
               isTicket={isTicket}
               isPick={isPick}
+              isWorld={isWorld}
+              isMaze={isMaze}
+              isBlast={isBlast}
+              isCityRun={isCityRun}
               error={error}
               saving={saving}
               onCancel={() => {
@@ -528,6 +550,10 @@ function PhaseForm({
   isRun,
   isTicket,
   isPick,
+  isWorld,
+  isMaze,
+  isBlast,
+  isCityRun,
   error,
   saving,
   onCancel,
@@ -543,6 +569,10 @@ function PhaseForm({
   isRun: boolean;
   isTicket: boolean;
   isPick: boolean;
+  isWorld: boolean;
+  isMaze: boolean;
+  isBlast: boolean;
+  isCityRun: boolean;
   error: string | null;
   saving: boolean;
   onCancel: () => void;
@@ -553,6 +583,9 @@ function PhaseForm({
     .split("\n")
     .map((s) => s.trim())
     .filter(Boolean);
+  // Run/Ticket/World/Maze/Blast/CityRun (AS Game Universe) compartilham a
+  // mesma config (duração + pontuação-alvo), ver lib/games.ts.
+  const isArcadeDuration = isRun || isTicket || isWorld || isMaze || isBlast || isCityRun;
 
   return (
     <div className="form-card">
@@ -571,6 +604,14 @@ function PhaseForm({
               ? "Ex: Fila do Embarque"
               : isPick
               ? "Ex: Toque Certeiro"
+              : isWorld
+              ? "Ex: Aventura no Show"
+              : isMaze
+              ? "Ex: Labirinto Neon"
+              : isBlast
+              ? "Ex: Arena de Bombas"
+              : isCityRun
+              ? "Ex: Corrida pela Cidade"
               : "Ex: Fase 1 - Curiosidades AS Brasil"
           }
         />
@@ -634,27 +675,7 @@ function PhaseForm({
             </div>
           </Field>
         </>
-      ) : isRun ? (
-        <>
-          <Field label="Duração da corrida (segundos)" hint="Entre 15 e 90 segundos.">
-            <Input
-              type="number"
-              value={draft.durationSeconds}
-              onChange={(e) => setDraft({ ...draft, durationSeconds: Number(e.target.value) })}
-            />
-          </Field>
-          <Field
-            label="Pontuação pra 100%"
-            hint="Referência de 'desempenho cheio' pra essa corrida - ajuste conforme a dificuldade que quiser pro sorteio."
-          >
-            <Input
-              type="number"
-              value={draft.targetScore}
-              onChange={(e) => setDraft({ ...draft, targetScore: Number(e.target.value) })}
-            />
-          </Field>
-        </>
-      ) : isTicket ? (
+      ) : isArcadeDuration ? (
         <>
           <Field label="Duração da fase (segundos)" hint="Entre 15 e 90 segundos.">
             <Input
@@ -785,7 +806,7 @@ function PhaseForm({
           ))}
         </select>
       </Field>
-      {isReaction || isMemory || isRun || isTicket || isPick ? (
+      {isReaction || isMemory || isArcadeDuration || isPick ? (
         <p className="reaction-note">
           Fases desse tipo nunca concedem número extra de sorteio (a pontuação depende de um
           cronômetro/contagem no navegador da pessoa) - só pontos, ranking e card de recompensa.
