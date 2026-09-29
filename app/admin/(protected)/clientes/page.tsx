@@ -64,47 +64,45 @@ export default async function ClientesPage({
     <div>
       <div className="header">
         <div>
-          <h1>Clientes</h1>
-          <p className="subtitle">
+          <span className="as-eyebrow">Universo AS</span>
+          <h1 className="as-title">Clientes</h1>
+          <p className="as-subtitle">
             Todo mundo que já se cadastrou em algum sorteio, cruzando todos os sorteios ({total}{" "}
             {total === 1 ? "cliente" : "clientes"}
             {eventId || q ? " encontrados" : " no total"}). Clica no nome pra ver o histórico
             completo dessa pessoa com a gente.
           </p>
         </div>
-        <Link href="/admin/clientes/novo" className="new-btn">
+        <Link href="/admin/clientes/novo" className="as-btn as-btn-primary">
           + Adicionar cliente
         </Link>
       </div>
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <span className="stat-value">{totalClientesUnicos}</span>
-          <span className="stat-label">Clientes únicos</span>
+      <div className="as-kpi-grid stats-grid">
+        <div className="as-card as-kpi">
+          <span className="as-kpi-label">Clientes únicos</span>
+          <div className="as-kpi-value">{totalClientesUnicos}</div>
         </div>
-        <div className="stat-card">
-          <span className="stat-value">{totalInscricoes}</span>
-          <span className="stat-label">Inscrições no total</span>
+        <div className="as-card as-kpi">
+          <span className="as-kpi-label">Inscrições no total</span>
+          <div className="as-kpi-value">{totalInscricoes}</div>
         </div>
-        <div className={`stat-card ${totalPendentes > 0 ? "warn" : ""}`}>
-          <span className="stat-value">{totalPendentes}</span>
-          <span className="stat-label">Pendentes de aprovação</span>
+        <div className={`as-card as-kpi ${totalPendentes > 0 ? "warn" : ""}`}>
+          <span className="as-kpi-label">Pendentes de aprovação</span>
+          <div className="as-kpi-value">{totalPendentes}</div>
         </div>
       </div>
 
       {porEvento.length > 0 && (
         <div className="by-event">
-          <h2>Cadastrados por sorteio</h2>
+          <span className="as-eyebrow">Cadastrados por sorteio</span>
           <ul>
             {porEvento.map((e) => (
               <li key={e.id}>
                 <Link href={`/admin/clientes?eventId=${e.id}`} className="event-row">
                   <span className="event-name">{e.name}</span>
-                  <span className="bar-track">
-                    <span
-                      className="bar-fill"
-                      style={{ width: `${(e._count.participants / maiorEvento) * 100}%` }}
-                    />
+                  <span className="as-progress">
+                    <span style={{ width: `${(e._count.participants / maiorEvento) * 100}%` }} />
                   </span>
                   <span className="event-count">{e._count.participants}</span>
                 </Link>
@@ -120,9 +118,9 @@ export default async function ClientesPage({
           name="q"
           defaultValue={q}
           placeholder="Buscar por nome ou e-mail…"
-          className="search"
+          className="as-input search"
         />
-        <select name="eventId" defaultValue={eventId ?? ""}>
+        <select name="eventId" defaultValue={eventId ?? ""} className="as-select">
           <option value="">Todos os sorteios</option>
           {events.map((e) => (
             <option key={e.id} value={e.id}>
@@ -130,7 +128,9 @@ export default async function ClientesPage({
             </option>
           ))}
         </select>
-        <button type="submit">Filtrar</button>
+        <button type="submit" className="as-btn as-btn-secondary">
+          Filtrar
+        </button>
         {(eventId || q) && (
           <a href="/admin/clientes" className="clear">
             Limpar filtro
@@ -144,8 +144,8 @@ export default async function ClientesPage({
         </p>
       )}
 
-      <div className="table-shell">
-        <table>
+      <div className="as-table-wrap table-shell">
+        <table className="as-table">
           <thead>
             <tr>
               <th>Nome</th>
@@ -196,66 +196,28 @@ export default async function ClientesPage({
         .header {
           display: flex;
           justify-content: space-between;
-          align-items: flex-start;
+          align-items: flex-end;
           gap: 1rem;
-          margin-bottom: 1.5rem;
+          margin-bottom: 1.75rem;
         }
-        .header h1 { margin: 0 0 0.4rem; font-family: var(--font-display, inherit); }
-        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin: 0; max-width: 38rem; }
-        .new-btn {
-          background: var(--indigo-600);
-          color: white;
-          text-decoration: none;
-          padding: 0.6rem 1.1rem;
-          border-radius: 999px;
-          font-weight: 600;
-          font-size: 0.85rem;
-          white-space: nowrap;
-          flex-shrink: 0;
-        }
+        .header .as-subtitle { max-width: 38rem; }
         .stats-grid {
-          display: grid;
           grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-          gap: 1rem;
           max-width: 42rem;
           margin-bottom: 2rem;
         }
-        .stat-card {
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 0.75rem;
-          padding: 1.1rem 1.25rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.3rem;
-        }
-        .stat-card.warn {
+        .as-kpi.warn {
           border-color: rgba(180, 83, 9, 0.4);
           background: rgba(180, 83, 9, 0.06);
-        }
-        .stat-value {
-          font-size: 1.9rem;
-          font-weight: 700;
-          font-family: var(--font-display, inherit);
-          line-height: 1;
-        }
-        .stat-label {
-          font-size: 0.78rem;
-          color: var(--text-muted);
         }
         .by-event {
           max-width: 42rem;
           margin-bottom: 2rem;
         }
-        .by-event h2 {
-          font-size: 0.95rem;
-          margin: 0 0 0.85rem;
-          font-family: var(--font-display, inherit);
-        }
         .by-event ul {
           list-style: none;
           padding: 0;
-          margin: 0;
+          margin: 0.85rem 0 0;
           display: flex;
           flex-direction: column;
           gap: 0.5rem;
@@ -266,7 +228,7 @@ export default async function ClientesPage({
           align-items: center;
           gap: 0.75rem;
           text-decoration: none;
-          color: var(--text);
+          color: var(--as-text, var(--text));
           padding: 0.4rem 0;
         }
         .event-name {
@@ -275,23 +237,11 @@ export default async function ClientesPage({
           text-overflow: ellipsis;
           white-space: nowrap;
         }
-        .bar-track {
-          background: var(--bg);
-          border-radius: 999px;
-          height: 0.55rem;
-          overflow: hidden;
-        }
-        .bar-fill {
-          display: block;
-          height: 100%;
-          background: var(--indigo-600);
-          border-radius: 999px;
-        }
         .event-count {
           text-align: right;
           font-size: 0.85rem;
           font-weight: 600;
-          color: var(--text-muted);
+          color: var(--as-muted, var(--text-muted));
         }
         .filter {
           display: flex;
@@ -301,35 +251,13 @@ export default async function ClientesPage({
           flex-wrap: wrap;
         }
         .filter .search {
-          padding: 0.55rem 0.8rem;
-          border-radius: 0.5rem;
-          border: 1px solid var(--border);
-          background: var(--surface);
-          color: var(--text);
-          font-size: 0.85rem;
           min-width: 16rem;
         }
-        .filter select {
-          padding: 0.55rem 0.8rem;
-          border-radius: 0.5rem;
-          border: 1px solid var(--border);
-          background: var(--surface);
-          color: var(--text);
-          font-size: 0.85rem;
+        .filter .as-select {
           min-width: 14rem;
         }
-        .filter button {
-          padding: 0.55rem 1rem;
-          border-radius: 0.5rem;
-          border: 1px solid var(--border);
-          background: var(--indigo-600);
-          color: white;
-          font-size: 0.85rem;
-          font-weight: 600;
-          cursor: pointer;
-        }
         .filter .clear {
-          color: var(--text-muted);
+          color: var(--as-muted, var(--text-muted));
           font-size: 0.82rem;
           text-decoration: none;
         }
@@ -337,46 +265,24 @@ export default async function ClientesPage({
           text-decoration: underline;
         }
         .search-hint {
-          color: var(--text-muted);
+          color: var(--as-muted, var(--text-muted));
           font-size: 0.8rem;
           margin: 0 0 1.25rem;
         }
         .table-shell {
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 0.75rem;
-          overflow: hidden;
           max-width: 50rem;
           margin-top: 1.25rem;
         }
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 0.88rem;
-        }
-        th {
-          text-align: left;
-          padding: 0.7rem 1rem;
-          background: var(--bg);
-          font-size: 0.75rem;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          color: var(--text-muted);
-        }
-        td {
-          padding: 0.65rem 1rem;
-          border-top: 1px solid var(--border);
-        }
-        .muted { color: var(--text-muted); }
+        .muted { color: var(--as-muted, var(--text-muted)); }
         .actions { text-align: right; }
         .view-link {
-          color: var(--indigo-600);
+          color: var(--as-cyan, var(--indigo-600));
           text-decoration: none;
-          font-weight: 600;
+          font-weight: 700;
           font-size: 0.85rem;
         }
         .view-link:hover { text-decoration: underline; }
-        .empty { text-align: center; color: var(--text-muted); padding: 2rem; }
+        .empty { text-align: center; color: var(--as-muted, var(--text-muted)); padding: 2rem; }
         .pagination {
           display: flex;
           align-items: center;
@@ -386,17 +292,17 @@ export default async function ClientesPage({
           max-width: 50rem;
         }
         .pagination a {
-          color: var(--indigo-600);
+          color: var(--as-cyan, var(--indigo-600));
           text-decoration: none;
-          font-weight: 600;
+          font-weight: 700;
         }
         .pagination a.disabled {
-          color: var(--text-muted);
+          color: var(--as-muted, var(--text-muted));
           pointer-events: none;
           opacity: 0.5;
         }
         .pagination span {
-          color: var(--text-muted);
+          color: var(--as-muted, var(--text-muted));
         }
       `}</style>
     </div>

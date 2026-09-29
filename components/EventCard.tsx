@@ -91,7 +91,7 @@ export function EventCard({
   }
 
   return (
-    <div className="event-card">
+    <div className="as-card as-card-hover event-card">
       <div className="reorder">
         <button
           type="button"
@@ -126,11 +126,10 @@ export function EventCard({
         )}
 
         <div className="body">
-          <div className="status">
-            <span className={`dot ${event.active ? "active" : ""}`} />
-            {event.archived ? "Arquivado" : event.active ? "Publicado" : "Rascunho"}
-            {event.heroFeatured && <span className="hero-badge">🎞️ No banner</span>}
-          </div>
+          <span className={`as-badge status-badge ${event.active ? "as-badge-success" : ""}`}>
+            ● {event.archived ? "Arquivado" : event.active ? "Publicado" : "Rascunho"}
+          </span>
+          {event.heroFeatured && <span className="hero-badge">🎞️ No banner</span>}
           <h3>{event.name}</h3>
           {event.campaign && <span className="campaign">{event.campaign}</span>}
           <div className="stats">
@@ -141,33 +140,19 @@ export function EventCard({
       </Link>
 
       <div className="actions">
-        <Link
-          href={`/admin/events/${event.id}/edit`}
-          className="action-link"
-          style={{
-            fontSize: "0.78rem",
-            fontWeight: 600,
-            padding: "0.35rem 0.7rem",
-            borderRadius: "999px",
-            border: "1px solid var(--border)",
-            background: "transparent",
-            color: "var(--text-muted)",
-            textDecoration: "none",
-            whiteSpace: "nowrap",
-          }}
-        >
+        <Link href={`/admin/events/${event.id}/edit`} className="as-btn-ghost action-link">
           Editar
         </Link>
-        <button type="button" className="action-btn" onClick={toggleArchive} disabled={busy}>
+        <button type="button" className="as-btn-ghost action-btn" onClick={toggleArchive} disabled={busy}>
           {event.archived ? "Desarquivar" : "Arquivar"}
         </button>
-        <button type="button" className="action-btn" onClick={duplicate} disabled={busy}>
+        <button type="button" className="as-btn-ghost action-btn" onClick={duplicate} disabled={busy}>
           {busy ? "…" : "Duplicar"}
         </button>
         {!confirmingDelete ? (
           <button
             type="button"
-            className="action-btn danger"
+            className="as-btn-danger-ghost action-btn"
             onClick={() => setConfirmingDelete(true)}
             disabled={busy}
           >
@@ -176,12 +161,12 @@ export function EventCard({
         ) : (
           <span className="confirm">
             Excluir tudo?
-            <button type="button" className="action-btn danger" onClick={confirmDelete} disabled={busy}>
+            <button type="button" className="as-btn-danger-ghost action-btn" onClick={confirmDelete} disabled={busy}>
               {busy ? "Excluindo…" : "Sim"}
             </button>
             <button
               type="button"
-              className="action-btn"
+              className="as-btn-ghost action-btn"
               onClick={() => setConfirmingDelete(false)}
               disabled={busy}
             >
@@ -195,15 +180,9 @@ export function EventCard({
       <style jsx>{`
         .event-card {
           position: relative;
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 1rem;
           overflow: hidden;
           display: flex;
           flex-direction: column;
-        }
-        .event-card:hover {
-          border-color: var(--indigo-600);
         }
         .reorder {
           position: absolute;
@@ -244,24 +223,8 @@ export function EventCard({
         .body {
           padding: 1.1rem 1.25rem;
         }
-        .status {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 0.4rem;
-          font-size: 0.75rem;
-          color: var(--text-muted);
-          margin-bottom: 0.6rem;
-        }
-        .dot {
-          width: 0.5rem;
-          height: 0.5rem;
-          border-radius: 50%;
-          background: var(--step-inactive);
-          flex-shrink: 0;
-        }
-        .dot.active {
-          background: #22c55e;
+        .status-badge {
+          margin: 0 0.4rem 0.6rem 0;
         }
         .hero-badge {
           background: color-mix(in srgb, var(--indigo-600) 15%, transparent);
@@ -293,28 +256,22 @@ export function EventCard({
           border-top: 1px solid var(--border);
           padding: 0.85rem 1.25rem;
         }
-        .action-btn {
+        .action-btn,
+        .action-link {
           font-size: 0.78rem;
-          font-weight: 600;
+          font-weight: 800;
           padding: 0.35rem 0.7rem;
           border-radius: 999px;
-          border: 1px solid var(--border);
-          background: transparent;
-          color: var(--text-muted);
+          border-width: 1px;
+          border-style: solid;
           cursor: pointer;
           text-decoration: none;
           white-space: nowrap;
+          transition: opacity 0.15s ease;
         }
-        .action-link:hover,
-        .action-btn:hover:not(:disabled) {
-          border-color: var(--indigo-600);
-          color: var(--text);
-        }
-        .action-btn.danger {
-          color: #c0392b;
-        }
-        .action-btn.danger:hover:not(:disabled) {
-          border-color: #c0392b;
+        .action-btn:hover:not(:disabled),
+        .action-link:hover {
+          opacity: 0.8;
         }
         .action-btn:disabled {
           opacity: 0.55;

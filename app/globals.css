@@ -61,30 +61,150 @@ body {
   --as-radius-lg: 26px;
   --as-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
   --as-shadow-soft: 0 8px 28px rgba(0, 0, 0, 0.18);
+
+  /* Tokens de superfície/componente - indireção que permite o admin usar os
+     mesmos componentes (as-card/as-btn/as-input/...) só que numa variante
+     clara (ver .as-light mais abaixo), sem duplicar classe nenhuma. Valores
+     abaixo são os padrões ESCUROS (participante); .as-light os sobrescreve. */
+  --as-shell-glow-1: rgba(124, 92, 255, 0.16);
+  --as-shell-glow-2: rgba(47, 128, 255, 0.12);
+  --as-scrollbar-thumb: #31456d;
+  --as-selection: rgba(77, 220, 255, 0.28);
+  --as-card-bg: linear-gradient(145deg, rgba(20, 37, 70, 0.92), rgba(9, 20, 40, 0.92));
+  --as-card-hover-border: rgba(77, 220, 255, 0.35);
+  --as-input-bg: rgba(5, 14, 31, 0.78);
+  --as-input-border: #2a3d64;
+  --as-focus-ring: rgba(77, 220, 255, 0.1);
+  --as-label-color: #c7d3ed;
+  --as-help-color: #8292b2;
+  --as-kpi-glow: rgba(77, 220, 255, 0.16);
+  --as-btn-secondary-bg: #132341;
+  --as-btn-secondary-border: #2c426c;
+  --as-btn-ghost-color: #c8d5f3;
+  --as-btn-ghost-border: #263b63;
+  --as-kpi-label-color: #91a2c3;
+  --as-table-wrap-bg: rgba(9, 20, 40, 0.7);
+  --as-table-header-bg: #12213e;
+  --as-table-header-color: #94a5c6;
+  --as-table-header-border: #263a60;
+  --as-table-cell-color: #dce5f7;
+  --as-table-row-hover: rgba(77, 220, 255, 0.045);
+  --as-badge-bg: #1b2d4f;
+  --as-badge-color: #b8c7e5;
+  --as-badge-border: #2c426c;
+  --as-badge-success-bg: rgba(72, 230, 160, 0.1);
+  --as-badge-success-color: #6af0b3;
+  --as-badge-success-border: rgba(72, 230, 160, 0.24);
+  --as-badge-warning-bg: rgba(255, 215, 90, 0.1);
+  --as-badge-warning-color: #ffe07b;
+  --as-badge-warning-border: rgba(255, 215, 90, 0.24);
+  --as-badge-danger-bg: rgba(255, 102, 125, 0.1);
+  --as-badge-danger-color: #ff8fa1;
+  --as-badge-danger-border: rgba(255, 102, 125, 0.24);
+  --as-btn-danger-ghost-color: #ff8fa1;
+  --as-btn-danger-ghost-border: rgba(255, 102, 125, 0.3);
+  --as-empty-bg: rgba(8, 18, 37, 0.45);
+  --as-empty-border: #30466f;
+  --as-toast-bg: #132341;
+  --as-toast-border: #31507f;
+  --as-toolbar-bg: rgba(12, 25, 49, 0.72);
+  --as-tabs-bg: rgba(8, 18, 37, 0.65);
+  --as-tab-color: #91a2c3;
+  --as-tab-active-bg: #20375e;
+  --as-tab-active-shadow: inset 0 0 0 1px #365681;
+  --as-modal-backdrop: rgba(1, 6, 16, 0.72);
+  --as-modal-bg: #0e1b34;
+  --as-modal-border: #314b78;
+  --as-progress-track: #172845;
+}
+
+/* Variante clara do kit V4 - mesmos componentes (as-card/as-btn/as-input/...),
+   paleta clara pro admin (uso diário da equipe, ver claude/pendencias-sorteios.md
+   pela decisão). Aplicar junto com .as-shell, ex.: <div class="as-shell as-light">.
+   Reaproveita os tokens de marca já existentes no admin (--indigo-600/--bg/
+   --surface/--border/--text/--text-muted, topo deste arquivo). */
+.as-shell.as-light {
+  --as-bg: var(--bg);
+  --as-text: var(--text);
+  --as-muted: var(--text-muted);
+  --as-line: var(--border);
+  --as-cyan: var(--indigo-600);
+  --as-shell-glow-1: rgba(79, 95, 255, 0.06);
+  --as-shell-glow-2: rgba(79, 95, 255, 0.04);
+  --as-scrollbar-thumb: #cbd2e1;
+  --as-selection: rgba(79, 95, 255, 0.18);
+  --as-shadow: 0 20px 45px rgba(18, 23, 43, 0.08);
+  --as-shadow-soft: 0 8px 22px rgba(18, 23, 43, 0.06);
+  --as-card-bg: var(--surface);
+  --as-card-hover-border: rgba(79, 95, 255, 0.3);
+  --as-input-bg: #ffffff;
+  --as-input-border: var(--border);
+  --as-focus-ring: rgba(79, 95, 255, 0.12);
+  --as-label-color: var(--text);
+  --as-help-color: var(--text-muted);
+  --as-kpi-glow: rgba(79, 95, 255, 0.08);
+  --as-btn-secondary-bg: #eef1fb;
+  --as-btn-secondary-border: var(--border);
+  --as-btn-ghost-color: var(--indigo-600);
+  --as-btn-ghost-border: var(--border);
+  --as-kpi-label-color: var(--text-muted);
+  --as-table-wrap-bg: var(--surface);
+  --as-table-header-bg: #f3f5fa;
+  --as-table-header-color: var(--text-muted);
+  --as-table-header-border: var(--border);
+  --as-table-cell-color: var(--text);
+  --as-table-row-hover: rgba(79, 95, 255, 0.045);
+  --as-badge-bg: #eef1fb;
+  --as-badge-color: #4c5a86;
+  --as-badge-border: var(--border);
+  --as-badge-success-bg: rgba(72, 230, 160, 0.12);
+  --as-badge-success-color: #1a9c63;
+  --as-badge-success-border: rgba(72, 230, 160, 0.3);
+  --as-badge-warning-bg: rgba(255, 176, 32, 0.12);
+  --as-badge-warning-color: #a15c00;
+  --as-badge-warning-border: rgba(255, 176, 32, 0.3);
+  --as-badge-danger-bg: rgba(217, 68, 95, 0.1);
+  --as-badge-danger-color: #d9445f;
+  --as-badge-danger-border: rgba(217, 68, 95, 0.3);
+  --as-btn-danger-ghost-color: #d9445f;
+  --as-btn-danger-ghost-border: rgba(217, 68, 95, 0.3);
+  --as-empty-bg: #fafbfd;
+  --as-empty-border: var(--border);
+  --as-toast-bg: var(--surface);
+  --as-toast-border: var(--border);
+  --as-toolbar-bg: #f3f5fa;
+  --as-tabs-bg: #f3f5fa;
+  --as-tab-color: var(--text-muted);
+  --as-tab-active-bg: #ffffff;
+  --as-tab-active-shadow: inset 0 0 0 1px var(--border);
+  --as-modal-backdrop: rgba(18, 23, 43, 0.45);
+  --as-modal-bg: var(--surface);
+  --as-modal-border: var(--border);
+  --as-progress-track: #e6e8f0;
 }
 
 .as-shell {
   min-height: 100vh;
   color: var(--as-text);
   font-family: var(--font-body);
-  background: radial-gradient(900px 500px at 75% -10%, rgba(124, 92, 255, 0.16), transparent 62%),
-    radial-gradient(700px 450px at 0% 20%, rgba(47, 128, 255, 0.12), transparent 62%), var(--as-bg);
+  background: radial-gradient(900px 500px at 75% -10%, var(--as-shell-glow-1), transparent 62%),
+    radial-gradient(700px 450px at 0% 20%, var(--as-shell-glow-2), transparent 62%), var(--as-bg);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 .as-shell ::selection {
-  background: rgba(77, 220, 255, 0.28);
+  background: var(--as-selection);
 }
 .as-shell * {
   scrollbar-width: thin;
-  scrollbar-color: #31456d transparent;
+  scrollbar-color: var(--as-scrollbar-thumb) transparent;
 }
 .as-shell *::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 .as-shell *::-webkit-scrollbar-thumb {
-  background: #31456d;
+  background: var(--as-scrollbar-thumb);
   border-radius: 99px;
 }
 
@@ -124,7 +244,7 @@ body {
 }
 
 .as-card {
-  background: linear-gradient(145deg, rgba(20, 37, 70, 0.92), rgba(9, 20, 40, 0.92));
+  background: var(--as-card-bg);
   border: 1px solid var(--as-line);
   border-radius: var(--as-radius);
   box-shadow: var(--as-shadow-soft);
@@ -135,7 +255,7 @@ body {
 }
 .as-card-hover:hover {
   transform: translateY(-2px);
-  border-color: rgba(77, 220, 255, 0.35);
+  border-color: var(--as-card-hover-border);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.26);
 }
 
@@ -167,17 +287,22 @@ body {
 }
 .as-btn-secondary {
   color: var(--as-text);
-  background: #132341;
-  border-color: #2c426c;
+  background: var(--as-btn-secondary-bg);
+  border-color: var(--as-btn-secondary-border);
 }
 .as-btn-ghost {
-  color: #c8d5f3;
+  color: var(--as-btn-ghost-color);
   background: transparent;
-  border-color: #263b63;
+  border-color: var(--as-btn-ghost-border);
 }
 .as-btn-danger {
   color: #fff;
   background: linear-gradient(100deg, #d9445f, #ff6c7d);
+}
+.as-btn-danger-ghost {
+  color: var(--as-btn-danger-ghost-color);
+  background: transparent;
+  border-color: var(--as-btn-danger-ghost-border);
 }
 .as-btn:disabled {
   opacity: 0.48;
@@ -190,8 +315,8 @@ body {
 .as-textarea {
   width: 100%;
   color: var(--as-text);
-  background: rgba(5, 14, 31, 0.78);
-  border: 1px solid #2a3d64;
+  background: var(--as-input-bg);
+  border: 1px solid var(--as-input-border);
   border-radius: 12px;
   outline: none;
   transition: 0.18s ease;
@@ -211,18 +336,18 @@ body {
 .as-select:focus,
 .as-textarea:focus {
   border-color: var(--as-cyan);
-  box-shadow: 0 0 0 3px rgba(77, 220, 255, 0.1);
+  box-shadow: 0 0 0 3px var(--as-focus-ring);
 }
 .as-label {
   display: grid;
   gap: 7px;
   font-size: 12px;
   font-weight: 800;
-  color: #c7d3ed;
+  color: var(--as-label-color);
 }
 .as-help {
   font-size: 11px;
-  color: #8292b2;
+  color: var(--as-help-color);
   font-weight: 500;
 }
 
@@ -244,14 +369,14 @@ body {
   border-radius: 50%;
   right: -45px;
   top: -45px;
-  background: radial-gradient(circle, rgba(77, 220, 255, 0.16), transparent 68%);
+  background: radial-gradient(circle, var(--as-kpi-glow, rgba(77, 220, 255, 0.16)), transparent 68%);
 }
 .as-kpi-label {
   font-size: 11px;
   font-weight: 850;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #91a2c3;
+  color: var(--as-kpi-label-color);
 }
 .as-kpi-value {
   font-size: 30px;
@@ -269,7 +394,7 @@ body {
   overflow: auto;
   border: 1px solid var(--as-line);
   border-radius: 16px;
-  background: rgba(9, 20, 40, 0.7);
+  background: var(--as-table-wrap-bg);
 }
 .as-table {
   width: 100%;
@@ -283,18 +408,18 @@ body {
   z-index: 1;
   text-align: left;
   padding: 12px 14px;
-  background: #12213e;
-  color: #94a5c6;
+  background: var(--as-table-header-bg);
+  color: var(--as-table-header-color);
   font-size: 10px;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  border-bottom: 1px solid #263a60;
+  border-bottom: 1px solid var(--as-table-header-border);
 }
 .as-table td {
   padding: 13px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  border-bottom: 1px solid var(--as-line);
   font-size: 13px;
-  color: #dce5f7;
+  color: var(--as-table-cell-color);
 }
 .as-table tr:last-child td {
   border-bottom: 0;
@@ -303,7 +428,7 @@ body {
   transition: background 0.15s;
 }
 .as-table tbody tr:hover {
-  background: rgba(77, 220, 255, 0.045);
+  background: var(--as-table-row-hover);
 }
 
 .as-badge {
@@ -316,24 +441,24 @@ body {
   font-size: 10px;
   font-weight: 900;
   letter-spacing: 0.03em;
-  background: #1b2d4f;
-  color: #b8c7e5;
-  border: 1px solid #2c426c;
+  background: var(--as-badge-bg);
+  color: var(--as-badge-color);
+  border: 1px solid var(--as-badge-border);
 }
 .as-badge-success {
-  background: rgba(72, 230, 160, 0.1);
-  color: #6af0b3;
-  border-color: rgba(72, 230, 160, 0.24);
+  background: var(--as-badge-success-bg);
+  color: var(--as-badge-success-color);
+  border-color: var(--as-badge-success-border);
 }
 .as-badge-warning {
-  background: rgba(255, 215, 90, 0.1);
-  color: #ffe07b;
-  border-color: rgba(255, 215, 90, 0.24);
+  background: var(--as-badge-warning-bg);
+  color: var(--as-badge-warning-color);
+  border-color: var(--as-badge-warning-border);
 }
 .as-badge-danger {
-  background: rgba(255, 102, 125, 0.1);
-  color: #ff8fa1;
-  border-color: rgba(255, 102, 125, 0.24);
+  background: var(--as-badge-danger-bg);
+  color: var(--as-badge-danger-color);
+  border-color: var(--as-badge-danger-border);
 }
 
 .as-empty {
@@ -342,9 +467,9 @@ body {
   text-align: center;
   min-height: 240px;
   padding: 34px;
-  border: 1px dashed #30466f;
+  border: 1px dashed var(--as-empty-border);
   border-radius: 18px;
-  background: rgba(8, 18, 37, 0.45);
+  background: var(--as-empty-bg);
 }
 .as-empty-icon {
   font-size: 34px;
@@ -383,10 +508,10 @@ body {
   max-width: 390px;
   padding: 14px 16px;
   border-radius: 14px;
-  background: #132341;
-  border: 1px solid #31507f;
+  background: var(--as-toast-bg);
+  border: 1px solid var(--as-toast-border);
   box-shadow: var(--as-shadow);
-  color: #fff;
+  color: var(--as-text);
 }
 
 .as-toolbar {
@@ -397,7 +522,7 @@ body {
   padding: 12px;
   border: 1px solid var(--as-line);
   border-radius: 16px;
-  background: rgba(12, 25, 49, 0.72);
+  background: var(--as-toolbar-bg);
   margin-bottom: 14px;
 }
 .as-toolbar-search {
@@ -410,7 +535,7 @@ body {
   gap: 6px;
   overflow: auto;
   padding: 5px;
-  background: rgba(8, 18, 37, 0.65);
+  background: var(--as-tabs-bg);
   border: 1px solid var(--as-line);
   border-radius: 14px;
 }
@@ -418,21 +543,21 @@ body {
   white-space: nowrap;
   padding: 9px 13px;
   border-radius: 10px;
-  color: #91a2c3;
+  color: var(--as-tab-color);
   font-size: 12px;
   font-weight: 850;
 }
 .as-tab-active {
-  color: #fff;
-  background: #20375e;
-  box-shadow: inset 0 0 0 1px #365681;
+  color: var(--as-text);
+  background: var(--as-tab-active-bg);
+  box-shadow: var(--as-tab-active-shadow);
 }
 
 .as-modal-backdrop {
   position: fixed;
   inset: 0;
   z-index: 999;
-  background: rgba(1, 6, 16, 0.72);
+  background: var(--as-modal-backdrop);
   backdrop-filter: blur(7px);
   display: grid;
   place-items: center;
@@ -444,8 +569,8 @@ body {
   overflow: auto;
   padding: 22px;
   border-radius: 22px;
-  background: #0e1b34;
-  border: 1px solid #314b78;
+  background: var(--as-modal-bg);
+  border: 1px solid var(--as-modal-border);
   box-shadow: 0 40px 100px rgba(0, 0, 0, 0.55);
 }
 
@@ -474,7 +599,7 @@ body {
 .as-progress {
   height: 8px;
   border-radius: 99px;
-  background: #172845;
+  background: var(--as-progress-track, #172845);
   overflow: hidden;
 }
 .as-progress > span {
@@ -488,7 +613,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #aebbd4;
+  color: var(--as-muted);
   font-size: 12px;
 }
 .as-avatar {
@@ -496,12 +621,12 @@ body {
   height: 42px;
   border-radius: 50%;
   object-fit: cover;
-  background: #20375e;
-  border: 2px solid rgba(255, 255, 255, 0.14);
+  background: var(--as-btn-secondary-bg);
+  border: 2px solid var(--as-line);
 }
 .as-divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--as-line);
   margin: 16px 0;
 }
 

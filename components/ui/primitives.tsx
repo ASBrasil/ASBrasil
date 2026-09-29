@@ -1,41 +1,17 @@
 import { ButtonHTMLAttributes, InputHTMLAttributes, PropsWithChildren } from "react";
 
+// Casca fina em cima do kit V4 (app/globals.css) pra reaproveitar em todo o
+// admin sem precisar reescrever cada tela que já usa Button/Field/Input/Card -
+// ver claude/pendencias-sorteios.md pelo histórico do redesign V4.
 export function Button({
   children,
   variant = "primary",
   ...rest
 }: PropsWithChildren<ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "ghost" }>) {
+  const variantClass = variant === "ghost" ? "as-btn-ghost" : "as-btn-primary";
   return (
-    <button {...rest} className={`btn ${variant}`}>
+    <button {...rest} className={`as-btn ${variantClass}`}>
       {children}
-      <style jsx>{`
-        .btn {
-          padding: 0.7rem 1.4rem;
-          border-radius: 999px;
-          border: none;
-          font-weight: 600;
-          font-size: 0.9rem;
-          cursor: pointer;
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-        }
-        .btn:disabled {
-          opacity: 0.55;
-          cursor: default;
-        }
-        .primary {
-          background: var(--indigo-600);
-          color: white;
-        }
-        .primary:hover:not(:disabled) {
-          background: var(--indigo-700);
-        }
-        .ghost {
-          background: transparent;
-          color: var(--text-muted);
-        }
-      `}</style>
     </button>
   );
 }
@@ -48,12 +24,12 @@ export function Field({
 }: PropsWithChildren<{ label: string; hint?: string; required?: boolean }>) {
   return (
     <label className="field">
-      <span className="label">
+      <span className="as-label">
         {label}
         {required && <span className="req">*</span>}
       </span>
       {children}
-      {hint && <span className="hint">{hint}</span>}
+      {hint && <span className="as-help">{hint}</span>}
       <style jsx>{`
         .field {
           display: flex;
@@ -61,17 +37,9 @@ export function Field({
           gap: 0.4rem;
           margin-bottom: 1.1rem;
         }
-        .label {
-          font-size: 0.85rem;
-          font-weight: 600;
-        }
         .req {
-          color: var(--indigo-600);
+          color: var(--as-cyan, var(--indigo-600));
           margin-left: 0.15rem;
-        }
-        .hint {
-          font-size: 0.78rem;
-          color: var(--text-muted);
         }
       `}</style>
     </label>
@@ -79,39 +47,16 @@ export function Field({
 }
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <span className="input-wrap">
-      <input {...props} className="input" />
-      <style jsx>{`
-        .input-wrap {
-          display: contents;
-        }
-        .input {
-          padding: 0.7rem 0.9rem;
-          border-radius: 0.6rem;
-          border: 1px solid var(--border);
-          font-size: 0.95rem;
-          background: var(--surface);
-        }
-        .input:focus {
-          outline: 2px solid var(--indigo-600);
-          outline-offset: 1px;
-        }
-      `}</style>
-    </span>
-  );
+  return <input {...props} className="as-input" />;
 }
 
 export function Card({ children, icon }: PropsWithChildren<{ icon?: string }>) {
   return (
-    <div className="card">
+    <div className="as-card card">
       {icon && <div className="icon">{icon}</div>}
       {children}
       <style jsx>{`
         .card {
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 1rem;
           padding: 1.75rem;
         }
         .icon {
@@ -121,7 +66,7 @@ export function Card({ children, icon }: PropsWithChildren<{ icon?: string }>) {
           align-items: center;
           justify-content: center;
           border-radius: 0.75rem;
-          background: color-mix(in srgb, var(--indigo-600) 12%, white);
+          background: color-mix(in srgb, var(--as-cyan, var(--indigo-600)) 12%, transparent);
           margin-bottom: 1rem;
           font-size: 1.2rem;
         }

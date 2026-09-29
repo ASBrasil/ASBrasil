@@ -110,10 +110,11 @@ function Header() {
   return (
     <div className="header">
       <div>
-        <h1>Sorteios</h1>
-        <p className="subtitle">Campanhas de sorteio criadas até agora.</p>
+        <span className="as-eyebrow">Universo AS</span>
+        <h1 className="as-title">Sorteios</h1>
+        <p className="as-subtitle">Campanhas de sorteio criadas até agora.</p>
       </div>
-      <Link href="/admin/events/new" className="new-btn">
+      <Link href="/admin/events/new" className="as-btn as-btn-primary">
         + Novo sorteio
       </Link>
     </div>
@@ -122,14 +123,14 @@ function Header() {
 
 function Tabs({ tab }: { tab: "active" | "archived" | "banners" }) {
   return (
-    <div className="tabs">
-      <Link href="/admin/events" className={`tab ${tab === "active" ? "active" : ""}`}>
+    <div className="as-tabs">
+      <Link href="/admin/events" className={`as-tab ${tab === "active" ? "as-tab-active" : ""}`}>
         Ativos
       </Link>
-      <Link href="/admin/events?tab=archived" className={`tab ${tab === "archived" ? "active" : ""}`}>
+      <Link href="/admin/events?tab=archived" className={`as-tab ${tab === "archived" ? "as-tab-active" : ""}`}>
         Arquivados
       </Link>
-      <Link href="/admin/events?tab=banners" className={`tab ${tab === "banners" ? "active" : ""}`}>
+      <Link href="/admin/events?tab=banners" className={`as-tab ${tab === "banners" ? "as-tab-active" : ""}`}>
         Banners
       </Link>
     </div>
@@ -142,37 +143,8 @@ function PageStyles() {
       .header {
         display: flex;
         justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 2.5rem;
-      }
-      h1 { margin: 0 0 0.25rem; font-family: var(--font-display, inherit); }
-      .subtitle { color: var(--text-muted); font-size: 0.9rem; margin: 0; }
-      .new-btn {
-        background: var(--indigo-600);
-        color: white;
-        text-decoration: none;
-        padding: 0.7rem 1.3rem;
-        border-radius: 999px;
-        font-weight: 600;
-        font-size: 0.9rem;
-      }
-      .tabs {
-        display: flex;
-        gap: 0.5rem;
-        margin-bottom: 1.5rem;
-        border-bottom: 1px solid var(--border);
-      }
-      .tab {
-        text-decoration: none;
-        color: var(--text-muted);
-        font-size: 0.85rem;
-        font-weight: 600;
-        padding: 0.6rem 0.9rem;
-        border-bottom: 2px solid transparent;
-      }
-      .tab.active {
-        color: var(--indigo-600);
-        border-bottom-color: var(--indigo-600);
+        align-items: flex-end;
+        margin-bottom: 1.75rem;
       }
       .empty {
         background: var(--surface);

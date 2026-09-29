@@ -39,7 +39,7 @@ export default function AdminLayout({ children }: PropsWithChildren) {
           </div>
         </aside>
 
-        <div className="content-area">
+        <div className="as-shell as-light content-area">
           <header className="mobile-topbar">
             <label htmlFor="admin-nav-toggle" className="hamburger" aria-label="Abrir menu">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

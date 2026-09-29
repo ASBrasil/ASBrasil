@@ -70,6 +70,12 @@ const VISIBILITY_LABEL: Record<GameVisibility, string> = {
   LIVE: "Ao vivo",
 };
 
+const VIS_BADGE_CLASS: Record<GameVisibility, string> = {
+  DRAFT: "",
+  TESTING: "as-badge-warning",
+  LIVE: "as-badge-success",
+};
+
 function slugify(text: string) {
   return text
     .normalize("NFD")
@@ -152,9 +158,9 @@ export function GameManager({
       {!creating && <Button onClick={() => setCreating(true)}>+ Novo jogo</Button>}
 
       {creating && (
-        <div className="card form">
+        <div className="as-card form">
           <Field label="Sorteio" required hint="O jogo fica sempre amarrado a um sorteio.">
-            <select value={eventId} onChange={(e) => setEventId(e.target.value)}>
+            <select className="as-select" value={eventId} onChange={(e) => setEventId(e.target.value)}>
               {events.length === 0 && <option value="">Nenhum sorteio cadastrado</option>}
               {events.map((ev) => (
                 <option key={ev.id} value={ev.id}>
@@ -184,7 +190,7 @@ export function GameManager({
             />
           </Field>
           <Field label="Tipo">
-            <select value={type} onChange={(e) => setType(e.target.value as GameType)}>
+            <select className="as-select" value={type} onChange={(e) => setType(e.target.value as GameType)}>
               {Object.entries(TYPE_LABEL).map(([value, label]) => {
                 const playable = PLAYABLE_TYPES.includes(value as GameType);
                 return (
@@ -210,7 +216,7 @@ export function GameManager({
 
       <div className="list">
         {games.map((game) => (
-          <Link key={game.id} href={`/admin/jogos/${game.id}`} className="row">
+          <Link key={game.id} href={`/admin/jogos/${game.id}`} className="as-card as-card-hover row">
             <span
               className="swatch"
               style={{
@@ -221,10 +227,10 @@ export function GameManager({
             />
             <div className="info">
               <div className="badges">
-                <span className={`vis-badge ${game.visibility.toLowerCase()}`}>
+                <span className={`as-badge ${VIS_BADGE_CLASS[game.visibility]}`}>
                   {VISIBILITY_LABEL[game.visibility]}
                 </span>
-                <span className="type-badge">{TYPE_LABEL[game.type]}</span>
+                <span className="as-badge">{TYPE_LABEL[game.type]}</span>
               </div>
               <p className="name">{game.name}</p>
               <p className="meta">
@@ -241,25 +247,12 @@ export function GameManager({
         .wrap {
           max-width: 42rem;
         }
-        .card {
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 0.75rem;
-          padding: 1.1rem 1.25rem;
-        }
         .form {
+          padding: 1.1rem 1.25rem;
           margin-bottom: 1rem;
         }
-        select {
-          width: 100%;
-          padding: 0.6rem 0.7rem;
-          border-radius: 0.5rem;
-          border: 1px solid var(--border);
-          background: var(--surface);
-          color: var(--text);
-        }
         .error {
-          color: #c0392b;
+          color: var(--as-red, #c0392b);
           font-size: 0.85rem;
           margin: 0 0 0.75rem;
         }
@@ -278,15 +271,9 @@ export function GameManager({
           justify-content: space-between;
           align-items: center;
           gap: 1rem;
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 0.75rem;
           padding: 1rem 1.25rem;
           text-decoration: none;
           color: inherit;
-        }
-        .row:hover {
-          border-color: var(--indigo-600);
         }
         .swatch {
           width: 0.5rem;
@@ -302,32 +289,6 @@ export function GameManager({
           gap: 0.4rem;
           margin-bottom: 0.4rem;
         }
-        .vis-badge {
-          font-size: 0.7rem;
-          font-weight: 700;
-          border-radius: 999px;
-          padding: 0.15rem 0.6rem;
-        }
-        .vis-badge.draft {
-          background: rgba(107, 114, 128, 0.15);
-          color: #4b5563;
-        }
-        .vis-badge.testing {
-          background: rgba(180, 83, 9, 0.15);
-          color: #b45309;
-        }
-        .vis-badge.live {
-          background: rgba(22, 163, 74, 0.15);
-          color: #16a34a;
-        }
-        .type-badge {
-          font-size: 0.7rem;
-          font-weight: 600;
-          background: var(--bg);
-          border-radius: 999px;
-          padding: 0.15rem 0.6rem;
-          color: var(--text-muted);
-        }
         .name {
           margin: 0 0 0.2rem;
           font-weight: 600;
@@ -335,16 +296,16 @@ export function GameManager({
         .meta {
           margin: 0;
           font-size: 0.8rem;
-          color: var(--text-muted);
+          color: var(--as-muted, var(--text-muted));
         }
         .arrow {
           font-size: 0.8rem;
-          font-weight: 600;
-          color: var(--indigo-600);
+          font-weight: 700;
+          color: var(--as-cyan, var(--indigo-600));
           flex-shrink: 0;
         }
         .empty {
-          color: var(--text-muted);
+          color: var(--as-muted, var(--text-muted));
           font-size: 0.9rem;
         }
       `}</style>
