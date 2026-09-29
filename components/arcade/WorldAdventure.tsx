@@ -45,6 +45,31 @@ function drawSprite(ctx: CanvasRenderingContext2D, frames: HTMLImageElement[], n
   const im = frames[Math.floor(now / fps) % frames.length];
   if (im?.complete) ctx.drawImage(im, x, y, w, h);
 }
+// Preenche a largura toda do canvas ladrilhando a imagem, espelhando cada
+// ladrilho alternado (mirror repeat). Os fundos do kit (492x230) não foram
+// feitos pra dar loop perfeito - ladrilhar direto (2 cópias lado a lado)
+// deixava uma emenda visível onde a borda direita de uma cópia encontra a
+// esquerda da próxima. Espelhando, a borda de cada ladrilho sempre bate
+// com o espelho dela mesma, então a emenda some.
+function drawParallaxLayer(ctx: CanvasRenderingContext2D, im: HTMLImageElement, scroll: number, w: number, h: number) {
+  if (!im.complete || !im.naturalWidth) return;
+  const tw = im.naturalWidth;
+  const off = ((scroll % tw) + tw) % tw;
+  const baseIndex = Math.floor(scroll / tw);
+  let x = -off, i = 0;
+  while (x < w) {
+    if ((baseIndex + i) % 2 !== 0) {
+      ctx.save();
+      ctx.translate(x + tw, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(im, 0, 0, tw, h);
+      ctx.restore();
+    } else {
+      ctx.drawImage(im, x, 0, tw, h);
+    }
+    x += tw; i++;
+  }
+}
 function sfx(name: string) {
   try { const a = new Audio(`/game-universe/audio/${name}.wav`); a.volume = 0.28; a.play().catch(() => {}); } catch {}
 }
@@ -206,12 +231,13 @@ function WorldAdventureGame({ character, city, onExit, onCleared }: { character:
       skyGrad.addColorStop(0, meta.sky); skyGrad.addColorStop(1, "#eafcff");
       ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, W, H);
       const speeds = [0.05, 0.1, 0.18, 0.3, 0.5, 0.75];
-      layers.forEach((im, i) => {
-        if (!im.complete) return;
-        const off = (cam * speeds[i]) % im.width;
-        ctx.drawImage(im, -off, 0, im.width, H);
-        ctx.drawImage(im, im.width - off, 0, im.width, H);
-      });
+      layers.forEach((im, i) => drawParallaxLayer(ctx, im, cam * speeds[i], W, H));
+      // Vinheta sutil pra dar profundidade sem precisar de imagem nenhuma.
+      const atmosphere = ctx.createLinearGradient(0, 0, 0, H);
+      atmosphere.addColorStop(0, "rgba(5,18,38,.05)");
+      atmosphere.addColorStop(0.68, "rgba(5,18,38,0)");
+      atmosphere.addColorStop(1, "rgba(3,10,24,.22)");
+      ctx.fillStyle = atmosphere; ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = meta.ground; ctx.fillRect(0, level.ground + 54, W, H - level.ground - 54);
       for (const p of level.platforms) {
         const sx = p.x - cam;
@@ -387,14 +413,32 @@ function WorldAdventureStyles() {
       .wa-result{max-width:420px;margin:40px auto;text-align:center;color:#fff}
       .wa-result-actions{display:flex;gap:10px;justify-content:center;margin-top:16px}
       .wa-result-actions button{background:#172341;border:1px solid #405180;color:#fff;border-radius:12px;padding:10px 16px;font-weight:700}
-      .wa-play .wa-hud{display:flex;align-items:center;gap:14px;padding:10px 16px;background:#111a31;border:1px solid #2c3a62;border-radius:18px 18px 0 0}
-      .wa-hud-item{color:#fff;font-weight:700;font-size:14px}
+      .arcade-shell:has(.wa-play){padding:0!important;overflow:hidden;background:#050914}
+      .arcade-shell:has(.wa-play) .game-head{position:fixed;z-index:40;top:14px;left:14px;right:14px;max-width:none;margin:0;pointer-events:none}
+      .arcade-shell:has(.wa-play) .game-head button{pointer-events:auto;background:rgba(5,11,27,.62);border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(14px);box-shadow:0 8px 30px #0005}
+      .arcade-shell:has(.wa-play) .game-head div{display:none}
+      .arcade-shell:has(.wa-play) .game-head img{margin-left:auto;width:48px;height:48px;padding:5px;border-radius:16px;background:rgba(5,11,27,.58);border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(14px)}
+      .wa-play{position:relative;width:100vw;height:100dvh;overflow:hidden;background:#050914}
+      .wa-play .canvas-wrap{position:absolute;inset:0;padding:0!important;border:0!important;border-radius:0!important;background:#050914!important;box-shadow:none!important}
+      .wa-play .canvas-wrap canvas{display:block;width:100%!important;height:100%!important;max-height:none!important;object-fit:cover!important;border-radius:0!important}
+      .wa-play .wa-hud{position:absolute;z-index:12;top:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:7px;padding:7px 9px;background:rgba(5,11,27,.58);border:1px solid rgba(255,255,255,.18);border-radius:999px;backdrop-filter:blur(14px);box-shadow:0 10px 34px #0005}
+      .wa-hud-item{color:#fff;font-weight:800;font-size:13px;line-height:1;padding:7px 9px;border-radius:999px;background:rgba(255,255,255,.08);text-shadow:0 2px 8px #000}
       .wa-boss-hp{color:#ff7fc8}
-      .wa-pause{margin-left:auto;background:#1c2a4d;border:1px solid #405180;color:#fff;border-radius:10px;padding:4px 10px}
-      .wa-overlay{position:absolute;inset:0;background:#000c;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#fff;border-radius:18px}
+      .wa-pause{margin-left:0;width:34px;height:34px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:50%;display:grid;place-items:center}
+      .wa-play .mobile-controls{position:absolute;z-index:14;left:18px;right:18px;bottom:max(18px,env(safe-area-inset-bottom));display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:0}
+      .wa-play .mobile-controls button{min-width:64px;min-height:54px;border:1px solid rgba(255,255,255,.24);background:rgba(5,11,27,.48);color:#fff;border-radius:20px;font-weight:900;backdrop-filter:blur(12px);box-shadow:0 10px 30px #0005;text-shadow:0 2px 8px #000}
+      .wa-play .mobile-controls button:active{transform:scale(.94);background:rgba(85,104,255,.62)}
+      .wa-overlay{position:absolute;z-index:30;inset:0;background:rgba(2,6,18,.72);backdrop-filter:blur(12px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#fff;border-radius:0}
       .wa-overlay button{background:#172341;border:1px solid #405180;color:#fff;border-radius:12px;padding:10px 18px;font-weight:700}
-      .wa-play{position:relative}
-      @media(max-width:720px){.wa-cities{grid-template-columns:1fr}}
+      @media(max-width:720px){
+        .wa-cities{grid-template-columns:1fr}
+        .arcade-shell:has(.wa-play) .game-head{top:8px;left:8px;right:8px}
+        .arcade-shell:has(.wa-play) .game-head img{display:none}
+        .wa-play .wa-hud{top:8px;left:auto;right:8px;transform:none;gap:3px;padding:4px}
+        .wa-hud-item{font-size:11px;padding:6px}
+        .wa-play .mobile-controls{left:10px;right:10px;bottom:max(10px,env(safe-area-inset-bottom))}
+        .wa-play .mobile-controls button{min-width:56px;min-height:50px;border-radius:17px;font-size:11px}
+      }
     `}</style>
   );
 }
