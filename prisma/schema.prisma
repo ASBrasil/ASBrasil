@@ -810,6 +810,22 @@ model ArcadeProgress {
   @@index([city])
 }
 
+// Visibilidade de cada um dos 4 jogos do hub /universo-as/arcade
+// (Game Universe) - mesmo conceito de DRAFT/TESTING/LIVE do model Game, só
+// que esses 4 jogos não são registros de Game/GamePhase (são fixos no
+// componente, ver ArcadeUniverse.tsx), então não dava pra reaproveitar
+// Game.visibility diretamente. gameId é sempre um de "world"/"maze"/"blast"/
+// "run" (ver ARCADE_GAME_IDS em lib/arcade.ts). Reaproveita o mesmo
+// GameTester (lista global de e-mail) já usado pelos outros jogos - quem já
+// é testador de um jogo TESTING também vê um jogo do arcade em TESTING/DRAFT.
+// Sem linha pra um gameId = tratado como LIVE (aberto pra todo mundo), igual
+// o comportamento de antes dessa feature existir.
+model ArcadeGameSetting {
+  gameId     String         @id
+  visibility GameVisibility @default(LIVE)
+  updatedAt  DateTime       @updatedAt
+}
+
 // Só a primeira tentativa pontua (firstScore) pro ranking/XP - joga de
 // novo "por diversão" depois não altera nada, mesmo padrão já usado em
 // Participant/Mission pra impedir a pessoa de inflar a própria pontuação.

@@ -4,6 +4,30 @@
 // prisma/schema.prisma::ArcadeProgress), então não usa PlayerPhaseProgress
 // nem o roteamento por phase.type daquele arquivo.
 
+import type { GameVisibility } from "@prisma/client";
+
+// Os 4 jogos fixos do hub (ver GAMES em components/arcade/ArcadeUniverse.tsx)
+// - mesmos ids usados em ArcadeGameSetting.gameId.
+export const ARCADE_GAME_IDS = ["world", "maze", "blast", "run"] as const;
+export type ArcadeGameId = (typeof ARCADE_GAME_IDS)[number];
+
+export const ARCADE_GAME_NAMES: Record<ArcadeGameId, string> = {
+  world: "AS World Adventure",
+  maze: "AS Neon Maze",
+  blast: "AS Blast Arena",
+  run: "AS City Run",
+};
+
+/**
+ * Mesma regra de Game.visibility (ver games/phases/[phaseId]/complete/route.ts):
+ * LIVE é aberto pra todo mundo; DRAFT/TESTING só pra admin ou quem está na
+ * lista de GameTester (mesma lista global usada pelos outros jogos).
+ */
+export function canViewArcadeGame(visibility: GameVisibility, isAdmin: boolean, isTester: boolean) {
+  if (visibility === "LIVE") return true;
+  return isAdmin || isTester;
+}
+
 export const CITY_ORDER = ["rio", "sao-paulo", "brasilia"] as const;
 export type CityId = (typeof CITY_ORDER)[number];
 
