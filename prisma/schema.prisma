@@ -644,6 +644,7 @@ model UniverseProfile {
   cards       PlayerCard[]
   characters  PlayerCharacter[]
   progress    PlayerPhaseProgress[]
+  arcadeProgress ArcadeProgress[]
 }
 
 // Um "lançamento" de jogo, sempre amarrado a um evento do sorteio (é o
@@ -779,6 +780,34 @@ model PlayerCharacter {
 
   @@unique([email, characterId])
   @@index([characterId])
+}
+
+// Progresso permanente do "AS World Adventure" dentro do hub
+// /universo-as/arcade (Game Universe) - independente de qualquer sorteio
+// específico, por isso não usa GamePhase/PlayerPhaseProgress. Uma linha por
+// (email, cidade); desbloqueio sequencial é calculado em código (cidade N só
+// libera quando a cidade N-1 tem cleared=true), não fica gravado aqui.
+// bestScore entra na soma de XP do Ranking geral do Universo AS (ver
+// lib/ranking.ts) do mesmo jeito que PlayerPhaseProgress.firstScore.
+model ArcadeProgress {
+  id      String          @id @default(cuid())
+  email   String
+  profile UniverseProfile @relation(fields: [email], references: [email], onDelete: Cascade)
+
+  // "rio" | "sao-paulo" | "brasilia" - ver CITY_ORDER em lib/arcade.ts
+  city String
+
+  cleared    Boolean @default(false)
+  stars      Int     @default(0) // 0-3, melhor resultado já alcançado
+  bestScore  Int     @default(0) // melhor pontuação (moedas + bônus), usada no XP/ranking
+  bestTimeMs Int?
+  attempts   Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([email, city])
+  @@index([city])
 }
 
 // Só a primeira tentativa pontua (firstScore) pro ranking/XP - joga de

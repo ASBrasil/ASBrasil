@@ -49,15 +49,40 @@ async function withLabels(
   });
 }
 
-/** Ranking geral do Universo AS - soma de todas as fases de todos os jogos. */
-export async function getGlobalRanking(limit = 100): Promise<RankingEntry[]> {
-  const grouped = await db.playerPhaseProgress.groupBy({
+/**
+ * Soma de bestScore do AS World Adventure (hub /universo-as/arcade) por
+ * e-mail - separado do PlayerPhaseProgress porque essa tabela não é uma
+ * GamePhase de sorteio (ver prisma/schema.prisma::ArcadeProgress). Só entra
+ * no Ranking geral do Universo AS, nunca nos rankings por Experience/jogo
+ * (esses são escopados a fases de um evento específico).
+ */
+async function getArcadeXpByEmail(): Promise<Map<string, number>> {
+  const grouped = await db.arcadeProgress.groupBy({
     by: ["email"],
-    _sum: { firstScore: true },
-    orderBy: { _sum: { firstScore: "desc" } },
-    take: limit,
+    _sum: { bestScore: true },
   });
-  return withLabels(grouped);
+  return new Map(grouped.map((g) => [g.email, g._sum.bestScore ?? 0]));
+}
+
+/** Ranking geral do Universo AS - soma de todas as fases de todos os jogos + AS World Adventure (arcade). */
+export async function getGlobalRanking(limit = 100): Promise<RankingEntry[]> {
+  const [phaseGrouped, arcadeByEmail] = await Promise.all([
+    db.playerPhaseProgress.groupBy({ by: ["email"], _sum: { firstScore: true } }),
+    getArcadeXpByEmail(),
+  ]);
+
+  const totalByEmail = new Map<string, number>();
+  for (const g of phaseGrouped) totalByEmail.set(g.email, (g._sum.firstScore ?? 0) + (arcadeByEmail.get(g.email) ?? 0));
+  for (const [email, arcadeXp] of arcadeByEmail) {
+    if (!totalByEmail.has(email)) totalByEmail.set(email, arcadeXp);
+  }
+
+  const merged = [...totalByEmail.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([email, sum]) => ({ email, _sum: { firstScore: sum } }));
+
+  return withLabels(merged);
 }
 
 /**
@@ -87,13 +112,13 @@ export async function getGameRanking(gameId: string, limit = 100): Promise<Ranki
   return withLabels(grouped);
 }
 
-/** XP total (mesma soma usada nos rankings) de uma única pessoa. */
+/** XP total (mesma soma usada no Ranking geral, incluindo AS World Adventure) de uma única pessoa. */
 export async function getTotalXp(email: string): Promise<number> {
-  const agg = await db.playerPhaseProgress.aggregate({
-    where: { email },
-    _sum: { firstScore: true },
-  });
-  return agg._sum.firstScore ?? 0;
+  const [agg, arcadeAgg] = await Promise.all([
+    db.playerPhaseProgress.aggregate({ where: { email }, _sum: { firstScore: true } }),
+    db.arcadeProgress.aggregate({ where: { email }, _sum: { bestScore: true } }),
+  ]);
+  return (agg._sum.firstScore ?? 0) + (arcadeAgg._sum.bestScore ?? 0);
 }
 
 // --- Painel de Ranking do admin (Fase 3) -----------------------------------
