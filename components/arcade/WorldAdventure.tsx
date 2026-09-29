@@ -119,7 +119,7 @@ const RIO_LEVEL = {
   bossX: 3150,
 };
 
-type EntityState = { x: number; y: number; d: 1 | -1; baseX: number; range: number; alive: boolean; hitCooldown: number };
+type EntityState = { x: number; y: number; d: 1 | -1; baseX: number; range: number; alive: boolean; hitCooldown: number; variant: number };
 
 function WorldAdventureGame({ character, city, onExit, onCleared }: { character: Character; city: CityId; onExit: () => void; onCleared: (result: { coins: number; elapsedMs: number; cleared: boolean }) => void }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -157,7 +157,7 @@ function WorldAdventureGame({ character, city, onExit, onCleared }: { character:
     let bossHp = 3, bossDefeated = false, bossInvuln = 0;
     const bossX = level.bossX, bossY = level.ground - 70;
 
-    const enemies: EntityState[] = level.enemies.map((e) => ({ x: e.x, y: e.y, d: 1, baseX: e.x, range: e.range, alive: true, hitCooldown: 0 }));
+    const enemies: EntityState[] = level.enemies.map((e, i) => ({ x: e.x, y: e.y, d: 1, baseX: e.x, range: e.range, alive: true, hitCooldown: 0, variant: i % 3 }));
     const coinsLeft = level.coins.map((c) => ({ ...c, taken: false }));
     const heartsLeft = level.hearts.map((h) => ({ ...h, taken: false }));
 
@@ -238,12 +238,29 @@ function WorldAdventureGame({ character, city, onExit, onCleared }: { character:
       atmosphere.addColorStop(0.68, "rgba(5,18,38,0)");
       atmosphere.addColorStop(1, "rgba(3,10,24,.22)");
       ctx.fillStyle = atmosphere; ctx.fillRect(0, 0, W, H);
-      ctx.fillStyle = meta.ground; ctx.fillRect(0, level.ground + 54, W, H - level.ground - 54);
+      // Piso integrado ao cenário: grama, terra e sombra em vez de um bloco chapado.
+      const groundGrad = ctx.createLinearGradient(0, level.ground, 0, H);
+      groundGrad.addColorStop(0, "#4fa95f");
+      groundGrad.addColorStop(0.16, "#347c49");
+      groundGrad.addColorStop(1, "#173d31");
+      ctx.fillStyle = groundGrad; ctx.fillRect(0, level.ground, W, H - level.ground);
+      ctx.fillStyle = "rgba(154,220,111,.85)"; ctx.fillRect(0, level.ground, W, 5);
+      ctx.fillStyle = "rgba(15,55,42,.42)"; ctx.fillRect(0, level.ground + 22, W, 3);
       for (const p of level.platforms) {
         const sx = p.x - cam;
         if (sx < -160 || sx > W + 40) continue;
-        if (tileset.complete) { for (let tx = 0; tx < p.w; tx += 30) ctx.drawImage(tileset, 0, 0, 32, 32, sx + tx, p.y, 30, 20); }
-        else { ctx.fillStyle = meta.accent; ctx.fillRect(sx, p.y, p.w, 20); }
+        ctx.save();
+        ctx.shadowColor = "rgba(0,0,0,.28)"; ctx.shadowBlur = 8; ctx.shadowOffsetY = 5;
+        ctx.fillStyle = "#2d6f45"; ctx.fillRect(sx, p.y + 7, p.w, 17);
+        ctx.shadowColor = "transparent";
+        ctx.fillStyle = "#78bd62"; ctx.fillRect(sx, p.y, p.w, 9);
+        ctx.fillStyle = "#a9dc72"; ctx.fillRect(sx + 3, p.y, Math.max(0, p.w - 6), 3);
+        if (tileset.complete) {
+          ctx.globalAlpha = .24;
+          for (let tx = 0; tx < p.w; tx += 30) ctx.drawImage(tileset, 0, 0, 32, 32, sx + tx, p.y + 7, Math.min(30, p.w - tx), 17);
+          ctx.globalAlpha = 1;
+        }
+        ctx.restore();
       }
       for (const cp of level.checkpoints) {
         const sx = cp - cam; if (sx < -20 || sx > W + 20) continue;
@@ -253,20 +270,50 @@ function WorldAdventureGame({ character, city, onExit, onCleared }: { character:
       for (const c of coinsLeft) if (!c.taken) { const sx = c.x - cam; if (sx < -20 || sx > W + 20) continue; ctx.fillStyle = "#ffd52a"; ctx.beginPath(); ctx.arc(sx, c.y, 10, 0, 7); ctx.fill(); ctx.strokeStyle = "#fff4a0"; ctx.stroke(); }
       for (const h of heartsLeft) if (!h.taken) { const sx = h.x - cam; if (sx < -20 || sx > W + 20) continue; ctx.fillStyle = "#ff5b8a"; ctx.font = "20px sans-serif"; ctx.fillText("❤", sx - 9, h.y + 7); }
       for (const e of enemies) if (e.alive) {
-        const sx = e.x - cam; if (sx < -30 || sx > W + 30) continue;
-        ctx.fillStyle = meta.accent; ctx.beginPath(); ctx.arc(sx, e.y, 18, 0, 7); ctx.fill();
-        ctx.fillStyle = "#241"; ctx.beginPath(); ctx.arc(sx - 6, e.y - 3, 3, 0, 7); ctx.arc(sx + 6, e.y - 3, 3, 0, 7); ctx.fill();
+        const sx = e.x - cam; if (sx < -36 || sx > W + 36) continue;
+        const bob = Math.sin(now / 190 + e.baseX) * 2;
+        ctx.save(); ctx.translate(sx, e.y + bob);
+        ctx.shadowColor = "rgba(0,0,0,.28)"; ctx.shadowBlur = 8; ctx.shadowOffsetY = 5;
+        const enemyColors = ["#ffcf3f", "#54d6c8", "#ff78a9"];
+        ctx.fillStyle = enemyColors[e.variant]; ctx.beginPath(); ctx.roundRect(-20, -18, 40, 34, 12); ctx.fill();
+        ctx.shadowColor = "transparent";
+        ctx.strokeStyle = "#17334a"; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(-18, 2); ctx.lineTo(-26, 9); ctx.moveTo(18, 2); ctx.lineTo(26, 9); ctx.stroke();
+        ctx.fillStyle = "#163149"; ctx.beginPath(); ctx.roundRect(-14, -10, 28, 12, 6); ctx.fill();
+        ctx.fillStyle = "#8ff7ff"; ctx.beginPath(); ctx.arc(-6, -4, 2.6, 0, Math.PI * 2); ctx.arc(6, -4, 2.6, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#17334a"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -18); ctx.lineTo(0, -27); ctx.stroke();
+        ctx.fillStyle = "#ff5b8a"; ctx.beginPath(); ctx.arc(0, -29, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
       }
       if (bossActive) {
         const sx = bossX - cam;
-        ctx.fillStyle = bossInvuln > 0 ? "#ffffff" : "#8a3fb0";
-        ctx.beginPath(); ctx.arc(sx, bossY, 46, 0, 7); ctx.fill();
-        ctx.fillStyle = "#fff"; ctx.font = "bold 13px sans-serif"; ctx.textAlign = "center";
-        ctx.fillText(meta.bossName, sx, bossY - 60); ctx.textAlign = "left";
+        const flash = bossInvuln > 0;
+        ctx.save(); ctx.translate(sx, bossY);
+        ctx.shadowColor = flash ? "#fff" : "#b96cff"; ctx.shadowBlur = flash ? 28 : 16;
+        const bossGrad = ctx.createLinearGradient(-42, -52, 42, 48);
+        bossGrad.addColorStop(0, flash ? "#fff" : "#8050a8");
+        bossGrad.addColorStop(.55, flash ? "#fff" : "#513071");
+        bossGrad.addColorStop(1, flash ? "#eee" : "#271d4a");
+        ctx.fillStyle = bossGrad; ctx.beginPath();
+        ctx.moveTo(-40, 36); ctx.quadraticCurveTo(-52, 0, -27, -39);
+        ctx.quadraticCurveTo(0, -61, 29, -38); ctx.quadraticCurveTo(53, 0, 40, 36);
+        ctx.quadraticCurveTo(0, 50, -40, 36); ctx.fill();
+        ctx.shadowColor = "transparent";
+        ctx.fillStyle = "#171d3a"; ctx.beginPath(); ctx.roundRect(-27, -23, 54, 24, 10); ctx.fill();
+        ctx.fillStyle = flash ? "#fff" : "#ff78cf"; ctx.beginPath(); ctx.arc(-11, -11, 5, 0, Math.PI * 2); ctx.arc(11, -11, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#62f3da"; ctx.beginPath(); ctx.arc(0, 17, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,.72)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 17, 14, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = "#fff"; ctx.font = "800 13px sans-serif"; ctx.textAlign = "center";
+        ctx.shadowColor = "#000"; ctx.shadowBlur = 6; ctx.fillText(meta.bossName, sx, bossY - 68); ctx.shadowBlur = 0; ctx.textAlign = "left";
       }
       const state = invuln > 0 ? hitFrames : sliding > 0 ? slideFrames : vy !== 0 ? jumpFrames : vx !== 0 ? runFrames : idleFrames;
       ctx.globalAlpha = invuln > 0 ? (Math.floor(now / 90) % 2 ? 0.4 : 1) : 1;
-      drawSprite(ctx, state, now, px - cam - 32, py - (sliding > 0 ? 4 : 18), 76, sliding > 0 ? 40 : 76);
+      if (sliding <= 0) {
+        ctx.save(); ctx.globalAlpha = .22; ctx.fillStyle = "#07150f";
+        ctx.beginPath(); ctx.ellipse(px - cam + 5, py + 51, 24, 6, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      }
+      drawSprite(ctx, state, now, px - cam - 38, py - (sliding > 0 ? 5 : 25), 88, sliding > 0 ? 46 : 88);
       ctx.globalAlpha = 1;
 
       raf = requestAnimationFrame(loop);
@@ -341,7 +388,12 @@ export function WorldAdventure({ character, onFinish }: { character: Character; 
   }
 
   if (active) {
-    return <WorldAdventureGame character={character} city={active} onExit={() => setActive(null)} onCleared={(r) => handleCleared(active, r)} />;
+    return (
+      <>
+        <WorldAdventureGame character={character} city={active} onExit={() => setActive(null)} onCleared={(r) => handleCleared(active, r)} />
+        <WorldAdventureStyles />
+      </>
+    );
   }
 
   if (result) {
