@@ -647,6 +647,7 @@ model UniverseProfile {
   arcadeProgress ArcadeProgress[]
   cityRunProgress CityRunProgress[]
   neonMazeProgress NeonMazeProgress[]
+  blastArenaProgress BlastArenaProgress[]
 }
 
 // Um "lançamento" de jogo, sempre amarrado a um evento do sorteio (é o
@@ -859,6 +860,27 @@ model NeonMazeProgress {
 
   @@unique([email, world])
   @@index([world])
+}
+
+model BlastArenaProgress {
+  id      String          @id @default(cuid())
+  email   String
+  profile UniverseProfile @relation(fields: [email], references: [email], onDelete: Cascade)
+
+  // "01_2-cool-4-skool" | "02_o-rul8-2" | ... - ver ARENA_ORDER em lib/blast-arena.ts
+  arena String
+
+  cleared    Boolean @default(false)
+  stars      Int     @default(0)
+  bestScore  Int     @default(0)
+  bestTimeMs Int?
+  attempts   Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([email, arena])
+  @@index([arena])
 }
 
 // Visibilidade de cada um dos 4 jogos do hub /universo-as/arcade
