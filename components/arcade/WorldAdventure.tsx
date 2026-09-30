@@ -126,7 +126,7 @@ function WorldAdventureGame({ character, city, onExit, onCleared }: { character:
   const keys = useKeys();
   const jumpRef = useRef(() => {});
   const slideRef = useRef(() => {});
-  const [hud, setHud] = useState({ coins: 0, lives: 3, elapsedMs: 0, bossHp: 3, bossVisible: false });
+  const [hud, setHud] = useState({ coins: 0, lives: 3, elapsedMs: 0, bossHp: 3, bossVisible: false, progress: 0 });
   const [paused, setPaused] = useState(false);
   const pausedRef = useRef(false);
   useEffect(() => { pausedRef.current = paused; }, [paused]);
@@ -223,7 +223,7 @@ function WorldAdventureGame({ character, city, onExit, onCleared }: { character:
       }
       if (bossDefeated && px > bossX + 40) { ended = true; onCleared({ coins, elapsedMs, cleared: true }); return; }
 
-      setHud({ coins, lives, elapsedMs, bossHp, bossVisible: bossActive && !bossDefeated });
+      setHud({ coins, lives, elapsedMs, bossHp, bossVisible: bossActive && !bossDefeated, progress: Math.min(100, Math.round((px / level.length) * 100)) });
 
       // --- desenho ---
       ctx.clearRect(0, 0, W, H);
@@ -327,11 +327,16 @@ function WorldAdventureGame({ character, city, onExit, onCleared }: { character:
   return (
     <div className="wa-play">
       <div className="wa-hud">
-        <span className="wa-hud-item">{Array.from({ length: hud.lives }, (_, i) => "❤").join("")}</span>
-        <span className="wa-hud-item">🪙 {hud.coins}</span>
-        <span className="wa-hud-item">⏱ {fmtTime(hud.elapsedMs)}</span>
-        {hud.bossVisible && <span className="wa-hud-item wa-boss-hp">👑 {hud.bossHp}</span>}
+        <span className="wa-brand"><b>AS</b><em>BRASIL</em></span>
+        <span className="wa-hud-item wa-lives">{Array.from({ length: hud.lives }, (_, i) => "❤").join("")}</span>
+        <span className="wa-hud-item">🪙 <b>{String(hud.coins).padStart(3, "0")}</b></span>
+        <span className="wa-hud-item">⏱ <b>{fmtTime(hud.elapsedMs)}</b></span>
+        {hud.bossVisible && <span className="wa-hud-item wa-boss-hp">👑 <b>{hud.bossHp}/3</b></span>}
         <button className="wa-pause" onClick={() => setPaused((p) => !p)}>{paused ? "▶" : "⏸"}</button>
+      </div>
+      <div className="wa-stage">
+        <strong>FASE {CITY_ORDER.indexOf(city) + 1}</strong><span>{meta.name.toUpperCase()}</span>
+        <div className="wa-stage-track"><i style={{ width: `${hud.progress}%` }} /></div>
       </div>
       <div className="canvas-wrap"><canvas ref={ref} width={W} height={H} /></div>
       {paused && (
@@ -465,7 +470,7 @@ function WorldAdventureStyles() {
       .wa-result{max-width:420px;margin:40px auto;text-align:center;color:#fff}
       .wa-result-actions{display:flex;gap:10px;justify-content:center;margin-top:16px}
       .wa-result-actions button{background:#172341;border:1px solid #405180;color:#fff;border-radius:12px;padding:10px 16px;font-weight:700}
-      .arcade-shell:has(.wa-play){padding:0!important;overflow:hidden;background:#050914}
+      .arcade-shell:has(.wa-play){padding:0!important;overflow:hidden;background:#050914;min-height:100dvh}
       .arcade-shell:has(.wa-play) .game-head{position:fixed;z-index:40;top:14px;left:14px;right:14px;max-width:none;margin:0;pointer-events:none}
       .arcade-shell:has(.wa-play) .game-head button{pointer-events:auto;background:rgba(5,11,27,.62);border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(14px);box-shadow:0 8px 30px #0005}
       .arcade-shell:has(.wa-play) .game-head div{display:none}
@@ -473,10 +478,19 @@ function WorldAdventureStyles() {
       .wa-play{position:relative;width:100vw;height:100dvh;overflow:hidden;background:radial-gradient(circle at 50% 30%,#1c2b5c 0%,#0e1638 48%,#050914 100%);display:flex;align-items:center;justify-content:center}
       .wa-play .canvas-wrap{position:relative;width:min(100vw,calc(100dvh * 12 / 7));height:min(100dvh,calc(100vw * 7 / 12));padding:0!important;border:0!important;border-radius:16px!important;background:#050914!important;overflow:hidden;box-shadow:0 0 0 2px rgba(79,95,255,.55),0 0 46px 8px rgba(79,95,255,.3),0 30px 80px rgba(0,0,0,.55)!important}
       .wa-play .canvas-wrap canvas{display:block;width:100%!important;height:100%!important;max-height:none!important;object-fit:fill!important;border-radius:inherit!important}
-      .wa-play .wa-hud{position:absolute;z-index:12;top:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:7px;padding:7px 9px;background:rgba(5,11,27,.58);border:1px solid rgba(255,255,255,.18);border-radius:999px;backdrop-filter:blur(14px);box-shadow:0 10px 34px #0005}
-      .wa-hud-item{color:#fff;font-weight:800;font-size:13px;line-height:1;padding:7px 9px;border-radius:999px;background:rgba(255,255,255,.08);text-shadow:0 2px 8px #000}
+      .wa-play .wa-hud{position:absolute;z-index:12;top:16px;left:16px;display:flex;align-items:center;gap:7px;padding:7px 9px;background:linear-gradient(180deg,rgba(8,27,51,.92),rgba(4,15,32,.86));border:1px solid rgba(89,203,255,.36);border-radius:13px;backdrop-filter:blur(14px);box-shadow:0 12px 34px #0007,inset 0 1px #ffffff16}
+      .wa-brand{display:flex;align-items:center;gap:6px;padding:3px 9px 3px 4px;border-right:1px solid #ffffff24;color:#fff}
+      .wa-brand b{display:grid;place-items:center;width:32px;height:26px;border-radius:7px;background:#fff;color:#092441;font-size:14px;font-style:italic}
+      .wa-brand em{font-size:11px;font-weight:900;font-style:normal;letter-spacing:.7px}
+      .wa-hud-item{color:#fff;font-weight:700;font-size:12px;line-height:1;padding:7px 8px;border-radius:8px;background:rgba(255,255,255,.055);text-shadow:0 2px 8px #000;white-space:nowrap}
+      .wa-lives{color:#ff5f93;letter-spacing:1px}
       .wa-boss-hp{color:#ff7fc8}
-      .wa-pause{margin-left:0;width:34px;height:34px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:50%;display:grid;place-items:center}
+      .wa-pause{margin-left:0;width:32px;height:32px;background:#0d4e85;border:1px solid rgba(74,186,255,.4);color:#fff;border-radius:8px;display:grid;place-items:center}
+      .wa-stage{position:absolute;z-index:12;top:16px;right:16px;width:190px;padding:8px 10px;border-radius:12px;background:linear-gradient(180deg,rgba(8,27,51,.9),rgba(4,15,32,.82));border:1px solid rgba(89,203,255,.3);backdrop-filter:blur(12px);box-shadow:0 10px 30px #0005;color:#fff}
+      .wa-stage strong{font-size:10px;color:#68d8ff;letter-spacing:1px;margin-right:6px}
+      .wa-stage span{font-size:10px;font-weight:900;letter-spacing:.5px}
+      .wa-stage-track{height:4px;margin-top:6px;background:rgba(255,255,255,.11);border-radius:99px;overflow:hidden}
+      .wa-stage-track i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#36c9ff,#69f0b3);box-shadow:0 0 9px #39d9ff}
       .wa-play .mobile-controls{position:absolute;z-index:14;left:18px;right:18px;bottom:max(18px,env(safe-area-inset-bottom));display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:0}
       .wa-play .mobile-controls button{min-width:64px;min-height:54px;border:1px solid rgba(255,255,255,.24);background:rgba(5,11,27,.48);color:#fff;border-radius:20px;font-weight:900;backdrop-filter:blur(12px);box-shadow:0 10px 30px #0005;text-shadow:0 2px 8px #000}
       .wa-play .mobile-controls button:active{transform:scale(.94);background:rgba(85,104,255,.62)}
@@ -486,8 +500,13 @@ function WorldAdventureStyles() {
         .wa-cities{grid-template-columns:1fr}
         .arcade-shell:has(.wa-play) .game-head{top:8px;left:8px;right:8px}
         .arcade-shell:has(.wa-play) .game-head img{display:none}
-        .wa-play .wa-hud{top:8px;left:auto;right:8px;transform:none;gap:3px;padding:4px}
-        .wa-hud-item{font-size:11px;padding:6px}
+        .wa-play .wa-hud{top:8px;left:8px;right:auto;gap:3px;padding:4px}
+        .wa-brand em{display:none}
+        .wa-brand{padding-right:4px}
+        .wa-brand b{width:28px;height:25px}
+        .wa-hud-item{font-size:10px;padding:6px 5px}
+        .wa-stage{top:49px;right:8px;width:145px;padding:6px 8px}
+        .wa-stage span{font-size:9px}
         .wa-play .mobile-controls{left:10px;right:10px;bottom:max(10px,env(safe-area-inset-bottom))}
         .wa-play .mobile-controls button{min-width:56px;min-height:50px;border-radius:17px;font-size:11px}
       }

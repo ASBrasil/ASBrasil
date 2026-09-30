@@ -73,12 +73,22 @@ async function getCityRunXpByEmail(): Promise<Map<string, number>> {
   return new Map(grouped.map((g) => [g.email, g._sum.bestScore ?? 0]));
 }
 
-/** Ranking geral do Universo AS - soma de todas as fases de todos os jogos + arcade (World Adventure + City Run). */
+/** Mesma ideia de getArcadeXpByEmail, pro AS Neon Maze (ver NeonMazeProgress). */
+async function getNeonMazeXpByEmail(): Promise<Map<string, number>> {
+  const grouped = await db.neonMazeProgress.groupBy({
+    by: ["email"],
+    _sum: { bestScore: true },
+  });
+  return new Map(grouped.map((g) => [g.email, g._sum.bestScore ?? 0]));
+}
+
+/** Ranking geral do Universo AS - soma de todas as fases de todos os jogos + arcade (World Adventure + City Run + Neon Maze). */
 export async function getGlobalRanking(limit = 100): Promise<RankingEntry[]> {
-  const [phaseGrouped, arcadeByEmail, cityRunByEmail] = await Promise.all([
+  const [phaseGrouped, arcadeByEmail, cityRunByEmail, neonMazeByEmail] = await Promise.all([
     db.playerPhaseProgress.groupBy({ by: ["email"], _sum: { firstScore: true } }),
     getArcadeXpByEmail(),
     getCityRunXpByEmail(),
+    getNeonMazeXpByEmail(),
   ]);
 
   const totalByEmail = new Map<string, number>();
@@ -86,6 +96,7 @@ export async function getGlobalRanking(limit = 100): Promise<RankingEntry[]> {
   for (const g of phaseGrouped) addXp(g.email, g._sum.firstScore ?? 0);
   for (const [email, arcadeXp] of arcadeByEmail) addXp(email, arcadeXp);
   for (const [email, cityRunXp] of cityRunByEmail) addXp(email, cityRunXp);
+  for (const [email, neonMazeXp] of neonMazeByEmail) addXp(email, neonMazeXp);
 
   const merged = [...totalByEmail.entries()]
     .sort((a, b) => b[1] - a[1])
@@ -124,12 +135,18 @@ export async function getGameRanking(gameId: string, limit = 100): Promise<Ranki
 
 /** XP total (mesma soma usada no Ranking geral, incluindo o arcade) de uma única pessoa. */
 export async function getTotalXp(email: string): Promise<number> {
-  const [agg, arcadeAgg, cityRunAgg] = await Promise.all([
+  const [agg, arcadeAgg, cityRunAgg, neonMazeAgg] = await Promise.all([
     db.playerPhaseProgress.aggregate({ where: { email }, _sum: { firstScore: true } }),
     db.arcadeProgress.aggregate({ where: { email }, _sum: { bestScore: true } }),
     db.cityRunProgress.aggregate({ where: { email }, _sum: { bestScore: true } }),
+    db.neonMazeProgress.aggregate({ where: { email }, _sum: { bestScore: true } }),
   ]);
-  return (agg._sum.firstScore ?? 0) + (arcadeAgg._sum.bestScore ?? 0) + (cityRunAgg._sum.bestScore ?? 0);
+  return (
+    (agg._sum.firstScore ?? 0) +
+    (arcadeAgg._sum.bestScore ?? 0) +
+    (cityRunAgg._sum.bestScore ?? 0) +
+    (neonMazeAgg._sum.bestScore ?? 0)
+  );
 }
 
 // --- Painel de Ranking do admin (Fase 3) -----------------------------------

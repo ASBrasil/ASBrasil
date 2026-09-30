@@ -646,6 +646,7 @@ model UniverseProfile {
   progress    PlayerPhaseProgress[]
   arcadeProgress ArcadeProgress[]
   cityRunProgress CityRunProgress[]
+  neonMazeProgress NeonMazeProgress[]
 }
 
 // Um "lançamento" de jogo, sempre amarrado a um evento do sorteio (é o
@@ -834,6 +835,30 @@ model CityRunProgress {
 
   @@unique([email, route])
   @@index([route])
+}
+
+// Mesmo padrão de ArcadeProgress/CityRunProgress, só que pro AS Neon Maze
+// (8 mundos por era/álbum) - ver WORLD_ORDER em lib/neon-maze.ts. bestScore
+// entra na mesma soma de XP do Ranking geral (lib/ranking.ts).
+model NeonMazeProgress {
+  id      String          @id @default(cuid())
+  email   String
+  profile UniverseProfile @relation(fields: [email], references: [email], onDelete: Cascade)
+
+  // "01_2-cool-4-skool" | "02_love-yourself" | ... - ver WORLD_ORDER em lib/neon-maze.ts
+  world String
+
+  cleared    Boolean @default(false)
+  stars      Int     @default(0)
+  bestScore  Int     @default(0)
+  bestTimeMs Int?
+  attempts   Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([email, world])
+  @@index([world])
 }
 
 // Visibilidade de cada um dos 4 jogos do hub /universo-as/arcade
