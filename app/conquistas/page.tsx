@@ -74,47 +74,47 @@ export default async function ConquistasPage() {
   const earnedCount = badges.filter((b) => b.earned).length;
 
   return (
-    <main className="page">
+    <main className="as-shell page">
       <ParticipantTopNav />
 
-      <section className="content">
+      <section className="as-container content">
         <div className="page-heading">
-          <span className="eyebrow">Seu progresso</span>
-          <h1>Conquistas</h1>
-          <p className="subtitle">
+          <span className="as-eyebrow">Seu progresso</span>
+          <h1 className="as-title">Conquistas</h1>
+          <p className="as-subtitle">
             Tudo o que você já alcançou jogando no Universo AS - some pontos jogando qualquer jogo
             de qualquer evento.
           </p>
         </div>
 
-        <div className="stat-grid">
-          <div className="stat-tile">
-            <span className="stat-label">Nível</span>
-            <span className="stat-value">{level}</span>
-            <div className="xp-bar">
-              <div className="xp-fill" style={{ width: `${xpProgressPct}%` }} />
+        <div className="as-kpi-grid stat-grid">
+          <div className="as-card as-kpi stat-tile">
+            <span className="as-kpi-label">Nível</span>
+            <div className="as-kpi-value">{level}</div>
+            <div className="as-progress xp-bar">
+              <span style={{ width: `${xpProgressPct}%` }} />
             </div>
             <span className="stat-hint">
               {xpIntoLevel} / {XP_PER_LEVEL} XP pro nível {level + 1}
             </span>
           </div>
-          <div className="stat-tile">
-            <span className="stat-label">XP total</span>
-            <span className="stat-value">{xp}</span>
+          <div className="as-card as-kpi">
+            <span className="as-kpi-label">XP total</span>
+            <div className="as-kpi-value">{xp}</div>
             <span className="stat-hint">Soma da primeira tentativa em cada fase</span>
           </div>
-          <div className="stat-tile">
-            <span className="stat-label">Álbum</span>
-            <span className="stat-value">
+          <div className="as-card as-kpi">
+            <span className="as-kpi-label">Álbum</span>
+            <div className="as-kpi-value">
               {ownedCount}/{totalCards}
-            </span>
+            </div>
             <span className="stat-hint">Cards colecionados</span>
           </div>
-          <div className="stat-tile">
-            <span className="stat-label">Conquistas</span>
-            <span className="stat-value">
+          <div className="as-card as-kpi">
+            <span className="as-kpi-label">Conquistas</span>
+            <div className="as-kpi-value">
               {earnedCount}/{badges.length}
-            </span>
+            </div>
             <span className="stat-hint">Selos desbloqueados</span>
           </div>
         </div>
@@ -122,7 +122,7 @@ export default async function ConquistasPage() {
         <h2 className="section-spaced">Selos</h2>
         <div className="badges-grid">
           {badges.map((b) => (
-            <div key={b.id} className={`badge-card ${b.earned ? "earned" : "locked"}`}>
+            <div key={b.id} className={`as-card as-card-hover badge-card ${b.earned ? "earned" : "locked"}`}>
               <span className="badge-icon">
                 {b.earned ? <IconTrophy size={22} /> : <IconLock size={20} />}
               </span>
@@ -138,7 +138,7 @@ export default async function ConquistasPage() {
         ) : (
           <div className="album-grid">
             {ownedCards.map(({ card }) => (
-              <div key={card.id} className="album-card">
+              <div key={card.id} className="as-card album-card">
                 {card.imageUrl ? (
                   <img src={card.imageUrl} alt={card.name} className="album-thumb" />
                 ) : (
@@ -155,89 +155,32 @@ export default async function ConquistasPage() {
       </section>
 
       <style>{`
-        .page {
-          min-height: 100vh;
-          background: radial-gradient(ellipse 80% 50% at 50% -10%, #1b2a5c 0%, #0a1330 55%, #05070f 100%);
-          font-family: system-ui, sans-serif;
-          color: #f5f6fa;
-        }
-        .content { max-width: 64rem; margin: 0 auto; padding: 3rem 2rem 6rem; }
+        .content { padding: 3rem 0 6rem; }
         .page-heading { max-width: 34rem; margin-bottom: 2.5rem; }
-        .eyebrow {
-          display: block;
-          font-size: 0.72rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.14em;
-          color: #8b9aff;
-          margin-bottom: 0.6rem;
-        }
-        h1 { margin: 0 0 0.6rem; font-family: "Sora", system-ui, sans-serif; font-size: clamp(1.8rem, 3.5vw, 2.4rem); }
-        .subtitle { color: rgba(255, 255, 255, 0.6); margin: 0; line-height: 1.6; }
         h2 {
-          font-family: "Sora", system-ui, sans-serif;
+          font-family: var(--font-display);
           font-size: 1.15rem;
           margin: 0 0 1.25rem;
+          color: var(--as-text);
         }
         .section-spaced { margin-top: 3rem; }
-        .empty { color: rgba(255, 255, 255, 0.6); font-size: 0.9rem; }
-        .stat-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-          gap: 1rem;
-        }
-        .stat-tile {
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 1rem;
-          padding: 1.1rem 1.25rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.3rem;
-        }
-        .stat-label {
-          font-size: 0.72rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          color: rgba(255, 255, 255, 0.55);
-        }
-        .stat-value {
-          font-family: "Sora", system-ui, sans-serif;
-          font-size: 1.8rem;
-          font-weight: 700;
-        }
+        .empty { color: var(--as-muted); font-size: 0.9rem; }
+        .stat-tile { gap: 0.5rem; }
         .stat-hint {
           font-size: 0.74rem;
-          color: rgba(255, 255, 255, 0.5);
+          color: var(--as-muted);
         }
-        .xp-bar {
-          height: 0.4rem;
-          border-radius: 999px;
-          background: rgba(255, 255, 255, 0.1);
-          overflow: hidden;
-          margin: 0.2rem 0 0.1rem;
-        }
-        .xp-fill {
-          height: 100%;
-          background: linear-gradient(90deg, #4f5fff, #8b9aff);
-          border-radius: 999px;
-        }
+        .xp-bar { margin: 0.2rem 0 0.1rem; }
         .badges-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
           gap: 1rem;
         }
         .badge-card {
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 1rem;
           padding: 1.1rem 1.25rem;
-          transition: border-color 0.15s, transform 0.15s;
         }
         .badge-card.earned {
-          border-color: rgba(139, 154, 255, 0.4);
-          background: linear-gradient(160deg, rgba(79, 95, 255, 0.14), rgba(255, 255, 255, 0.03));
+          border-color: var(--as-card-hover-border);
           box-shadow: 0 0.5rem 1.4rem rgba(79, 95, 255, 0.12);
         }
         .badge-card.locked { opacity: 0.55; }
@@ -248,21 +191,21 @@ export default async function ConquistasPage() {
           width: 2.6rem;
           height: 2.6rem;
           border-radius: 999px;
-          background: rgba(255, 255, 255, 0.06);
-          color: rgba(255, 255, 255, 0.4);
+          background: var(--as-badge-bg);
+          color: var(--as-muted);
         }
         .badge-card.earned .badge-icon {
-          background: linear-gradient(135deg, #4f5fff, #8b9aff);
+          background: linear-gradient(135deg, var(--as-cyan), var(--as-violet));
           color: #fff;
         }
-        .badge-name { margin: 0.6rem 0 0.25rem; font-weight: 700; font-size: 0.95rem; }
-        .badge-desc { margin: 0; font-size: 0.78rem; color: rgba(255, 255, 255, 0.6); line-height: 1.4; }
+        .badge-name { margin: 0.6rem 0 0.25rem; font-weight: 700; font-size: 0.95rem; color: var(--as-text); }
+        .badge-desc { margin: 0; font-size: 0.78rem; color: var(--as-muted); line-height: 1.4; }
         .album-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
           gap: 1rem;
         }
-        .album-card { text-align: center; }
+        .album-card { text-align: center; padding: 0.6rem; }
         .album-thumb {
           width: 100%;
           aspect-ratio: 1 / 1;
@@ -275,10 +218,11 @@ export default async function ConquistasPage() {
           align-items: center;
           justify-content: center;
           font-size: 1.6rem;
-          background: rgba(255, 255, 255, 0.05);
+          background: var(--as-badge-bg);
+          border-radius: 0.7rem;
         }
-        .album-name { margin: 0; font-size: 0.78rem; font-weight: 600; }
-        .album-rarity { margin: 0.1rem 0 0; font-size: 0.7rem; color: rgba(255, 255, 255, 0.5); text-transform: capitalize; }
+        .album-name { margin: 0; font-size: 0.78rem; font-weight: 600; color: var(--as-text); }
+        .album-rarity { margin: 0.1rem 0 0; font-size: 0.7rem; color: var(--as-muted); text-transform: capitalize; }
       `}</style>
     </main>
   );

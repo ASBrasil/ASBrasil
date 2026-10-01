@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import Link from "next/link";
+import { ParticipantTopNav } from "@/components/participant/ParticipantTopNav";
 import { WinnersMarquee } from "@/components/participant/WinnersMarquee";
 
 export const dynamic = "force-dynamic";
@@ -48,20 +48,13 @@ export default async function GlobalWinnersPage() {
   const marqueeItems = sections.flatMap((s) => s.winners.map((w) => `${w.winnerName} · ${w.prizeName}`));
 
   return (
-    <main className="page">
-      <header className="topbar">
-        <Link href="/meus-eventos" className="brand">
-          <span aria-hidden className="dot">●</span>
-          AS BRASIL
-        </Link>
-        <Link href="/meus-eventos" className="back">
-          ← Voltar
-        </Link>
-      </header>
+    <main className="as-shell page">
+      <ParticipantTopNav />
 
       <section className="hero">
-        <h1>Vencedores dos nossos sorteios</h1>
-        <p className="subtitle">
+        <span className="as-eyebrow">Universo AS</span>
+        <h1 className="as-title">Vencedores dos nossos sorteios</h1>
+        <p className="as-subtitle">
           Resultados publicados de todas as campanhas — inclusive as que você não está
           participando.
         </p>
@@ -76,7 +69,7 @@ export default async function GlobalWinnersPage() {
       {sections.length === 0 ? (
         <p className="empty">Nenhum resultado publicado ainda. Volte em breve!</p>
       ) : (
-        <div className="sections">
+        <div className="as-container sections">
           {sections.map(({ event, winners }) => (
             <section key={event.id} className="event-section">
               <div className="event-header">
@@ -85,7 +78,7 @@ export default async function GlobalWinnersPage() {
               </div>
               <div className="winners-grid">
                 {winners.map((w, i) => (
-                  <article className="winner-card" key={i}>
+                  <article className="as-card as-card-hover winner-card" key={i}>
                     {w.photoUrl ? (
                       <img src={w.photoUrl} alt={w.winnerName} className="photo" />
                     ) : (
@@ -105,75 +98,25 @@ export default async function GlobalWinnersPage() {
       )}
 
       <style>{`
-        .page {
-          min-height: 100vh;
-          background: radial-gradient(ellipse 80% 50% at 50% -10%, #1b2a5c 0%, #0a1330 55%, #05070f 100%);
-          font-family: system-ui, sans-serif;
-          color: #f5f6fa;
-        }
-        .topbar {
-          position: sticky;
-          top: 0;
-          z-index: 40;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 1rem;
-          padding: 0.85rem 1.75rem;
-          background: rgba(8, 12, 30, 0.72);
-          backdrop-filter: blur(14px);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-          font-size: 0.85rem;
-        }
-        .brand {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          color: white;
-          text-decoration: none;
-          font-weight: 800;
-          font-size: 0.85rem;
-          letter-spacing: 0.03em;
-        }
-        .brand .dot {
-          color: #4f5fff;
-        }
-        .back {
-          color: white;
-          text-decoration: none;
-          opacity: 0.8;
-          font-weight: 600;
-          font-size: 0.82rem;
-        }
-        .back:hover {
-          opacity: 1;
-        }
         .hero {
           text-align: center;
           padding: 3.5rem 1.5rem 1.5rem;
         }
-        h1 {
-          font-family: "Sora", system-ui, sans-serif;
-          font-size: clamp(1.8rem, 4vw, 2.6rem);
-          margin: 0 0 0.5rem;
-        }
-        .subtitle {
-          color: rgba(255, 255, 255, 0.6);
+        .hero .as-eyebrow, .hero .as-title, .hero .as-subtitle { display: block; }
+        .hero .as-subtitle {
           max-width: 32rem;
-          margin: 0 auto;
+          margin: 0.6rem auto 0;
         }
         .marquee-wrap {
           margin: 2rem 0 3.5rem;
         }
         .empty {
           text-align: center;
-          color: rgba(255, 255, 255, 0.6);
+          color: var(--as-muted);
           padding: 3rem;
         }
         .sections {
-          max-width: 64rem;
-          margin: 0 auto;
-          padding: 0 1.5rem 5rem;
+          padding-bottom: 5rem;
         }
         .event-section {
           margin-bottom: 4rem;
@@ -186,16 +129,17 @@ export default async function GlobalWinnersPage() {
           font-size: 0.7rem;
           text-transform: uppercase;
           letter-spacing: 0.1em;
-          color: #8b9aff;
-          border: 1px solid rgba(139, 154, 255, 0.4);
+          color: var(--as-cyan);
+          border: 1px solid var(--as-line);
           border-radius: 999px;
           padding: 0.25rem 0.75rem;
           margin-bottom: 0.6rem;
         }
         .event-header h2 {
-          font-family: "Sora", system-ui, sans-serif;
+          font-family: var(--font-display);
           margin: 0;
           font-size: 1.35rem;
+          color: var(--as-text);
         }
         .winners-grid {
           display: grid;
@@ -203,10 +147,7 @@ export default async function GlobalWinnersPage() {
           gap: 1.25rem;
         }
         .winner-card {
-          background: #141b3d;
-          border-radius: 0.9rem;
           overflow: hidden;
-          border: 1px solid rgba(255, 255, 255, 0.08);
         }
         .photo {
           width: 100%;
@@ -219,7 +160,7 @@ export default async function GlobalWinnersPage() {
           align-items: center;
           justify-content: center;
           font-size: 2.5rem;
-          background: rgba(79, 95, 255, 0.12);
+          background: var(--as-badge-bg);
         }
         .info {
           padding: 1.1rem 1.25rem;
@@ -229,17 +170,18 @@ export default async function GlobalWinnersPage() {
           font-size: 0.7rem;
           text-transform: uppercase;
           letter-spacing: 0.06em;
-          color: #8b9aff;
-          border: 1px solid rgba(139, 154, 255, 0.35);
+          color: var(--as-cyan);
+          border: 1px solid var(--as-line);
           border-radius: 999px;
           padding: 0.2rem 0.65rem;
         }
         .info h3 {
           margin: 0.3rem 0;
+          color: var(--as-text);
         }
         .number {
           font-size: 0.8rem;
-          opacity: 0.65;
+          color: var(--as-muted);
           font-family: var(--font-mono, monospace);
         }
       `}</style>

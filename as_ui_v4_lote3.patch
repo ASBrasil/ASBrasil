@@ -1,0 +1,640 @@
+diff --git a/app/admin/(protected)/destaques/page.tsx b/app/admin/(protected)/destaques/page.tsx
+index 09da712..a4e92de 100644
+--- a/app/admin/(protected)/destaques/page.tsx
++++ b/app/admin/(protected)/destaques/page.tsx
+@@ -20,8 +20,9 @@ export default async function FeaturedEventsPage() {
+   return (
+     <div>
+       <div className="header">
+-        <h1>Destaques da tela de login</h1>
+-        <p className="subtitle">
++        <span className="as-eyebrow">Configurações</span>
++        <h1 className="as-title">Destaques da tela de login</h1>
++        <p className="as-subtitle">
+           Escolha quais sorteios aparecem no banner rotativo da página onde o participante digita
+           o e-mail (<code>/entrar</code>), e escreva o texto que quiser pra cada um. Deixando em
+           branco, usa “Campanha — Nome do sorteio” automaticamente.
+@@ -29,7 +30,7 @@ export default async function FeaturedEventsPage() {
+       </div>
+ 
+       {events.length === 0 ? (
+-        <div className="empty">
++        <div className="empty as-card">
+           <p>Nenhum sorteio ativo no momento.</p>
+         </div>
+       ) : (
+@@ -51,9 +52,7 @@ export default async function FeaturedEventsPage() {
+           font-size: 0.85em;
+         }
+         .empty {
+-          background: var(--surface);
+           border: 1px dashed var(--border);
+-          border-radius: 1rem;
+           padding: 3rem;
+           text-align: center;
+           color: var(--text-muted);
+diff --git a/app/admin/(protected)/events/[id]/imports/page.tsx b/app/admin/(protected)/events/[id]/imports/page.tsx
+index 82dc5f1..955ca87 100644
+--- a/app/admin/(protected)/events/[id]/imports/page.tsx
++++ b/app/admin/(protected)/events/[id]/imports/page.tsx
+@@ -15,8 +15,9 @@ export default async function ImportHistoryPage({ params }: { params: { id: stri
+         <Link href={`/admin/events/${event.id}/participants`} className="back">
+           ← {event.name}
+         </Link>
+-        <h1>Histórico de importações</h1>
+-        <p className="subtitle">
++        <span className="as-eyebrow">Importações</span>
++        <h1 className="as-title">Histórico de importações</h1>
++        <p className="as-subtitle">
+           Cada planilha enviada aparece aqui, com quantas linhas foram aceitas e por que as demais
+           foram rejeitadas.
+         </p>
+@@ -30,9 +31,9 @@ export default async function ImportHistoryPage({ params }: { params: { id: stri
+           color: var(--indigo-600);
+           text-decoration: none;
+           font-size: 0.85rem;
++          display: block;
++          margin-bottom: 0.3rem;
+         }
+-        h1 { margin: 0.3rem 0 0.3rem; font-family: var(--font-display, inherit); }
+-        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin: 0; }
+       `}</style>
+     </div>
+   );
+diff --git a/app/admin/(protected)/popup/page.tsx b/app/admin/(protected)/popup/page.tsx
+index 896b6f0..a74718c 100644
+--- a/app/admin/(protected)/popup/page.tsx
++++ b/app/admin/(protected)/popup/page.tsx
+@@ -9,8 +9,9 @@ export default async function PopupAdminPage() {
+   return (
+     <div>
+       <div className="header">
+-        <h1>Pop-up de aviso</h1>
+-        <p className="subtitle">
++        <span className="as-eyebrow">Configurações</span>
++        <h1 className="as-title">Pop-up de aviso</h1>
++        <p className="as-subtitle">
+           Aparece pro participante assim que ele entra em "Meus eventos". Só um fica ativo por
+           vez - ativar um desativa automaticamente qualquer outro.
+         </p>
+@@ -22,8 +23,6 @@ export default async function PopupAdminPage() {
+ 
+       <style>{`
+         .header { margin-bottom: 1.75rem; max-width: 40rem; }
+-        h1 { margin: 0 0 0.4rem; font-family: var(--font-display, inherit); }
+-        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin: 0; }
+       `}</style>
+     </div>
+   );
+diff --git a/app/conquistas/page.tsx b/app/conquistas/page.tsx
+index bed23ef..963c08f 100644
+--- a/app/conquistas/page.tsx
++++ b/app/conquistas/page.tsx
+@@ -74,47 +74,47 @@ export default async function ConquistasPage() {
+   const earnedCount = badges.filter((b) => b.earned).length;
+ 
+   return (
+-    <main className="page">
++    <main className="as-shell page">
+       <ParticipantTopNav />
+ 
+-      <section className="content">
++      <section className="as-container content">
+         <div className="page-heading">
+-          <span className="eyebrow">Seu progresso</span>
+-          <h1>Conquistas</h1>
+-          <p className="subtitle">
++          <span className="as-eyebrow">Seu progresso</span>
++          <h1 className="as-title">Conquistas</h1>
++          <p className="as-subtitle">
+             Tudo o que você já alcançou jogando no Universo AS - some pontos jogando qualquer jogo
+             de qualquer evento.
+           </p>
+         </div>
+ 
+-        <div className="stat-grid">
+-          <div className="stat-tile">
+-            <span className="stat-label">Nível</span>
+-            <span className="stat-value">{level}</span>
+-            <div className="xp-bar">
+-              <div className="xp-fill" style={{ width: `${xpProgressPct}%` }} />
++        <div className="as-kpi-grid stat-grid">
++          <div className="as-card as-kpi stat-tile">
++            <span className="as-kpi-label">Nível</span>
++            <div className="as-kpi-value">{level}</div>
++            <div className="as-progress xp-bar">
++              <span style={{ width: `${xpProgressPct}%` }} />
+             </div>
+             <span className="stat-hint">
+               {xpIntoLevel} / {XP_PER_LEVEL} XP pro nível {level + 1}
+             </span>
+           </div>
+-          <div className="stat-tile">
+-            <span className="stat-label">XP total</span>
+-            <span className="stat-value">{xp}</span>
++          <div className="as-card as-kpi">
++            <span className="as-kpi-label">XP total</span>
++            <div className="as-kpi-value">{xp}</div>
+             <span className="stat-hint">Soma da primeira tentativa em cada fase</span>
+           </div>
+-          <div className="stat-tile">
+-            <span className="stat-label">Álbum</span>
+-            <span className="stat-value">
++          <div className="as-card as-kpi">
++            <span className="as-kpi-label">Álbum</span>
++            <div className="as-kpi-value">
+               {ownedCount}/{totalCards}
+-            </span>
++            </div>
+             <span className="stat-hint">Cards colecionados</span>
+           </div>
+-          <div className="stat-tile">
+-            <span className="stat-label">Conquistas</span>
+-            <span className="stat-value">
++          <div className="as-card as-kpi">
++            <span className="as-kpi-label">Conquistas</span>
++            <div className="as-kpi-value">
+               {earnedCount}/{badges.length}
+-            </span>
++            </div>
+             <span className="stat-hint">Selos desbloqueados</span>
+           </div>
+         </div>
+@@ -122,7 +122,7 @@ export default async function ConquistasPage() {
+         <h2 className="section-spaced">Selos</h2>
+         <div className="badges-grid">
+           {badges.map((b) => (
+-            <div key={b.id} className={`badge-card ${b.earned ? "earned" : "locked"}`}>
++            <div key={b.id} className={`as-card as-card-hover badge-card ${b.earned ? "earned" : "locked"}`}>
+               <span className="badge-icon">
+                 {b.earned ? <IconTrophy size={22} /> : <IconLock size={20} />}
+               </span>
+@@ -138,7 +138,7 @@ export default async function ConquistasPage() {
+         ) : (
+           <div className="album-grid">
+             {ownedCards.map(({ card }) => (
+-              <div key={card.id} className="album-card">
++              <div key={card.id} className="as-card album-card">
+                 {card.imageUrl ? (
+                   <img src={card.imageUrl} alt={card.name} className="album-thumb" />
+                 ) : (
+@@ -155,89 +155,32 @@ export default async function ConquistasPage() {
+       </section>
+ 
+       <style>{`
+-        .page {
+-          min-height: 100vh;
+-          background: radial-gradient(ellipse 80% 50% at 50% -10%, #1b2a5c 0%, #0a1330 55%, #05070f 100%);
+-          font-family: system-ui, sans-serif;
+-          color: #f5f6fa;
+-        }
+-        .content { max-width: 64rem; margin: 0 auto; padding: 3rem 2rem 6rem; }
++        .content { padding: 3rem 0 6rem; }
+         .page-heading { max-width: 34rem; margin-bottom: 2.5rem; }
+-        .eyebrow {
+-          display: block;
+-          font-size: 0.72rem;
+-          font-weight: 700;
+-          text-transform: uppercase;
+-          letter-spacing: 0.14em;
+-          color: #8b9aff;
+-          margin-bottom: 0.6rem;
+-        }
+-        h1 { margin: 0 0 0.6rem; font-family: "Sora", system-ui, sans-serif; font-size: clamp(1.8rem, 3.5vw, 2.4rem); }
+-        .subtitle { color: rgba(255, 255, 255, 0.6); margin: 0; line-height: 1.6; }
+         h2 {
+-          font-family: "Sora", system-ui, sans-serif;
++          font-family: var(--font-display);
+           font-size: 1.15rem;
+           margin: 0 0 1.25rem;
++          color: var(--as-text);
+         }
+         .section-spaced { margin-top: 3rem; }
+-        .empty { color: rgba(255, 255, 255, 0.6); font-size: 0.9rem; }
+-        .stat-grid {
+-          display: grid;
+-          grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+-          gap: 1rem;
+-        }
+-        .stat-tile {
+-          background: rgba(255, 255, 255, 0.04);
+-          border: 1px solid rgba(255, 255, 255, 0.1);
+-          border-radius: 1rem;
+-          padding: 1.1rem 1.25rem;
+-          display: flex;
+-          flex-direction: column;
+-          gap: 0.3rem;
+-        }
+-        .stat-label {
+-          font-size: 0.72rem;
+-          font-weight: 700;
+-          text-transform: uppercase;
+-          letter-spacing: 0.06em;
+-          color: rgba(255, 255, 255, 0.55);
+-        }
+-        .stat-value {
+-          font-family: "Sora", system-ui, sans-serif;
+-          font-size: 1.8rem;
+-          font-weight: 700;
+-        }
++        .empty { color: var(--as-muted); font-size: 0.9rem; }
++        .stat-tile { gap: 0.5rem; }
+         .stat-hint {
+           font-size: 0.74rem;
+-          color: rgba(255, 255, 255, 0.5);
+-        }
+-        .xp-bar {
+-          height: 0.4rem;
+-          border-radius: 999px;
+-          background: rgba(255, 255, 255, 0.1);
+-          overflow: hidden;
+-          margin: 0.2rem 0 0.1rem;
+-        }
+-        .xp-fill {
+-          height: 100%;
+-          background: linear-gradient(90deg, #4f5fff, #8b9aff);
+-          border-radius: 999px;
++          color: var(--as-muted);
+         }
++        .xp-bar { margin: 0.2rem 0 0.1rem; }
+         .badges-grid {
+           display: grid;
+           grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+           gap: 1rem;
+         }
+         .badge-card {
+-          background: rgba(255, 255, 255, 0.04);
+-          border: 1px solid rgba(255, 255, 255, 0.1);
+-          border-radius: 1rem;
+           padding: 1.1rem 1.25rem;
+-          transition: border-color 0.15s, transform 0.15s;
+         }
+         .badge-card.earned {
+-          border-color: rgba(139, 154, 255, 0.4);
+-          background: linear-gradient(160deg, rgba(79, 95, 255, 0.14), rgba(255, 255, 255, 0.03));
++          border-color: var(--as-card-hover-border);
+           box-shadow: 0 0.5rem 1.4rem rgba(79, 95, 255, 0.12);
+         }
+         .badge-card.locked { opacity: 0.55; }
+@@ -248,21 +191,21 @@ export default async function ConquistasPage() {
+           width: 2.6rem;
+           height: 2.6rem;
+           border-radius: 999px;
+-          background: rgba(255, 255, 255, 0.06);
+-          color: rgba(255, 255, 255, 0.4);
++          background: var(--as-badge-bg);
++          color: var(--as-muted);
+         }
+         .badge-card.earned .badge-icon {
+-          background: linear-gradient(135deg, #4f5fff, #8b9aff);
++          background: linear-gradient(135deg, var(--as-cyan), var(--as-violet));
+           color: #fff;
+         }
+-        .badge-name { margin: 0.6rem 0 0.25rem; font-weight: 700; font-size: 0.95rem; }
+-        .badge-desc { margin: 0; font-size: 0.78rem; color: rgba(255, 255, 255, 0.6); line-height: 1.4; }
++        .badge-name { margin: 0.6rem 0 0.25rem; font-weight: 700; font-size: 0.95rem; color: var(--as-text); }
++        .badge-desc { margin: 0; font-size: 0.78rem; color: var(--as-muted); line-height: 1.4; }
+         .album-grid {
+           display: grid;
+           grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+           gap: 1rem;
+         }
+-        .album-card { text-align: center; }
++        .album-card { text-align: center; padding: 0.6rem; }
+         .album-thumb {
+           width: 100%;
+           aspect-ratio: 1 / 1;
+@@ -275,10 +218,11 @@ export default async function ConquistasPage() {
+           align-items: center;
+           justify-content: center;
+           font-size: 1.6rem;
+-          background: rgba(255, 255, 255, 0.05);
++          background: var(--as-badge-bg);
++          border-radius: 0.7rem;
+         }
+-        .album-name { margin: 0; font-size: 0.78rem; font-weight: 600; }
+-        .album-rarity { margin: 0.1rem 0 0; font-size: 0.7rem; color: rgba(255, 255, 255, 0.5); text-transform: capitalize; }
++        .album-name { margin: 0; font-size: 0.78rem; font-weight: 600; color: var(--as-text); }
++        .album-rarity { margin: 0.1rem 0 0; font-size: 0.7rem; color: var(--as-muted); text-transform: capitalize; }
+       `}</style>
+     </main>
+   );
+diff --git a/app/e/[slug]/vencedores/page.tsx b/app/e/[slug]/vencedores/page.tsx
+index 64ed829..7962bcf 100644
+--- a/app/e/[slug]/vencedores/page.tsx
++++ b/app/e/[slug]/vencedores/page.tsx
+@@ -108,9 +108,15 @@ export default async function WinnersPage({ params }: { params: { slug: string }
+         }
+         .winner-card {
+           background: var(--surface);
+-          border-radius: 0.9rem;
++          border-radius: 1.1rem;
+           overflow: hidden;
+           border: 1px solid rgba(255, 255, 255, 0.08);
++          box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.22);
++          transition: transform 0.18s ease, box-shadow 0.18s ease;
++        }
++        .winner-card:hover {
++          transform: translateY(-3px);
++          box-shadow: 0 1.4rem 3rem rgba(0, 0, 0, 0.3);
+         }
+         .photo {
+           width: 100%;
+diff --git a/app/vencedores/page.tsx b/app/vencedores/page.tsx
+index 09f3243..b0c3c83 100644
+--- a/app/vencedores/page.tsx
++++ b/app/vencedores/page.tsx
+@@ -1,5 +1,5 @@
+ import { db } from "@/lib/db";
+-import Link from "next/link";
++import { ParticipantTopNav } from "@/components/participant/ParticipantTopNav";
+ import { WinnersMarquee } from "@/components/participant/WinnersMarquee";
+ 
+ export const dynamic = "force-dynamic";
+@@ -48,20 +48,13 @@ export default async function GlobalWinnersPage() {
+   const marqueeItems = sections.flatMap((s) => s.winners.map((w) => `${w.winnerName} · ${w.prizeName}`));
+ 
+   return (
+-    <main className="page">
+-      <header className="topbar">
+-        <Link href="/meus-eventos" className="brand">
+-          <span aria-hidden className="dot">●</span>
+-          AS BRASIL
+-        </Link>
+-        <Link href="/meus-eventos" className="back">
+-          ← Voltar
+-        </Link>
+-      </header>
++    <main className="as-shell page">
++      <ParticipantTopNav />
+ 
+       <section className="hero">
+-        <h1>Vencedores dos nossos sorteios</h1>
+-        <p className="subtitle">
++        <span className="as-eyebrow">Universo AS</span>
++        <h1 className="as-title">Vencedores dos nossos sorteios</h1>
++        <p className="as-subtitle">
+           Resultados publicados de todas as campanhas — inclusive as que você não está
+           participando.
+         </p>
+@@ -76,7 +69,7 @@ export default async function GlobalWinnersPage() {
+       {sections.length === 0 ? (
+         <p className="empty">Nenhum resultado publicado ainda. Volte em breve!</p>
+       ) : (
+-        <div className="sections">
++        <div className="as-container sections">
+           {sections.map(({ event, winners }) => (
+             <section key={event.id} className="event-section">
+               <div className="event-header">
+@@ -85,7 +78,7 @@ export default async function GlobalWinnersPage() {
+               </div>
+               <div className="winners-grid">
+                 {winners.map((w, i) => (
+-                  <article className="winner-card" key={i}>
++                  <article className="as-card as-card-hover winner-card" key={i}>
+                     {w.photoUrl ? (
+                       <img src={w.photoUrl} alt={w.winnerName} className="photo" />
+                     ) : (
+@@ -105,75 +98,25 @@ export default async function GlobalWinnersPage() {
+       )}
+ 
+       <style>{`
+-        .page {
+-          min-height: 100vh;
+-          background: radial-gradient(ellipse 80% 50% at 50% -10%, #1b2a5c 0%, #0a1330 55%, #05070f 100%);
+-          font-family: system-ui, sans-serif;
+-          color: #f5f6fa;
+-        }
+-        .topbar {
+-          position: sticky;
+-          top: 0;
+-          z-index: 40;
+-          display: flex;
+-          align-items: center;
+-          justify-content: space-between;
+-          gap: 1rem;
+-          padding: 0.85rem 1.75rem;
+-          background: rgba(8, 12, 30, 0.72);
+-          backdrop-filter: blur(14px);
+-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+-          font-size: 0.85rem;
+-        }
+-        .brand {
+-          display: inline-flex;
+-          align-items: center;
+-          gap: 0.4rem;
+-          color: white;
+-          text-decoration: none;
+-          font-weight: 800;
+-          font-size: 0.85rem;
+-          letter-spacing: 0.03em;
+-        }
+-        .brand .dot {
+-          color: #4f5fff;
+-        }
+-        .back {
+-          color: white;
+-          text-decoration: none;
+-          opacity: 0.8;
+-          font-weight: 600;
+-          font-size: 0.82rem;
+-        }
+-        .back:hover {
+-          opacity: 1;
+-        }
+         .hero {
+           text-align: center;
+           padding: 3.5rem 1.5rem 1.5rem;
+         }
+-        h1 {
+-          font-family: "Sora", system-ui, sans-serif;
+-          font-size: clamp(1.8rem, 4vw, 2.6rem);
+-          margin: 0 0 0.5rem;
+-        }
+-        .subtitle {
+-          color: rgba(255, 255, 255, 0.6);
++        .hero .as-eyebrow, .hero .as-title, .hero .as-subtitle { display: block; }
++        .hero .as-subtitle {
+           max-width: 32rem;
+-          margin: 0 auto;
++          margin: 0.6rem auto 0;
+         }
+         .marquee-wrap {
+           margin: 2rem 0 3.5rem;
+         }
+         .empty {
+           text-align: center;
+-          color: rgba(255, 255, 255, 0.6);
++          color: var(--as-muted);
+           padding: 3rem;
+         }
+         .sections {
+-          max-width: 64rem;
+-          margin: 0 auto;
+-          padding: 0 1.5rem 5rem;
++          padding-bottom: 5rem;
+         }
+         .event-section {
+           margin-bottom: 4rem;
+@@ -186,16 +129,17 @@ export default async function GlobalWinnersPage() {
+           font-size: 0.7rem;
+           text-transform: uppercase;
+           letter-spacing: 0.1em;
+-          color: #8b9aff;
+-          border: 1px solid rgba(139, 154, 255, 0.4);
++          color: var(--as-cyan);
++          border: 1px solid var(--as-line);
+           border-radius: 999px;
+           padding: 0.25rem 0.75rem;
+           margin-bottom: 0.6rem;
+         }
+         .event-header h2 {
+-          font-family: "Sora", system-ui, sans-serif;
++          font-family: var(--font-display);
+           margin: 0;
+           font-size: 1.35rem;
++          color: var(--as-text);
+         }
+         .winners-grid {
+           display: grid;
+@@ -203,10 +147,7 @@ export default async function GlobalWinnersPage() {
+           gap: 1.25rem;
+         }
+         .winner-card {
+-          background: #141b3d;
+-          border-radius: 0.9rem;
+           overflow: hidden;
+-          border: 1px solid rgba(255, 255, 255, 0.08);
+         }
+         .photo {
+           width: 100%;
+@@ -219,7 +160,7 @@ export default async function GlobalWinnersPage() {
+           align-items: center;
+           justify-content: center;
+           font-size: 2.5rem;
+-          background: rgba(79, 95, 255, 0.12);
++          background: var(--as-badge-bg);
+         }
+         .info {
+           padding: 1.1rem 1.25rem;
+@@ -229,17 +170,18 @@ export default async function GlobalWinnersPage() {
+           font-size: 0.7rem;
+           text-transform: uppercase;
+           letter-spacing: 0.06em;
+-          color: #8b9aff;
+-          border: 1px solid rgba(139, 154, 255, 0.35);
++          color: var(--as-cyan);
++          border: 1px solid var(--as-line);
+           border-radius: 999px;
+           padding: 0.2rem 0.65rem;
+         }
+         .info h3 {
+           margin: 0.3rem 0;
++          color: var(--as-text);
+         }
+         .number {
+           font-size: 0.8rem;
+-          opacity: 0.65;
++          color: var(--as-muted);
+           font-family: var(--font-mono, monospace);
+         }
+       `}</style>
+diff --git a/components/admin/FeaturedEventRow.tsx b/components/admin/FeaturedEventRow.tsx
+index 864420f..e6605b4 100644
+--- a/components/admin/FeaturedEventRow.tsx
++++ b/components/admin/FeaturedEventRow.tsx
+@@ -81,7 +81,8 @@ export function FeaturedEventRow({ event }: { event: EventData }) {
+         .row {
+           background: var(--surface);
+           border: 1px solid var(--border);
+-          border-radius: 0.75rem;
++          border-radius: var(--as-radius, 0.75rem);
++          box-shadow: var(--as-shadow-soft, none);
+           padding: 0.9rem 1.1rem;
+         }
+         .row.dimmed {
+diff --git a/components/admin/ImportHistoryClient.tsx b/components/admin/ImportHistoryClient.tsx
+index c84fd9a..9299de7 100644
+--- a/components/admin/ImportHistoryClient.tsx
++++ b/components/admin/ImportHistoryClient.tsx
+@@ -128,7 +128,8 @@ export function ImportHistoryClient({ eventId }: { eventId: string }) {
+         .batch {
+           background: var(--surface);
+           border: 1px solid var(--border);
+-          border-radius: 0.75rem;
++          border-radius: var(--as-radius, 0.75rem);
++          box-shadow: var(--as-shadow-soft, none);
+           overflow: hidden;
+         }
+         .batch-header {
+@@ -167,12 +168,12 @@ export function ImportHistoryClient({ eventId }: { eventId: string }) {
+           font-weight: 600;
+         }
+         .count.valid {
+-          background: rgba(34, 197, 94, 0.15);
+-          color: #16a34a;
++          background: var(--as-badge-success-bg, rgba(34, 197, 94, 0.15));
++          color: var(--as-badge-success-color, #16a34a);
+         }
+         .count.error {
+-          background: rgba(192, 57, 43, 0.12);
+-          color: #c0392b;
++          background: var(--as-badge-danger-bg, rgba(192, 57, 43, 0.12));
++          color: var(--as-badge-danger-color, #c0392b);
+         }
+         .status {
+           font-size: 0.75rem;
+diff --git a/components/admin/PopupManager.tsx b/components/admin/PopupManager.tsx
+index fe8dbd6..a7dd0d0 100644
+--- a/components/admin/PopupManager.tsx
++++ b/components/admin/PopupManager.tsx
+@@ -127,7 +127,8 @@ export function PopupManager({ popups: initialPopups }: { popups: Popup[] }) {
+         .card {
+           background: var(--surface);
+           border: 1px solid var(--border);
+-          border-radius: 0.75rem;
++          border-radius: var(--as-radius, 0.75rem);
++          box-shadow: var(--as-shadow-soft, none);
+           padding: 1.1rem 1.25rem;
+         }
+         .list {
+diff --git a/components/wizard/PrizesStep.tsx b/components/wizard/PrizesStep.tsx
+index 2a285c6..4cbe938 100644
+--- a/components/wizard/PrizesStep.tsx
++++ b/components/wizard/PrizesStep.tsx
+@@ -365,7 +365,7 @@ export function PrizesStep({
+           font-size: 0.9rem;
+           background: var(--bg);
+           border: 1px solid transparent;
+-          border-radius: 0.5rem;
++          border-radius: var(--as-radius, 0.5rem);
+           padding: 0.4rem 0.75rem;
+           cursor: pointer;
+           text-align: left;
+@@ -377,7 +377,7 @@ export function PrizesStep({
+         .thumb {
+           width: 1.75rem;
+           height: 1.75rem;
+-          border-radius: 0.4rem;
++          border-radius: var(--as-radius, 0.4rem);
+           object-fit: cover;
+           flex-shrink: 0;
+         }
+@@ -401,7 +401,7 @@ export function PrizesStep({
+           padding: 1.5rem;
+           background: var(--bg);
+           border: 1px dashed var(--border);
+-          border-radius: 0.75rem;
++          border-radius: var(--as-radius, 0.75rem);
+           text-align: center;
+         }
+         .prompt p {
+@@ -436,7 +436,7 @@ export function PrizesStep({
+         }
+         .textarea {
+           padding: 0.7rem 0.9rem;
+-          border-radius: 0.6rem;
++          border-radius: var(--as-radius, 0.6rem);
+           border: 1px solid var(--border);
+           font-size: 0.9rem;
+           font-family: inherit;

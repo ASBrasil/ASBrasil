@@ -127,7 +127,8 @@ export function PopupManager({ popups: initialPopups }: { popups: Popup[] }) {
         .card {
           background: var(--surface);
           border: 1px solid var(--border);
-          border-radius: 0.75rem;
+          border-radius: var(--as-radius, 0.75rem);
+          box-shadow: var(--as-shadow-soft, none);
           padding: 1.1rem 1.25rem;
         }
         .list {

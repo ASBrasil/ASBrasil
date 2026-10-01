@@ -365,7 +365,7 @@ export function PrizesStep({
           font-size: 0.9rem;
           background: var(--bg);
           border: 1px solid transparent;
-          border-radius: 0.5rem;
+          border-radius: var(--as-radius, 0.5rem);
           padding: 0.4rem 0.75rem;
           cursor: pointer;
           text-align: left;
@@ -377,7 +377,7 @@ export function PrizesStep({
         .thumb {
           width: 1.75rem;
           height: 1.75rem;
-          border-radius: 0.4rem;
+          border-radius: var(--as-radius, 0.4rem);
           object-fit: cover;
           flex-shrink: 0;
         }
@@ -401,7 +401,7 @@ export function PrizesStep({
           padding: 1.5rem;
           background: var(--bg);
           border: 1px dashed var(--border);
-          border-radius: 0.75rem;
+          border-radius: var(--as-radius, 0.75rem);
           text-align: center;
         }
         .prompt p {
@@ -436,7 +436,7 @@ export function PrizesStep({
         }
         .textarea {
           padding: 0.7rem 0.9rem;
-          border-radius: 0.6rem;
+          border-radius: var(--as-radius, 0.6rem);
           border: 1px solid var(--border);
           font-size: 0.9rem;
           font-family: inherit;

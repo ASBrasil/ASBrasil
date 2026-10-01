@@ -20,8 +20,9 @@ export default async function FeaturedEventsPage() {
   return (
     <div>
       <div className="header">
-        <h1>Destaques da tela de login</h1>
-        <p className="subtitle">
+        <span className="as-eyebrow">Configurações</span>
+        <h1 className="as-title">Destaques da tela de login</h1>
+        <p className="as-subtitle">
           Escolha quais sorteios aparecem no banner rotativo da página onde o participante digita
           o e-mail (<code>/entrar</code>), e escreva o texto que quiser pra cada um. Deixando em
           branco, usa “Campanha — Nome do sorteio” automaticamente.
@@ -29,7 +30,7 @@ export default async function FeaturedEventsPage() {
       </div>
 
       {events.length === 0 ? (
-        <div className="empty">
+        <div className="empty as-card">
           <p>Nenhum sorteio ativo no momento.</p>
         </div>
       ) : (
@@ -51,9 +52,7 @@ export default async function FeaturedEventsPage() {
           font-size: 0.85em;
         }
         .empty {
-          background: var(--surface);
           border: 1px dashed var(--border);
-          border-radius: 1rem;
           padding: 3rem;
           text-align: center;
           color: var(--text-muted);

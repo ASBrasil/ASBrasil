@@ -108,9 +108,15 @@ export default async function WinnersPage({ params }: { params: { slug: string }
         }
         .winner-card {
           background: var(--surface);
-          border-radius: 0.9rem;
+          border-radius: 1.1rem;
           overflow: hidden;
           border: 1px solid rgba(255, 255, 255, 0.08);
+          box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.22);
+          transition: transform 0.18s ease, box-shadow 0.18s ease;
+        }
+        .winner-card:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 1.4rem 3rem rgba(0, 0, 0, 0.3);
         }
         .photo {
           width: 100%;

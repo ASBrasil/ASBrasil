@@ -128,7 +128,8 @@ export function ImportHistoryClient({ eventId }: { eventId: string }) {
         .batch {
           background: var(--surface);
           border: 1px solid var(--border);
-          border-radius: 0.75rem;
+          border-radius: var(--as-radius, 0.75rem);
+          box-shadow: var(--as-shadow-soft, none);
           overflow: hidden;
         }
         .batch-header {
@@ -167,12 +168,12 @@ export function ImportHistoryClient({ eventId }: { eventId: string }) {
           font-weight: 600;
         }
         .count.valid {
-          background: rgba(34, 197, 94, 0.15);
-          color: #16a34a;
+          background: var(--as-badge-success-bg, rgba(34, 197, 94, 0.15));
+          color: var(--as-badge-success-color, #16a34a);
         }
         .count.error {
-          background: rgba(192, 57, 43, 0.12);
-          color: #c0392b;
+          background: var(--as-badge-danger-bg, rgba(192, 57, 43, 0.12));
+          color: var(--as-badge-danger-color, #c0392b);
         }
         .status {
           font-size: 0.75rem;
