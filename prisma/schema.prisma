@@ -648,6 +648,15 @@ model UniverseProfile {
   cityRunProgress CityRunProgress[]
   neonMazeProgress NeonMazeProgress[]
   blastArenaProgress BlastArenaProgress[]
+
+  // AS Social (arcade) - ver bloco de modelos ArcadeFriendship/ArcadeRoom/
+  // ArcadeRoomPlayer/ArcadeInvite mais abaixo.
+  arcadeFriendshipsSent     ArcadeFriendship[] @relation("ArcadeFriendshipsSent")
+  arcadeFriendshipsReceived ArcadeFriendship[] @relation("ArcadeFriendshipsReceived")
+  arcadeRoomsHosted         ArcadeRoom[]       @relation("ArcadeRoomsHosted")
+  arcadeRoomPlayers         ArcadeRoomPlayer[]
+  arcadeInvitesSent         ArcadeInvite[]     @relation("ArcadeInvitesSent")
+  arcadeInvitesReceived     ArcadeInvite[]     @relation("ArcadeInvitesReceived")
 }
 
 // Um "lançamento" de jogo, sempre amarrado a um evento do sorteio (é o
@@ -928,4 +937,112 @@ model PlayerPhaseProgress {
 model GameTester {
   email     String   @id
   createdAt DateTime @default(now())
+}
+
+// --- AS Social (arcade): amigos, convites e salas --------------------------
+// Camada social combinada com o Paulo pra fechar o arcade depois dos 4 jogos
+// (ver claude/pendencias-sorteios.md) - desenhada do zero nesta sessão nos
+// moldes reais do projeto (o pacote externo "V3" que inspirou a ideia não
+// ficou disponível pra reaproveitar, e mesmo se estivesse, a prática já
+// estabelecida é nunca confiar cegamente em schema/código vindo de fora).
+// Sem nenhuma infraestrutura de tempo real (só Neon + Vercel serverless) -
+// o "modo sala" é assíncrono por natureza: cada jogador joga a própria
+// partida do jogo escolhido no navegador dele (reaproveitando os
+// componentes/rotas que já existem e já validam a pontuação no servidor,
+// ver evaluate*Result em lib/arcade.ts/city-run.ts/neon-maze.ts/
+// blast-arena.ts), e a sala só compara a pontuação de cada um daquele jogo
+// específico (soma de bestScore de todas as fases/mundos/arenas, o mesmo
+// número que já entra no Ranking geral) - decisão deliberada pra não criar
+// uma trilha de pontuação nova e paralela pra "validar", só reaproveitar a
+// que já é confiável. O placar da sala atualiza por polling (a cada 2,5s no
+// componente), nunca por WebSocket.
+
+enum ArcadeFriendshipStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+// Pedido de amizade é sempre direcional (requester -> addressee) até virar
+// ACCEPTED; recusar ou desfazer amizade simplesmente apaga a linha - não
+// fica histórico de pedido recusado.
+model ArcadeFriendship {
+  id             String                 @id @default(cuid())
+  requesterEmail String
+  requester      UniverseProfile        @relation("ArcadeFriendshipsSent", fields: [requesterEmail], references: [email], onDelete: Cascade)
+  addresseeEmail String
+  addressee      UniverseProfile        @relation("ArcadeFriendshipsReceived", fields: [addresseeEmail], references: [email], onDelete: Cascade)
+  status         ArcadeFriendshipStatus @default(PENDING)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@unique([requesterEmail, addresseeEmail])
+  @@index([addresseeEmail, status])
+}
+
+enum ArcadeRoomStatus {
+  WAITING
+  PLAYING
+  FINISHED
+}
+
+// Uma sala é sempre de um dos 4 jogos do arcade (mesmo id de
+// ARCADE_GAME_IDS em lib/arcade.ts, guardado como String simples pelo
+// mesmo motivo de Game.type/GamePhase.type não usarem enum pra isso hoje).
+// `code` é o código curto de 6 caracteres pra entrar sem precisar de
+// convite/amizade.
+model ArcadeRoom {
+  id        String           @id @default(cuid())
+  code      String           @unique
+  gameId    String
+  hostEmail String
+  host      UniverseProfile  @relation("ArcadeRoomsHosted", fields: [hostEmail], references: [email], onDelete: Cascade)
+  status    ArcadeRoomStatus @default(WAITING)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  players ArcadeRoomPlayer[]
+  invites ArcadeInvite[]
+
+  @@index([hostEmail])
+}
+
+// Quem entrou na sala - só guarda o "pronto" e a hora de entrada; a
+// pontuação exibida no placar da sala nunca fica guardada aqui, é sempre
+// recalculada ao vivo a partir da tabela de progresso real do jogo daquela
+// sala (ver getRoomScoreboard em lib/arcade-social.ts), pra nunca inventar
+// uma segunda fonte de verdade pra pontuação.
+model ArcadeRoomPlayer {
+  id       String          @id @default(cuid())
+  roomId   String
+  room     ArcadeRoom      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  email    String
+  profile  UniverseProfile @relation(fields: [email], references: [email], onDelete: Cascade)
+  ready    Boolean         @default(false)
+  joinedAt DateTime        @default(now())
+
+  @@unique([roomId, email])
+}
+
+enum ArcadeInviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+// Convite pra uma sala específica - só pode convidar quem já é amigo
+// (ArcadeFriendship ACCEPTED), checado na rota, não aqui no schema.
+model ArcadeInvite {
+  id        String             @id @default(cuid())
+  roomId    String
+  room      ArcadeRoom         @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  fromEmail String
+  from      UniverseProfile    @relation("ArcadeInvitesSent", fields: [fromEmail], references: [email], onDelete: Cascade)
+  toEmail   String
+  to        UniverseProfile    @relation("ArcadeInvitesReceived", fields: [toEmail], references: [email], onDelete: Cascade)
+  status    ArcadeInviteStatus @default(PENDING)
+  createdAt DateTime           @default(now())
+
+  @@unique([roomId, toEmail])
+  @@index([toEmail, status])
 }
