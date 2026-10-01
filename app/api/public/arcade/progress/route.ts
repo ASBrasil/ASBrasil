@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getParticipantEmail } from "@/lib/participant-session";
 import { CITIES, CITY_ORDER, evaluateArcadeResult, isCityId } from "@/lib/arcade";
+import { awardCoins } from "@/lib/coins";
 
 /**
  * Progresso do AS World Adventure pra quem está logado. Sem sessão, devolve
@@ -68,6 +69,14 @@ export async function POST(req: NextRequest) {
   }
 
   const existing = await db.arcadeProgress.findUnique({ where: { email_city: { email, city } } });
+
+  // Moeda da Loja de Personagens (01/10) - mesmo valor do XP ganho aqui: só
+  // a MELHORA no bestScore (nunca em cima do score bruto da tentativa, pra
+  // não dar coin de novo jogando pior que o recorde já salvo), guardada à
+  // parte do Ranking (ver lib/coins.ts).
+  const scoreDelta = Math.max(0, outcome.score - (existing?.bestScore ?? 0));
+  if (scoreDelta > 0) await awardCoins(email, scoreDelta, `arcade:${city}`);
+
   const saved = await db.arcadeProgress.upsert({
     where: { email_city: { email, city } },
     create: {

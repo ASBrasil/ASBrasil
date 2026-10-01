@@ -11,13 +11,24 @@ interface Character {
   rarity: string;
   imageUrl: string | null;
   description: string | null;
+  spriteId: string | null;
+  pointsCost: number;
+  isStarter: boolean;
 }
+
+// Esqueletos de animação prontos (mesma lista de SPRITE_IDS em
+// lib/characters.ts) - vários personagens/peles podem apontar pro mesmo,
+// só a imagem/nome mostrados fora do jogo mudam.
+const SPRITE_OPTIONS = ["jhope", "jimin", "jin", "jungkook", "rm", "suga", "v"];
 
 const EMPTY_FORM = {
   name: "",
   rarity: "comum",
   imageUrl: null as string | null,
   description: "",
+  spriteId: "" as string,
+  pointsCost: 0,
+  isStarter: false,
 };
 
 function formFromCharacter(character: Character) {
@@ -26,6 +37,9 @@ function formFromCharacter(character: Character) {
     rarity: character.rarity,
     imageUrl: character.imageUrl,
     description: character.description ?? "",
+    spriteId: character.spriteId ?? "",
+    pointsCost: character.pointsCost,
+    isStarter: character.isStarter,
   };
 }
 
@@ -64,8 +78,13 @@ export function ExperienceCharactersManager({
         {!creating && <Button onClick={() => setCreating(true)}>+ Novo personagem</Button>}
       </div>
       <p className="hint">
-        Cada personagem pertence só a essa Experiência. Pra alguém desbloquear um, configure-o como
-        "Personagem de recompensa" numa fase de algum jogo dela (aba Jogos → editar fase).
+        Cada personagem pertence só a essa Experiência - é o elenco jogável do arcade (Universo AS),
+        não só um avatar de perfil. Dá pra liberar um personagem de 3 jeitos: marcando como{" "}
+        <strong>inicial</strong> (todo mundo já ganha de graça), configurando um{" "}
+        <strong>preço em moedas</strong> (aparece na Loja do arcade, a pessoa junta jogando e
+        desbloqueia), ou como "Personagem de recompensa" numa fase de algum jogo (aba Jogos → editar
+        fase). O "esqueleto de animação" decide os movimentos dele quando a pessoa joga - vários
+        personagens podem usar o mesmo esqueleto, só a imagem muda.
       </p>
 
       {creating && (
@@ -120,6 +139,11 @@ export function ExperienceCharactersManager({
                 )}
                 <p className="name">{character.name}</p>
                 <span className="rarity">{character.rarity}</span>
+                <div className="badges">
+                  {character.isStarter && <span className="badge starter">🔓 inicial</span>}
+                  {character.pointsCost > 0 && <span className="badge price">🪙 {character.pointsCost}</span>}
+                  {!character.spriteId && <span className="badge warn">sem moveset</span>}
+                </div>
                 <div className="actions">
                   <button type="button" className="edit-btn" onClick={() => setEditingId(character.id)}>
                     ✏️ Editar
@@ -213,7 +237,34 @@ export function ExperienceCharactersManager({
           font-weight: 600;
           color: var(--text-muted);
           text-transform: uppercase;
+          margin-bottom: 0.3rem;
+        }
+        .badges {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.3rem;
           margin-bottom: 0.6rem;
+        }
+        .badge {
+          font-size: 0.68rem;
+          font-weight: 700;
+          padding: 0.15rem 0.5rem;
+          border-radius: 999px;
+          background: var(--bg);
+          color: var(--text-muted);
+          border: 1px solid var(--border);
+        }
+        .badge.starter {
+          color: #1a8a4a;
+          border-color: #1a8a4a55;
+        }
+        .badge.price {
+          color: #a9790a;
+          border-color: #a9790a55;
+        }
+        .badge.warn {
+          color: #c0392b;
+          border-color: #c0392b55;
         }
         .actions {
           display: flex;
@@ -370,6 +421,39 @@ function CharacterFormFields({
           onChange={(e) => setForm({ ...form, description: e.target.value })}
         />
       </Field>
+      <Field
+        label="Esqueleto de animação (moveset)"
+        hint="Decide os movimentos quando a pessoa joga com ele. Vários personagens podem usar o mesmo - só a imagem acima muda. Sem escolher, cai num padrão em vez de travar o jogo."
+      >
+        <select
+          className="as-select"
+          value={form.spriteId}
+          onChange={(e) => setForm({ ...form, spriteId: e.target.value })}
+        >
+          <option value="">— padrão —</option>
+          {SPRITE_OPTIONS.map((id) => (
+            <option key={id} value={id}>
+              {id}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Preço na Loja (moedas)" hint="0 = não aparece na Loja (só por recompensa ou concessão manual).">
+        <Input
+          type="number"
+          min={0}
+          value={String(form.pointsCost)}
+          onChange={(e) => setForm({ ...form, pointsCost: Math.max(0, Number(e.target.value) || 0) })}
+        />
+      </Field>
+      <label className="starter-check">
+        <input
+          type="checkbox"
+          checked={form.isStarter}
+          onChange={(e) => setForm({ ...form, isStarter: e.target.checked })}
+        />
+        Personagem inicial - todo mundo já ganha de graça ao abrir o arcade dessa Experiência
+      </label>
 
       <div className="form-actions">
         <Button variant="ghost" onClick={onCancel} disabled={saving}>
@@ -404,6 +488,22 @@ function CharacterFormFields({
           display: flex;
           gap: 0.6rem;
           margin-top: 0.5rem;
+        }
+      `}</style>
+      <style jsx>{`
+        .starter-check {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.85rem;
+          color: var(--text);
+          margin: 0.4rem 0 0.9rem;
+          cursor: pointer;
+        }
+        .starter-check input {
+          width: 1rem;
+          height: 1rem;
+          flex-shrink: 0;
         }
       `}</style>
     </div>

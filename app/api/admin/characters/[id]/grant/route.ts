@@ -24,7 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   let granted = 0;
   for (const email of emails) {
-    await grantCharacter(email, character.id);
+    await grantCharacter(email, character.id, "grant");
     granted++;
   }
 

@@ -649,6 +649,7 @@ model UniverseProfile {
 
   cards       PlayerCard[]
   characters  PlayerCharacter[]
+  coinEntries CoinEntry[]
   progress    PlayerPhaseProgress[]
   arcadeProgress ArcadeProgress[]
   cityRunProgress CityRunProgress[]
@@ -768,6 +769,17 @@ model PlayerCard {
 // (avatar, escopo por Experience) que não fazem sentido misturadas no
 // álbum de figurinhas genérico. Só uma imagem por personagem por enquanto -
 // suporte a múltiplas poses/sprites fica pra uma versão futura.
+//
+// Loja de personagens (01/10) - além do gatilho de recompensa (fase
+// perfeita), agora dá pra desbloquear gastando moedas (ver CoinEntry) -
+// unlockCharacterWithCoins em lib/characters.ts. `spriteId` é qual dos
+// esqueletos de animação prontos (hoje: jhope/jimin/jin/jungkook/rm/suga/v,
+// ver public/game-universe/animated) esse personagem usa pra JOGAR -
+// vários personagens (peles diferentes) podem reaproveitar o mesmo
+// esqueleto; só a imagem/nome mostrados fora do jogo mudam. Sem spriteId
+// configurado, cai num esqueleto padrão (FALLBACK_SPRITE_ID em
+// ArcadeUniverse.tsx) em vez de ficar "invisível" em jogo - era exatamente
+// esse o bug que o Paulo reportou com o catálogo antigo (UniverseCharacter).
 model Character {
   id           String     @id @default(cuid())
   experienceId String
@@ -777,6 +789,20 @@ model Character {
   description String?
   imageUrl    String?
   rarity      String     @default("comum")
+
+  // Esqueleto de animação (moveset) usado em jogo - ver comentário acima.
+  spriteId String?
+
+  // Preço em moedas da Loja de Personagens - 0 = não vendido na loja (só
+  // por recompensa de fase ou concessão manual no admin).
+  pointsCost Int @default(0)
+
+  // Personagem inicial: concedido de graça (grátis, sem gastar moeda) pra
+  // todo mundo que entrar no arcade dessa Experiência pela primeira vez -
+  // ver ensureStarterCharacters em lib/characters.ts. Pode marcar mais de
+  // um como inicial, mas o normal é só 1 (pedido do Paulo: "iniciar com
+  // apenas 1" e ir liberando o resto aos poucos).
+  isStarter Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -788,6 +814,30 @@ model Character {
   @@index([experienceId])
 }
 
+// Extrato de moedas da Loja de Personagens - de propósito NUNCA um saldo
+// solto guardado direto no perfil (mesma razão de UniverseProfile não
+// guardar XP, ver comentário lá: evita dessincronizar) - o saldo de
+// alguém é sempre a soma de amount (positivo = ganhou jogando, negativo =
+// gastou desbloqueando um personagem). Separado de propósito do XP/Ranking
+// (PlayerPhaseProgress/ArcadeProgress/etc.) - gastar moeda aqui nunca muda
+// a posição de ninguém no Ranking, mesmo a moeda sendo creditada no mesmo
+// momento e valor que o XP (ver lib/coins.ts).
+model CoinEntry {
+  id      String          @id @default(cuid())
+  email   String
+  profile UniverseProfile @relation(fields: [email], references: [email], onDelete: Cascade)
+
+  // Positivo = crédito (ganhou jogando), negativo = débito (comprou um
+  // personagem) - "phase:<phaseId>" | "arcade:<cidade>" | "cityrun:<rota>" |
+  // "neonmaze:<mundo>" | "blastarena:<arena>" | "unlock:<characterId>".
+  amount Int
+  reason String
+
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
 model PlayerCharacter {
   id          String          @id @default(cuid())
   email       String
@@ -795,6 +845,11 @@ model PlayerCharacter {
   characterId String
   character   Character       @relation(fields: [characterId], references: [id], onDelete: Cascade)
   obtainedAt  DateTime        @default(now())
+
+  // Como foi obtido - só informativo (debug/admin), nunca lido pra decidir
+  // nada: "reward" (fase perfeita) | "shop" (comprou na loja) | "starter"
+  // (grátis, Character.isStarter) | "grant" (admin deu manualmente).
+  source String @default("reward")
 
   @@unique([email, characterId])
   @@index([characterId])

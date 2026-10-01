@@ -14,14 +14,92 @@ async function ensureProfile(email: string) {
   await db.universeProfile.create({ data: { email, displayName: participant?.name ?? null } });
 }
 
-/** Concede um personagem a um e-mail, sem duplicar se ele já tiver. */
-export async function grantCharacter(email: string, characterId: string) {
+/**
+ * Esqueletos de animação prontos (ver public/game-universe/animated) - o
+ * que todo Character.spriteId deveria apontar pra um destes. Exportado
+ * pro admin (select de opções) e pro fallback em ArcadeUniverse.tsx.
+ */
+export const SPRITE_IDS = ["jhope", "jimin", "jin", "jungkook", "rm", "suga", "v"] as const;
+export const DEFAULT_SPRITE_ID = "rm";
+
+/**
+ * Concede um personagem a um e-mail, sem duplicar se ele já tiver - usado
+ * por TODOS os caminhos de aquisição (recompensa de fase, loja, inicial
+ * grátis, concessão manual do admin), cada um passando seu próprio
+ * `source` só pra fins informativos (ver PlayerCharacter.source). Também
+ * tenta auto-selecionar o avatar do Ranking se a pessoa ainda não tiver
+ * nenhum (ver autoSelectAvatarIfEmpty) - antes isso só acontecia no
+ * caminho de recompensa, agora vale pra qualquer forma de ganhar um
+ * personagem.
+ */
+export async function grantCharacter(email: string, characterId: string, source: string = "reward") {
   await ensureProfile(email);
   await db.playerCharacter.upsert({
     where: { email_characterId: { email, characterId } },
-    create: { email, characterId },
+    create: { email, characterId, source },
     update: {},
   });
+  await autoSelectAvatarIfEmpty(email, characterId);
+}
+
+/**
+ * Concede de graça o(s) personagem(ns) marcado(s) como `isStarter` de uma
+ * Experiência - chamado toda vez que a pessoa abre o arcade dela (ver
+ * app/eventos/[slug]/arcade/page.tsx), idempotente (upsert não duplica).
+ * Sem personagem inicial configurado no admin ainda, não faz nada (o
+ * elenco fica vazio até o Paulo marcar um).
+ */
+export async function ensureStarterCharacters(email: string, experienceId: string) {
+  const starters = await db.character.findMany({ where: { experienceId, isStarter: true } });
+  for (const starter of starters) {
+    await grantCharacter(email, starter.id, "starter");
+  }
+}
+
+/**
+ * Desbloqueia um personagem gastando moeda da Loja (CoinEntry) - débito e
+ * concessão acontecem na mesma transação, pra um clique duplo nunca gastar
+ * moeda duas vezes (mesmo cuidado de "não confiar só na UI" já aplicado em
+ * outras rotas do projeto, ex: generateNumberPool).
+ */
+export async function unlockCharacterWithCoins(
+  email: string,
+  characterId: string
+): Promise<
+  | { ok: true; balance: number; character: { id: string; name: string; imageUrl: string | null } }
+  | { ok: false; error: string }
+> {
+  const character = await db.character.findUnique({ where: { id: characterId } });
+  if (!character) return { ok: false, error: "Personagem não encontrado." };
+  if (character.pointsCost <= 0) return { ok: false, error: "Esse personagem não está à venda na loja." };
+
+  await ensureProfile(email);
+
+  const already = await db.playerCharacter.findUnique({
+    where: { email_characterId: { email, characterId } },
+  });
+  if (already) return { ok: false, error: "Você já tem esse personagem." };
+
+  const result = await db.$transaction(async (tx) => {
+    const agg = await tx.coinEntry.aggregate({ where: { email }, _sum: { amount: true } });
+    const balance = agg._sum.amount ?? 0;
+    if (balance < character.pointsCost) return null;
+    await tx.coinEntry.create({
+      data: { email, amount: -character.pointsCost, reason: `unlock:${characterId}` },
+    });
+    await tx.playerCharacter.create({ data: { email, characterId, source: "shop" } });
+    return balance - character.pointsCost;
+  });
+
+  if (result === null) return { ok: false, error: "Moedas insuficientes." };
+
+  await autoSelectAvatarIfEmpty(email, characterId);
+
+  return {
+    ok: true,
+    balance: result,
+    character: { id: character.id, name: character.name, imageUrl: character.imageUrl },
+  };
 }
 
 /**
@@ -44,9 +122,9 @@ async function autoSelectAvatarIfEmpty(email: string, characterId: string) {
  * Gatilho automático: completar uma fase com nota máxima concede o
  * personagem configurado como `GamePhase.rewardCharacterId` - mesma
  * condição (isPerfect) e mesmo ponto de chamada de rewardCardId, na rota
- * games/phases/[phaseId]/complete/route.ts.
+ * games/phases/[phaseId]/complete/route.ts. autoSelectAvatarIfEmpty já
+ * roda dentro de grantCharacter, não precisa chamar de novo aqui.
  */
 export async function grantPhaseRewardCharacter(email: string, characterId: string) {
-  await grantCharacter(email, characterId);
-  await autoSelectAvatarIfEmpty(email, characterId);
+  await grantCharacter(email, characterId, "reward");
 }

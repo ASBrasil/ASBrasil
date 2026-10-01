@@ -11,6 +11,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.rarity !== undefined) data.rarity = body.rarity;
   if (body.imageUrl !== undefined) data.imageUrl = body.imageUrl || null;
   if (body.description !== undefined) data.description = body.description || null;
+  if (body.spriteId !== undefined) data.spriteId = body.spriteId || null;
+  if (body.pointsCost !== undefined) data.pointsCost = Math.max(0, Number(body.pointsCost) || 0);
+  if (body.isStarter !== undefined) data.isStarter = Boolean(body.isStarter);
 
   const character = await db.character.update({ where: { id: params.id }, data });
   return NextResponse.json({ character });

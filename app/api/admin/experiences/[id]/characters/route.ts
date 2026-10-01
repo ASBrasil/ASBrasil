@@ -30,6 +30,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       rarity: body.rarity || "comum",
       imageUrl: body.imageUrl || null,
       description: body.description || null,
+      spriteId: body.spriteId || null,
+      pointsCost: Math.max(0, Number(body.pointsCost) || 0),
+      isStarter: Boolean(body.isStarter),
     },
   });
 

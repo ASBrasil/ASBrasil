@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getParticipantEmail } from "@/lib/participant-session";
 import { ROUTES, ROUTE_ORDER, evaluateCityRunResult, isRouteId } from "@/lib/city-run";
+import { awardCoins } from "@/lib/coins";
 
 /**
  * Progresso do AS City Run pra quem está logado - mesmo formato de
@@ -64,6 +65,12 @@ export async function POST(req: NextRequest) {
   }
 
   const existing = await db.cityRunProgress.findUnique({ where: { email_route: { email, route } } });
+
+  // Moeda da Loja de Personagens (01/10) - mesmo padrão de
+  // app/api/public/arcade/progress/route.ts: só a melhora no bestScore.
+  const scoreDelta = Math.max(0, outcome.score - (existing?.bestScore ?? 0));
+  if (scoreDelta > 0) await awardCoins(email, scoreDelta, `cityrun:${route}`);
+
   const saved = await db.cityRunProgress.upsert({
     where: { email_route: { email, route } },
     create: {

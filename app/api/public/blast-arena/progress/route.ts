@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getParticipantEmail } from "@/lib/participant-session";
 import { ARENAS, ARENA_ORDER, evaluateBlastArenaResult, isArenaId } from "@/lib/blast-arena";
+import { awardCoins } from "@/lib/coins";
 
 /**
  * Progresso do AS Blast Arena pra quem está logado - mesmo formato de
@@ -64,6 +65,12 @@ export async function POST(req: NextRequest) {
   }
 
   const existing = await db.blastArenaProgress.findUnique({ where: { email_arena: { email, arena } } });
+
+  // Moeda da Loja de Personagens (01/10) - mesmo padrão de
+  // app/api/public/arcade/progress/route.ts: só a melhora no bestScore.
+  const scoreDelta = Math.max(0, outcome.score - (existing?.bestScore ?? 0));
+  if (scoreDelta > 0) await awardCoins(email, scoreDelta, `blastarena:${arena}`);
+
   const saved = await db.blastArenaProgress.upsert({
     where: { email_arena: { email, arena } },
     create: {

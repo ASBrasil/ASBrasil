@@ -33,6 +33,7 @@ import {
 } from "@/lib/games";
 import { grantGamePerfectCards } from "@/lib/cards";
 import { grantPhaseRewardCharacter } from "@/lib/characters";
+import { awardCoins } from "@/lib/coins";
 import { ParticipantSource } from "@prisma/client";
 
 export async function POST(req: NextRequest, { params }: { params: { phaseId: string } }) {
@@ -238,6 +239,7 @@ export async function POST(req: NextRequest, { params }: { params: { phaseId: st
   // em Mission/MissionCompletion. Jogar de novo depois mostra o resultado
   // de novo, mas não gera outro número extra nem duplica a carta.
   const isFirstAttempt = !existingProgress;
+  const firstScore = isPerfect ? Math.round(phase.points * speedFactor) : Math.round((phase.points * percent) / 100);
 
   await db.playerPhaseProgress.upsert({
     where: { email_phaseId: { email, phaseId: phase.id } },
@@ -245,11 +247,18 @@ export async function POST(req: NextRequest, { params }: { params: { phaseId: st
       email,
       phaseId: phase.id,
       completed: true,
-      firstScore: isPerfect ? Math.round(phase.points * speedFactor) : Math.round((phase.points * percent) / 100),
+      firstScore,
       attempts: 1,
     },
     update: { attempts: { increment: 1 } },
   });
+
+  // Moeda da Loja de Personagens (01/10) - mesmo valor do XP ganho aqui,
+  // só na primeira tentativa (igual firstScore), mas guardada à parte do
+  // Ranking (ver lib/coins.ts) - gastar na Loja nunca mexe em XP/posição.
+  if (isFirstAttempt) {
+    await awardCoins(email, firstScore, `phase:${phase.id}`);
+  }
 
   let cardWon: { id: string; name: string; rarity: string; imageUrl: string | null } | null = null;
   let characterWon: { id: string; name: string; rarity: string; imageUrl: string | null } | null = null;

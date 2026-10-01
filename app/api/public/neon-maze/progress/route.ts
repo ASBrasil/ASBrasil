@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getParticipantEmail } from "@/lib/participant-session";
 import { WORLDS, WORLD_ORDER, evaluateNeonMazeResult, isWorldId } from "@/lib/neon-maze";
+import { awardCoins } from "@/lib/coins";
 
 /**
  * Progresso do AS Neon Maze pra quem está logado - mesmo formato de
@@ -64,6 +65,12 @@ export async function POST(req: NextRequest) {
   }
 
   const existing = await db.neonMazeProgress.findUnique({ where: { email_world: { email, world } } });
+
+  // Moeda da Loja de Personagens (01/10) - mesmo padrão de
+  // app/api/public/arcade/progress/route.ts: só a melhora no bestScore.
+  const scoreDelta = Math.max(0, outcome.score - (existing?.bestScore ?? 0));
+  if (scoreDelta > 0) await awardCoins(email, scoreDelta, `neonmaze:${world}`);
+
   const saved = await db.neonMazeProgress.upsert({
     where: { email_world: { email, world } },
     create: {
