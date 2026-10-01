@@ -112,9 +112,14 @@ const RIO_LEVEL = {
   checkpoints: [1180, 2140],
   coins: Array.from({ length: 24 }, (_, i) => ({ x: 200 + i * 135, y: 245 - (i % 4) * 40 })),
   hearts: [{ x: 900, y: 260 }, { x: 2200, y: 220 }],
+  // Mais inimigos e patrulha mais rápida que a v1 (pedido do Paulo: "não tão
+  // fácil") - ver velocidade do patrulhamento em `e.x += e.d * 0.85 * dt`
+  // logo abaixo, antes era 0.6.
   enemies: [
-    { x: 500, y: 335, range: 90 }, { x: 950, y: 335, range: 100 }, { x: 1400, y: 335, range: 90 },
-    { x: 1750, y: 335, range: 110 }, { x: 2050, y: 335, range: 90 }, { x: 2500, y: 335, range: 100 },
+    { x: 420, y: 335, range: 80 }, { x: 680, y: 335, range: 90 }, { x: 950, y: 335, range: 100 },
+    { x: 1250, y: 335, range: 90 }, { x: 1400, y: 335, range: 90 }, { x: 1600, y: 335, range: 100 },
+    { x: 1750, y: 335, range: 110 }, { x: 2050, y: 335, range: 90 }, { x: 2300, y: 335, range: 95 },
+    { x: 2500, y: 335, range: 100 }, { x: 2650, y: 335, range: 85 },
   ],
   bossX: 3150,
 };
@@ -155,7 +160,7 @@ function WorldAdventureGame({ character, city, onExit, onCleared }: { character:
     let px = 70, py = 300, vx = 0, vy = 0, cam = 0;
     let coins = 0, lives = 3, invuln = 0, sliding = 0;
     let checkpointX = 70, elapsedMs = 0, started = performance.now();
-    let bossHp = 3, bossDefeated = false, bossInvuln = 0;
+    let bossHp = 5, bossDefeated = false, bossInvuln = 0; // era 3 - chefão mais resistente
     const bossX = level.bossX, bossY = level.ground - 70;
 
     const enemies: EntityState[] = level.enemies.map((e, i) => ({ x: e.x, y: e.y, d: 1, baseX: e.x, range: e.range, alive: true, hitCooldown: 0, variant: i % 3 }));
@@ -205,7 +210,7 @@ function WorldAdventureGame({ character, city, onExit, onCleared }: { character:
 
       for (const e of enemies) {
         if (!e.alive) continue;
-        e.x += e.d * 0.6 * dt;
+        e.x += e.d * 0.85 * dt; // era 0.6 - patrulha mais rápida
         if (e.x > e.baseX + e.range || e.x < e.baseX - e.range) e.d = e.d === 1 ? -1 : 1;
         if (e.hitCooldown > 0) e.hitCooldown -= now - last + 16;
         const dx = Math.abs(px - e.x), dy = py - e.y;
@@ -314,7 +319,10 @@ function WorldAdventureGame({ character, city, onExit, onCleared }: { character:
         ctx.save(); ctx.globalAlpha = .22; ctx.fillStyle = "#07150f";
         ctx.beginPath(); ctx.ellipse(px - cam + 5, py + 51, 24, 6, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
       }
-      drawSprite(ctx, state, now, px - cam - 38, py - (sliding > 0 ? 5 : 25), 88, sliding > 0 ? 46 : 88);
+      // Personagem desenhado maior que o hitbox (que continua o mesmo -
+      // colisão usa offsets fixos acima, não o tamanho do sprite) - pedido
+      // do Paulo pra ficar mais visível na tela, sem mudar a dificuldade.
+      drawSprite(ctx, state, now, px - cam - 48, py - (sliding > 0 ? 15 : 45), 108, sliding > 0 ? 56 : 108);
       ctx.globalAlpha = 1;
 
       raf = requestAnimationFrame(loop);
