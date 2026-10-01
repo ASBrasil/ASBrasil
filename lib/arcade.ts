@@ -6,8 +6,10 @@
 
 import type { GameVisibility } from "@prisma/client";
 
-// Os 4 jogos fixos do hub (ver GAMES em components/arcade/ArcadeUniverse.tsx)
-// - mesmos ids usados em ArcadeGameSetting.gameId.
+// Os 4 motores de jogo em si (independente de qual evento/entrada do
+// catálogo os ativa) - usado pelo "Amigos & Salas" (lib/arcade-social.ts),
+// que compara pontuação direto por motor, sem depender do UniverseGame de
+// nenhum evento específico.
 export const ARCADE_GAME_IDS = ["world", "maze", "blast", "run"] as const;
 export type ArcadeGameId = (typeof ARCADE_GAME_IDS)[number];
 
@@ -16,6 +18,25 @@ export const ARCADE_GAME_NAMES: Record<ArcadeGameId, string> = {
   maze: "AS Neon Maze",
   blast: "AS Blast Arena",
   run: "AS City Run",
+};
+
+// Motores de jogo do hub Universo AS já construídos (ver UniverseGame em
+// prisma/schema.prisma) - o painel admin (components/admin/
+// UniverseGameManager.tsx) só deixa escolher um desses pra cada entrada do
+// catálogo, nunca um GameType qualquer (os outros são fases de sorteio
+// normais, sem tela de hub).
+export const UNIVERSE_ENGINES = ["WORLD", "MAZE", "BLAST", "CITYRUN"] as const;
+export type UniverseEngine = (typeof UNIVERSE_ENGINES)[number];
+
+export function isUniverseEngine(value: unknown): value is UniverseEngine {
+  return typeof value === "string" && (UNIVERSE_ENGINES as readonly string[]).includes(value);
+}
+
+export const UNIVERSE_ENGINE_LABEL: Record<UniverseEngine, string> = {
+  WORLD: "Plataforma (AS World Adventure)",
+  MAZE: "Labirinto (AS Neon Maze)",
+  BLAST: "Bombas (AS Blast Arena)",
+  CITYRUN: "Corrida na cidade (AS City Run)",
 };
 
 /**

@@ -66,7 +66,7 @@ export default async function UniversoAsPage() {
               AS Game Universe
             </p>
             <p className="arcade-banner-desc">
-              4 mini-jogos de arcade com os personagens do Universo AS. Não vale ticket nem
+              Mini-jogos de arcade com os personagens de cada evento. Não vale ticket nem
               pontuação no ranking - é só pra jogar.
             </p>
           </div>

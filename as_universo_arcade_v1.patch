@@ -1,0 +1,1939 @@
+diff --git a/app/admin/(protected)/jogos/arcade/page.tsx b/app/admin/(protected)/jogos/arcade/page.tsx
+new file mode 100644
+index 0000000..4c258a9
+--- /dev/null
++++ b/app/admin/(protected)/jogos/arcade/page.tsx
+@@ -0,0 +1,71 @@
++import { db } from "@/lib/db";
++import { GamesSubNav } from "@/components/admin/GamesSubNav";
++import { UniverseGameManager } from "@/components/admin/UniverseGameManager";
++import { UniverseCharacterManager } from "@/components/admin/UniverseCharacterManager";
++
++export const dynamic = "force-dynamic";
++
++export default async function UniverseArcadePage() {
++  const [games, characters, events] = await Promise.all([
++    db.universeGame.findMany({
++      include: { event: { select: { name: true } } },
++      orderBy: [{ eventId: "asc" }, { order: "asc" }, { createdAt: "desc" }],
++    }),
++    db.universeCharacter.findMany({
++      include: { event: { select: { name: true } } },
++      orderBy: [{ eventId: "asc" }, { order: "asc" }, { createdAt: "desc" }],
++    }),
++    db.event.findMany({ select: { id: true, name: true }, orderBy: { startAt: "desc" } }),
++  ]);
++
++  return (
++    <div>
++      <div className="header">
++        <span className="as-eyebrow">Universo AS</span>
++        <h1 className="as-title">🕹️ Universo AS (arcade)</h1>
++        <p className="as-subtitle">
++          O hub de arcade bônus (hoje em <code>/e/[evento]/arcade</code>) agora é por evento: cada
++          jogo e cada personagem-avatar pertence a um evento específico, com capa e textos próprios.
++          Nasce em Rascunho - só vira visível pra participantes quando você mudar pra Teste ou Ao
++          vivo.
++        </p>
++      </div>
++
++      <GamesSubNav active="arcade" />
++
++      <UniverseGameManager
++        games={games.map((g) => ({
++          id: g.id,
++          eventId: g.eventId,
++          eventName: g.event.name,
++          engine: g.engine as any,
++          slug: g.slug,
++          title: g.title,
++          description: g.description,
++          tag: g.tag,
++          coverImageUrl: g.coverImageUrl,
++          order: g.order,
++          visibility: g.visibility,
++        }))}
++        events={events}
++      />
++
++      <UniverseCharacterManager
++        characters={characters.map((c) => ({
++          id: c.id,
++          eventId: c.eventId,
++          eventName: c.event.name,
++          name: c.name,
++          imageUrl: c.imageUrl,
++          order: c.order,
++        }))}
++        events={events}
++      />
++
++      <style>{`
++        .header { margin-bottom: 1.75rem; max-width: 42rem; }
++        .header .as-subtitle { line-height: 1.5; }
++      `}</style>
++    </div>
++  );
++}
+diff --git a/app/admin/(protected)/jogos/testadores/page.tsx b/app/admin/(protected)/jogos/testadores/page.tsx
+index b978493..41d0b99 100644
+--- a/app/admin/(protected)/jogos/testadores/page.tsx
++++ b/app/admin/(protected)/jogos/testadores/page.tsx
+@@ -1,23 +1,11 @@
+ import { db } from "@/lib/db";
+ import { GameTesterManager } from "@/components/admin/GameTesterManager";
+-import { ArcadeGamesManager } from "@/components/admin/ArcadeGamesManager";
+ import { GamesSubNav } from "@/components/admin/GamesSubNav";
+-import { ARCADE_GAME_IDS, ARCADE_GAME_NAMES } from "@/lib/arcade";
+ 
+ export const dynamic = "force-dynamic";
+ 
+ export default async function GameTestersPage() {
+-  const [testers, arcadeSettings] = await Promise.all([
+-    db.gameTester.findMany({ orderBy: { createdAt: "desc" } }),
+-    db.arcadeGameSetting.findMany(),
+-  ]);
+-
+-  const arcadeById = new Map(arcadeSettings.map((s) => [s.gameId, s.visibility]));
+-  const arcadeGames = ARCADE_GAME_IDS.map((id) => ({
+-    gameId: id,
+-    name: ARCADE_GAME_NAMES[id],
+-    visibility: arcadeById.get(id) ?? "LIVE",
+-  }));
++  const testers = await db.gameTester.findMany({ orderBy: { createdAt: "desc" } });
+ 
+   return (
+     <div>
+@@ -27,14 +15,13 @@ export default async function GameTestersPage() {
+           Enquanto um jogo está em <strong>Teste</strong>, só os e-mails desta lista conseguem ver
+           e jogar ele como participante - todo mundo mais continua sem ver nada, como se a aba não
+           existisse. Como admin, você sempre consegue abrir qualquer jogo, mesmo sem estar aqui.
++          Vale pros jogos de sorteio normais e pro hub do Universo AS (arcade) - esse último agora
++          se gerencia na aba "🕹️ Universo AS (arcade)" ao lado.
+         </p>
+       </div>
+ 
+       <GamesSubNav active="testadores" />
+ 
+-      <h2 className="section-title">Jogos do hub Arcade (/universo-as/arcade)</h2>
+-      <ArcadeGamesManager games={arcadeGames} />
+-
+       <h2 className="section-title">Testadores</h2>
+       <GameTesterManager
+         testers={testers.map((t) => ({ email: t.email, createdAt: t.createdAt.toISOString() }))}
+diff --git a/app/api/admin/arcade-games/[gameId]/route.ts b/app/api/admin/arcade-games/[gameId]/route.ts
+deleted file mode 100644
+index 518b762..0000000
+--- a/app/api/admin/arcade-games/[gameId]/route.ts
++++ /dev/null
+@@ -1,30 +0,0 @@
+-import { NextRequest, NextResponse } from "next/server";
+-import { db } from "@/lib/db";
+-import { requireAdmin } from "@/lib/auth";
+-import { ARCADE_GAME_IDS } from "@/lib/arcade";
+-
+-const VALID_VISIBILITY = ["DRAFT", "TESTING", "LIVE"];
+-
+-export async function PATCH(req: NextRequest, { params }: { params: { gameId: string } }) {
+-  await requireAdmin();
+-
+-  if (!(ARCADE_GAME_IDS as readonly string[]).includes(params.gameId)) {
+-    return NextResponse.json({ error: "Jogo de arcade inválido" }, { status: 400 });
+-  }
+-
+-  const body = await req.json().catch(() => ({}));
+-  if (!VALID_VISIBILITY.includes(body.visibility)) {
+-    return NextResponse.json(
+-      { error: `visibility deve ser um de: ${VALID_VISIBILITY.join(", ")}` },
+-      { status: 400 }
+-    );
+-  }
+-
+-  const setting = await db.arcadeGameSetting.upsert({
+-    where: { gameId: params.gameId },
+-    create: { gameId: params.gameId, visibility: body.visibility },
+-    update: { visibility: body.visibility },
+-  });
+-
+-  return NextResponse.json({ setting });
+-}
+diff --git a/app/api/admin/arcade-games/route.ts b/app/api/admin/arcade-games/route.ts
+deleted file mode 100644
+index f377820..0000000
+--- a/app/api/admin/arcade-games/route.ts
++++ /dev/null
+@@ -1,17 +0,0 @@
+-import { NextResponse } from "next/server";
+-import { db } from "@/lib/db";
+-import { requireAdmin } from "@/lib/auth";
+-import { ARCADE_GAME_IDS, ARCADE_GAME_NAMES } from "@/lib/arcade";
+-
+-/** Visibilidade dos 4 jogos do arcade - gameId sem linha na tabela conta como LIVE. */
+-export async function GET() {
+-  await requireAdmin();
+-  const rows = await db.arcadeGameSetting.findMany();
+-  const byId = new Map(rows.map((r) => [r.gameId, r.visibility]));
+-  const games = ARCADE_GAME_IDS.map((id) => ({
+-    gameId: id,
+-    name: ARCADE_GAME_NAMES[id],
+-    visibility: byId.get(id) ?? "LIVE",
+-  }));
+-  return NextResponse.json({ games });
+-}
+diff --git a/app/api/admin/universe-characters/[id]/route.ts b/app/api/admin/universe-characters/[id]/route.ts
+new file mode 100644
+index 0000000..ee53e03
+--- /dev/null
++++ b/app/api/admin/universe-characters/[id]/route.ts
+@@ -0,0 +1,27 @@
++import { NextRequest, NextResponse } from "next/server";
++import { db } from "@/lib/db";
++import { requireAdmin } from "@/lib/auth";
++
++export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
++  await requireAdmin();
++  const body = await req.json().catch(() => ({}));
++
++  const data: Record<string, unknown> = {};
++  if (body.name !== undefined) data.name = body.name;
++  if (body.imageUrl !== undefined) data.imageUrl = body.imageUrl || null;
++  if (body.order !== undefined && Number.isFinite(body.order)) data.order = body.order;
++  if (body.eventId !== undefined) {
++    const event = await db.event.findUnique({ where: { id: body.eventId } });
++    if (!event) return NextResponse.json({ error: "Evento não encontrado" }, { status: 404 });
++    data.eventId = body.eventId;
++  }
++
++  const character = await db.universeCharacter.update({ where: { id: params.id }, data });
++  return NextResponse.json({ character });
++}
++
++export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
++  await requireAdmin();
++  await db.universeCharacter.delete({ where: { id: params.id } });
++  return NextResponse.json({ ok: true });
++}
+diff --git a/app/api/admin/universe-characters/route.ts b/app/api/admin/universe-characters/route.ts
+new file mode 100644
+index 0000000..d0eb5b6
+--- /dev/null
++++ b/app/api/admin/universe-characters/route.ts
+@@ -0,0 +1,38 @@
++import { NextRequest, NextResponse } from "next/server";
++import { db } from "@/lib/db";
++import { requireAdmin } from "@/lib/auth";
++
++export async function GET() {
++  await requireAdmin();
++  const characters = await db.universeCharacter.findMany({
++    include: { event: { select: { name: true, slug: true } } },
++    orderBy: [{ eventId: "asc" }, { order: "asc" }, { createdAt: "desc" }],
++  });
++  return NextResponse.json({ characters });
++}
++
++export async function POST(req: NextRequest) {
++  await requireAdmin();
++  const body = await req.json().catch(() => ({}));
++
++  const { eventId, name } = body;
++  if (!eventId || !name) {
++    return NextResponse.json({ error: "eventId e name são obrigatórios" }, { status: 400 });
++  }
++
++  const event = await db.event.findUnique({ where: { id: eventId } });
++  if (!event) {
++    return NextResponse.json({ error: "Evento não encontrado" }, { status: 404 });
++  }
++
++  const character = await db.universeCharacter.create({
++    data: {
++      eventId,
++      name,
++      imageUrl: body.imageUrl || null,
++      order: Number.isFinite(body.order) ? body.order : 0,
++    },
++  });
++
++  return NextResponse.json({ character }, { status: 201 });
++}
+diff --git a/app/api/admin/universe-games/[id]/route.ts b/app/api/admin/universe-games/[id]/route.ts
+new file mode 100644
+index 0000000..ea1a559
+--- /dev/null
++++ b/app/api/admin/universe-games/[id]/route.ts
+@@ -0,0 +1,70 @@
++import { NextRequest, NextResponse } from "next/server";
++import { db } from "@/lib/db";
++import { requireAdmin } from "@/lib/auth";
++import { isUniverseEngine } from "@/lib/arcade";
++
++const VALID_VISIBILITY = ["DRAFT", "TESTING", "LIVE"];
++const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
++
++export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
++  await requireAdmin();
++  const body = await req.json().catch(() => ({}));
++
++  const data: Record<string, unknown> = {};
++  if (body.title !== undefined) {
++    if (typeof body.title !== "string" || !body.title.trim()) {
++      return NextResponse.json({ error: "Título não pode ficar em branco." }, { status: 400 });
++    }
++    data.title = body.title.trim();
++  }
++  if (body.slug !== undefined) {
++    const slug = typeof body.slug === "string" ? body.slug.trim() : "";
++    if (!SLUG_RE.test(slug)) {
++      return NextResponse.json(
++        { error: "Slug inválido - só letras minúsculas, números e hífen." },
++        { status: 400 }
++      );
++    }
++    data.slug = slug;
++  }
++  if (body.engine !== undefined) {
++    if (!isUniverseEngine(body.engine)) {
++      return NextResponse.json({ error: "engine inválido" }, { status: 400 });
++    }
++    data.engine = body.engine;
++  }
++  if (body.eventId !== undefined) {
++    const event = await db.event.findUnique({ where: { id: body.eventId } });
++    if (!event) return NextResponse.json({ error: "Evento não encontrado" }, { status: 404 });
++    data.eventId = body.eventId;
++  }
++  if (body.description !== undefined) data.description = body.description ?? "";
++  if (body.tag !== undefined) data.tag = body.tag ?? "";
++  if (body.coverImageUrl !== undefined) data.coverImageUrl = body.coverImageUrl || null;
++  if (body.order !== undefined && Number.isFinite(body.order)) data.order = body.order;
++  if (body.visibility !== undefined) {
++    if (!VALID_VISIBILITY.includes(body.visibility)) {
++      return NextResponse.json(
++        { error: `visibility deve ser um de: ${VALID_VISIBILITY.join(", ")}` },
++        { status: 400 }
++      );
++    }
++    data.visibility = body.visibility;
++  }
++
++  try {
++    const game = await db.universeGame.update({ where: { id: params.id }, data });
++    return NextResponse.json({ game });
++  } catch (err: any) {
++    if (err?.code === "P2002") {
++      return NextResponse.json({ error: "Já existe um jogo do Universo AS com esse slug." }, { status: 409 });
++    }
++    throw err;
++  }
++}
++
++export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
++  await requireAdmin();
++  await db.universeGame.delete({ where: { id: params.id } });
++  return NextResponse.json({ ok: true });
++}
+diff --git a/app/api/admin/universe-games/route.ts b/app/api/admin/universe-games/route.ts
+new file mode 100644
+index 0000000..9a611aa
+--- /dev/null
++++ b/app/api/admin/universe-games/route.ts
+@@ -0,0 +1,56 @@
++import { NextRequest, NextResponse } from "next/server";
++import { db } from "@/lib/db";
++import { requireAdmin } from "@/lib/auth";
++import { isUniverseEngine } from "@/lib/arcade";
++
++export async function GET() {
++  await requireAdmin();
++  const games = await db.universeGame.findMany({
++    include: { event: { select: { name: true, slug: true } } },
++    orderBy: [{ eventId: "asc" }, { order: "asc" }, { createdAt: "desc" }],
++  });
++  return NextResponse.json({ games });
++}
++
++export async function POST(req: NextRequest) {
++  await requireAdmin();
++  const body = await req.json().catch(() => ({}));
++
++  const { eventId, slug, title, engine } = body;
++  if (!eventId || !slug || !title || !engine) {
++    return NextResponse.json(
++      { error: "eventId, slug, title e engine são obrigatórios" },
++      { status: 400 }
++    );
++  }
++  if (!isUniverseEngine(engine)) {
++    return NextResponse.json({ error: "engine inválido" }, { status: 400 });
++  }
++
++  const event = await db.event.findUnique({ where: { id: eventId } });
++  if (!event) {
++    return NextResponse.json({ error: "Evento não encontrado" }, { status: 404 });
++  }
++
++  const slugTaken = await db.universeGame.findUnique({ where: { slug } });
++  if (slugTaken) {
++    return NextResponse.json({ error: "Esse slug já está em uso por outro jogo do Universo AS" }, { status: 409 });
++  }
++
++  // Nasce em DRAFT - mesma régua da aba Jogos: só o admin vê até promover
++  // pra Teste/Ao vivo.
++  const game = await db.universeGame.create({
++    data: {
++      eventId,
++      engine,
++      slug,
++      title,
++      description: typeof body.description === "string" ? body.description : "",
++      tag: typeof body.tag === "string" ? body.tag : "",
++      coverImageUrl: body.coverImageUrl || null,
++      order: Number.isFinite(body.order) ? body.order : 0,
++    },
++  });
++
++  return NextResponse.json({ game }, { status: 201 });
++}
+diff --git a/app/e/[slug]/arcade/page.tsx b/app/e/[slug]/arcade/page.tsx
+new file mode 100644
+index 0000000..fe9cbc5
+--- /dev/null
++++ b/app/e/[slug]/arcade/page.tsx
+@@ -0,0 +1,48 @@
++import { db } from "@/lib/db";
++import { notFound } from "next/navigation";
++import { getParticipantEmail } from "@/lib/participant-session";
++import { getSessionAdminId } from "@/lib/auth";
++import { canViewArcadeGame } from "@/lib/arcade";
++import { ArcadeUniverse } from "@/components/arcade/ArcadeUniverse";
++
++export const metadata = { title: "AS Game Universe" };
++export const dynamic = "force-dynamic";
++
++/**
++ * Hub do Universo AS por evento (01/10) - cada sorteio tem seu próprio
++ * catálogo de jogos/personagens (UniverseGame/UniverseCharacter), gerenciado
++ * no admin em Jogos → 🕹️ Universo AS. Mesma regra de visibilidade dos
++ * outros jogos: LIVE é aberto, DRAFT/TESTING só pra admin/testador.
++ */
++export default async function EventArcadePage({ params }: { params: { slug: string } }) {
++  const event = await db.event.findUnique({ where: { slug: params.slug } });
++  if (!event || !event.active) notFound();
++
++  const [email, adminId, games, characters] = await Promise.all([
++    getParticipantEmail(),
++    getSessionAdminId(),
++    db.universeGame.findMany({ where: { eventId: event.id }, orderBy: { order: "asc" } }),
++    db.universeCharacter.findMany({ where: { eventId: event.id }, orderBy: { order: "asc" } }),
++  ]);
++
++  const isAdmin = Boolean(adminId);
++  const isTester = email ? Boolean(await db.gameTester.findUnique({ where: { email } })) : false;
++
++  const visibleGames = games
++    .filter((g) => canViewArcadeGame(g.visibility, isAdmin, isTester))
++    .map((g) => ({
++      id: g.id,
++      engine: g.engine as "WORLD" | "MAZE" | "BLAST" | "CITYRUN",
++      title: g.title,
++      description: g.description,
++      tag: g.tag,
++      coverImageUrl: g.coverImageUrl,
++    }));
++
++  return (
++    <ArcadeUniverse
++      games={visibleGames}
++      characters={characters.map((c) => ({ id: c.id, name: c.name, imageUrl: c.imageUrl }))}
++    />
++  );
++}
+diff --git a/app/universo-as/arcade/page.tsx b/app/universo-as/arcade/page.tsx
+index 8641445..938dae0 100644
+--- a/app/universo-as/arcade/page.tsx
++++ b/app/universo-as/arcade/page.tsx
+@@ -1,30 +1,88 @@
++import Link from "next/link";
++import { redirect } from "next/navigation";
+ import { db } from "@/lib/db";
+ import { getParticipantEmail } from "@/lib/participant-session";
+ import { getSessionAdminId } from "@/lib/auth";
+-import { ArcadeUniverse } from "@/components/arcade/ArcadeUniverse";
+-import { ARCADE_GAME_IDS, canViewArcadeGame } from "@/lib/arcade";
++import { canViewArcadeGame } from "@/lib/arcade";
++import { ParticipantTopNav } from "@/components/participant/ParticipantTopNav";
+ 
+ export const metadata = { title: "AS Game Universe" };
+ export const dynamic = "force-dynamic";
+ 
+-// Mesma regra de visibilidade dos outros jogos (ver Game.visibility em
+-// games/phases/[phaseId]/complete/route.ts): joga fora daqui, antes de
+-// renderizar, os cards que o visitante não pode ver - LIVE é sempre
+-// visível, DRAFT/TESTING só pra admin ou testador cadastrado.
+-export default async function ArcadePage() {
+-  const [email, adminId, settings] = await Promise.all([
++/**
++ * Desde 01/10 o hub do Universo AS é por evento (/e/[slug]/arcade, ver
++ * UniverseGame/UniverseCharacter em prisma/schema.prisma) - esse endereço
++ * global virou só uma porta de entrada: manda direto pro evento certo
++ * quando só tem um com jogo visível, ou mostra uma lista pra escolher.
++ */
++export default async function ArcadeEntryPage() {
++  const [email, adminId, events] = await Promise.all([
+     getParticipantEmail(),
+     getSessionAdminId(),
+-    db.arcadeGameSetting.findMany(),
++    db.event.findMany({
++      where: { active: true, archived: false, universeGames: { some: {} } },
++      orderBy: [{ order: "asc" }, { createdAt: "desc" }],
++      include: { universeGames: true },
++    }),
+   ]);
+ 
+   const isAdmin = Boolean(adminId);
+   const isTester = email ? Boolean(await db.gameTester.findUnique({ where: { email } })) : false;
+-  const byId = new Map(settings.map((s) => [s.gameId, s.visibility]));
+ 
+-  const visibleGames = ARCADE_GAME_IDS.filter((id) =>
+-    canViewArcadeGame(byId.get(id) ?? "LIVE", isAdmin, isTester)
++  const eventsWithVisibleGames = events.filter((ev) =>
++    ev.universeGames.some((g) => canViewArcadeGame(g.visibility, isAdmin, isTester))
+   );
+ 
+-  return <ArcadeUniverse visibleGames={visibleGames} />;
++  if (eventsWithVisibleGames.length === 1) {
++    redirect(`/e/${eventsWithVisibleGames[0].slug}/arcade`);
++  }
++
++  return (
++    <main className="as-shell page">
++      <ParticipantTopNav />
++      <section className="as-container content">
++        <div className="page-heading">
++          <span className="as-eyebrow">AS Brasil • Game Universe</span>
++          <h1 className="as-title">Escolha seu mundo</h1>
++          <p className="as-subtitle">
++            Cada evento tem seu próprio arcade, com jogos e personagens diferentes.
++          </p>
++        </div>
++
++        {eventsWithVisibleGames.length === 0 ? (
++          <p className="empty">Nenhum arcade disponível por aqui no momento. Volte em breve!</p>
++        ) : (
++          <div className="grid">
++            {eventsWithVisibleGames.map((ev) => (
++              <Link key={ev.id} href={`/e/${ev.slug}/arcade`} className="as-card as-card-hover card">
++                <p className="name">{ev.name}</p>
++                <span className="cta">Jogar →</span>
++              </Link>
++            ))}
++          </div>
++        )}
++      </section>
++
++      <style>{`
++        .content { padding: 3rem 0 6rem; }
++        .page-heading { max-width: 34rem; margin-bottom: 2rem; }
++        .empty { color: var(--as-muted); font-size: 0.9rem; }
++        .grid {
++          display: grid;
++          grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
++          gap: 1rem;
++        }
++        .card {
++          display: flex;
++          justify-content: space-between;
++          align-items: center;
++          padding: 1.25rem 1.5rem;
++          text-decoration: none;
++          color: inherit;
++        }
++        .name { margin: 0; font-weight: 700; color: var(--as-text); }
++        .cta { font-size: 0.8rem; font-weight: 700; color: var(--as-cyan); }
++      `}</style>
++    </main>
++  );
+ }
+diff --git a/app/universo-as/page.tsx b/app/universo-as/page.tsx
+index 1043763..142486e 100644
+--- a/app/universo-as/page.tsx
++++ b/app/universo-as/page.tsx
+@@ -66,7 +66,7 @@ export default async function UniversoAsPage() {
+               AS Game Universe
+             </p>
+             <p className="arcade-banner-desc">
+-              4 mini-jogos de arcade com os personagens do Universo AS. Não vale ticket nem
++              Mini-jogos de arcade com os personagens de cada evento. Não vale ticket nem
+               pontuação no ranking - é só pra jogar.
+             </p>
+           </div>
+diff --git a/components/admin/ArcadeGamesManager.tsx b/components/admin/ArcadeGamesManager.tsx
+deleted file mode 100644
+index fb2e650..0000000
+--- a/components/admin/ArcadeGamesManager.tsx
++++ /dev/null
+@@ -1,91 +0,0 @@
+-"use client";
+-
+-import { useState } from "react";
+-
+-type Visibility = "DRAFT" | "TESTING" | "LIVE";
+-type ArcadeGameRow = { gameId: string; name: string; visibility: Visibility };
+-
+-const VISIBILITY_LABEL: Record<Visibility, string> = {
+-  DRAFT: "Rascunho",
+-  TESTING: "Teste",
+-  LIVE: "Ao vivo",
+-};
+-const VIS_BADGE_CLASS: Record<Visibility, string> = {
+-  DRAFT: "",
+-  TESTING: "as-badge-warning",
+-  LIVE: "as-badge-success",
+-};
+-
+-/**
+- * Visibilidade dos 4 jogos do hub /universo-as/arcade (Game Universe) - o
+- * mesmo DRAFT/Teste/Ao vivo que os jogos de sorteio já têm, ver
+- * ArcadeGameSetting em prisma/schema.prisma. Em Rascunho ou Teste, só quem
+- * está na lista de testadores abaixo (ou um admin) consegue ver e jogar em
+- * /universo-as/arcade - todo mundo mais nem vê o card do jogo.
+- */
+-export function ArcadeGamesManager({ games: initialGames }: { games: ArcadeGameRow[] }) {
+-  const [games, setGames] = useState(initialGames);
+-  const [savingId, setSavingId] = useState<string | null>(null);
+-  const [error, setError] = useState<string | null>(null);
+-
+-  async function updateVisibility(gameId: string, visibility: Visibility) {
+-    setError(null);
+-    setSavingId(gameId);
+-    const res = await fetch(`/api/admin/arcade-games/${gameId}`, {
+-      method: "PATCH",
+-      headers: { "Content-Type": "application/json" },
+-      body: JSON.stringify({ visibility }),
+-    });
+-    setSavingId(null);
+-    if (!res.ok) {
+-      const b = await res.json().catch(() => ({}));
+-      setError(b.error || "Não deu pra salvar.");
+-      return;
+-    }
+-    setGames((gs) => gs.map((g) => (g.gameId === gameId ? { ...g, visibility } : g)));
+-  }
+-
+-  return (
+-    <div className="wrap">
+-      {error && <p className="error">{error}</p>}
+-      <div className="list">
+-        {games.map((g) => (
+-          <div key={g.gameId} className="row">
+-            <div className="info">
+-              <strong>{g.name}</strong>
+-              <span className={`as-badge ${VIS_BADGE_CLASS[g.visibility]}`}>{VISIBILITY_LABEL[g.visibility]}</span>
+-            </div>
+-            <select
+-              className="as-select"
+-              value={g.visibility}
+-              disabled={savingId === g.gameId}
+-              onChange={(e) => updateVisibility(g.gameId, e.target.value as Visibility)}
+-            >
+-              <option value="DRAFT">Rascunho</option>
+-              <option value="TESTING">Teste</option>
+-              <option value="LIVE">Ao vivo</option>
+-            </select>
+-          </div>
+-        ))}
+-      </div>
+-      <style jsx>{`
+-        .wrap { max-width: 32rem; margin-bottom: 1.5rem; }
+-        .error { color: #c0392b; font-size: 0.85rem; margin: 0 0 0.5rem; }
+-        .list { display: flex; flex-direction: column; gap: 0.5rem; }
+-        .row {
+-          display: flex;
+-          justify-content: space-between;
+-          align-items: center;
+-          gap: 0.75rem;
+-          background: var(--surface);
+-          border: 1px solid var(--border);
+-          border-radius: 0.6rem;
+-          padding: 0.6rem 0.9rem;
+-        }
+-        .info { display: flex; flex-direction: column; gap: 0.3rem; }
+-        .info strong { font-size: 0.92rem; }
+-        select { min-width: 9rem; }
+-      `}</style>
+-    </div>
+-  );
+-}
+diff --git a/components/admin/GamesSubNav.tsx b/components/admin/GamesSubNav.tsx
+index 9ba7b95..5a8436d 100644
+--- a/components/admin/GamesSubNav.tsx
++++ b/components/admin/GamesSubNav.tsx
+@@ -4,6 +4,7 @@ const TABS = [
+   { key: "jogos", href: "/admin/jogos", label: "Jogos" },
+   { key: "cards", href: "/admin/jogos/cards", label: "Álbum de figurinhas" },
+     { key: "testadores", href: "/admin/jogos/testadores", label: "Testadores" },
++  { key: "arcade", href: "/admin/jogos/arcade", label: "🕹️ Universo AS (arcade)" },
+   { key: "ranking", href: "/admin/jogos/ranking", label: "🏆 Ranking" },
+ ] as const;
+ 
+diff --git a/components/admin/UniverseCharacterManager.tsx b/components/admin/UniverseCharacterManager.tsx
+new file mode 100644
+index 0000000..6ff1141
+--- /dev/null
++++ b/components/admin/UniverseCharacterManager.tsx
+@@ -0,0 +1,322 @@
++"use client";
++
++import { useState } from "react";
++import { useRouter } from "next/navigation";
++import { Button, Field, Input } from "@/components/ui/primitives";
++import { ImageUpload } from "@/components/admin/ImageUpload";
++
++interface UniverseCharacterRow {
++  id: string;
++  eventId: string;
++  eventName: string;
++  name: string;
++  imageUrl: string | null;
++  order: number;
++}
++
++const EMPTY_FORM = { eventId: "", name: "", imageUrl: null as string | null, order: 0 };
++
++function formFromCharacter(c: UniverseCharacterRow) {
++  return { eventId: c.eventId, name: c.name, imageUrl: c.imageUrl, order: c.order };
++}
++
++/**
++ * Avatares pickáveis do hub Universo AS (/e/[slug]/arcade), por evento - só
++ * nome + imagem, sem nenhuma lógica de desbloqueio. Separado de propósito
++ * do sistema de Personagens-recompensa (ExperienceCharactersManager.tsx).
++ */
++export function UniverseCharacterManager({
++  characters: initialCharacters,
++  events,
++}: {
++  characters: UniverseCharacterRow[];
++  events: { id: string; name: string }[];
++}) {
++  const router = useRouter();
++  const [characters, setCharacters] = useState(initialCharacters);
++  const [creating, setCreating] = useState(false);
++  const [editingId, setEditingId] = useState<string | null>(null);
++  const [error, setError] = useState<string | null>(null);
++
++  function refresh() {
++    router.refresh();
++    fetch("/api/admin/universe-characters")
++      .then((r) => r.json())
++      .then((d) =>
++        setCharacters(
++          (d.characters ?? []).map((c: any) => ({
++            id: c.id,
++            eventId: c.eventId,
++            eventName: c.event?.name ?? "",
++            name: c.name,
++            imageUrl: c.imageUrl,
++            order: c.order,
++          }))
++        )
++      );
++  }
++
++  return (
++    <div className="wrap">
++      <div className="section-header">
++        <p className="section-title">Personagens do Universo AS</p>
++        {!creating && <Button onClick={() => setCreating(true)}>+ Novo personagem</Button>}
++      </div>
++      <p className="hint">
++        Elenco de avatares escolhíveis no hub do arcade, por evento - puramente visual, sem relação
++        com o sistema de Personagens-prêmio das Experiências.
++      </p>
++      {error && <p className="error">{error}</p>}
++
++      {creating && (
++        <div className="as-card form">
++          <CharacterFormFields
++            initial={{ ...EMPTY_FORM, eventId: events[0]?.id ?? "" }}
++            events={events}
++            onCancel={() => setCreating(false)}
++            onSave={async (form) => {
++              const res = await fetch("/api/admin/universe-characters", {
++                method: "POST",
++                headers: { "Content-Type": "application/json" },
++                body: JSON.stringify(form),
++              });
++              if (!res.ok) {
++                const b = await res.json().catch(() => ({}));
++                setError(b.error || "Não deu pra criar.");
++                return;
++              }
++              setCreating(false);
++              refresh();
++            }}
++            saveLabel="Criar personagem"
++          />
++        </div>
++      )}
++
++      <div className="grid">
++        {characters.map((character) => (
++          <div key={character.id} className="as-card card">
++            {editingId === character.id ? (
++              <CharacterFormFields
++                initial={formFromCharacter(character)}
++                events={events}
++                onCancel={() => setEditingId(null)}
++                onSave={async (form) => {
++                  const res = await fetch(`/api/admin/universe-characters/${character.id}`, {
++                    method: "PATCH",
++                    headers: { "Content-Type": "application/json" },
++                    body: JSON.stringify(form),
++                  });
++                  if (!res.ok) {
++                    const b = await res.json().catch(() => ({}));
++                    setError(b.error || "Não deu pra salvar.");
++                    return;
++                  }
++                  setEditingId(null);
++                  refresh();
++                }}
++                saveLabel="Salvar alterações"
++              />
++            ) : (
++              <div className="preview-card">
++                {character.imageUrl ? (
++                  <img src={character.imageUrl} alt={character.name} className="thumb" />
++                ) : (
++                  <div className="thumb placeholder">🧸</div>
++                )}
++                <p className="name">{character.name}</p>
++                <span className="event-name">{character.eventName}</span>
++                <div className="actions">
++                  <button type="button" className="edit-btn" onClick={() => setEditingId(character.id)}>
++                    ✏️ Editar
++                  </button>
++                  <button
++                    type="button"
++                    className="delete-btn"
++                    onClick={async () => {
++                      if (!confirm(`Excluir "${character.name}" do elenco do Universo AS?`)) return;
++                      await fetch(`/api/admin/universe-characters/${character.id}`, { method: "DELETE" });
++                      refresh();
++                    }}
++                  >
++                    Excluir
++                  </button>
++                </div>
++              </div>
++            )}
++          </div>
++        ))}
++        {characters.length === 0 && !creating && (
++          <p className="empty">Nenhum personagem cadastrado ainda.</p>
++        )}
++      </div>
++
++      <style jsx>{`
++        .wrap {
++          max-width: 56rem;
++          margin-top: 2.5rem;
++        }
++        .section-header {
++          display: flex;
++          justify-content: space-between;
++          align-items: center;
++          gap: 1rem;
++          margin-bottom: 0.4rem;
++        }
++        .section-title {
++          font-size: 1.05rem;
++          font-weight: 700;
++          margin: 0;
++          font-family: var(--font-display, inherit);
++        }
++        .hint {
++          color: var(--as-muted, var(--text-muted));
++          font-size: 0.85rem;
++          margin: 0 0 1rem;
++          line-height: 1.5;
++          max-width: 42rem;
++        }
++        .error {
++          color: var(--as-red, #c0392b);
++          font-size: 0.85rem;
++          margin: 0 0 0.75rem;
++        }
++        .form {
++          padding: 1.1rem 1.25rem;
++          margin-bottom: 1rem;
++        }
++        .grid {
++          display: grid;
++          grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
++          gap: 0.75rem;
++        }
++        .card {
++          padding: 1.1rem 1.25rem;
++        }
++        .preview-card {
++          display: flex;
++          flex-direction: column;
++        }
++        .thumb {
++          width: 100%;
++          aspect-ratio: 1 / 1;
++          object-fit: cover;
++          border-radius: 0.5rem;
++          margin-bottom: 0.6rem;
++        }
++        .thumb.placeholder {
++          display: flex;
++          align-items: center;
++          justify-content: center;
++          background: var(--bg);
++          font-size: 2rem;
++        }
++        .name {
++          margin: 0 0 0.2rem;
++          font-weight: 600;
++          font-size: 0.9rem;
++        }
++        .event-name {
++          font-size: 0.72rem;
++          color: var(--as-muted, var(--text-muted));
++          margin-bottom: 0.6rem;
++        }
++        .actions {
++          display: flex;
++          flex-wrap: wrap;
++          gap: 0.4rem;
++        }
++        .edit-btn,
++        .delete-btn {
++          font-size: 0.75rem;
++          font-weight: 600;
++          padding: 0.35rem 0.65rem;
++          border-radius: 999px;
++          border: 1px solid var(--border);
++          background: none;
++          color: var(--as-muted, var(--text-muted));
++          cursor: pointer;
++        }
++        .delete-btn {
++          color: #c0392b;
++        }
++        .empty {
++          color: var(--as-muted, var(--text-muted));
++          font-size: 0.9rem;
++        }
++      `}</style>
++    </div>
++  );
++}
++
++function CharacterFormFields({
++  initial,
++  events,
++  onSave,
++  onCancel,
++  saveLabel,
++}: {
++  initial: typeof EMPTY_FORM;
++  events: { id: string; name: string }[];
++  onSave: (form: typeof EMPTY_FORM) => Promise<void>;
++  onCancel: () => void;
++  saveLabel: string;
++}) {
++  const [form, setForm] = useState(initial);
++  const [saving, setSaving] = useState(false);
++
++  const canSave = Boolean(form.eventId && form.name.trim());
++
++  return (
++    <div>
++      <Field label="Evento" required>
++        <select
++          className="as-select"
++          value={form.eventId}
++          onChange={(e) => setForm({ ...form, eventId: e.target.value })}
++        >
++          {events.length === 0 && <option value="">Nenhum evento cadastrado</option>}
++          {events.map((ev) => (
++            <option key={ev.id} value={ev.id}>
++              {ev.name}
++            </option>
++          ))}
++        </select>
++      </Field>
++      <Field label="Nome do personagem" required>
++        <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
++      </Field>
++      <ImageUpload
++        label="Imagem do personagem"
++        value={form.imageUrl}
++        onChange={(url) => setForm({ ...form, imageUrl: url })}
++        folder="universe-characters"
++        aspectRatio="1 / 1"
++      />
++
++      <div className="form-actions">
++        <Button variant="ghost" onClick={onCancel} disabled={saving}>
++          Cancelar
++        </Button>
++        <Button
++          onClick={async () => {
++            setSaving(true);
++            await onSave(form);
++            setSaving(false);
++          }}
++          disabled={!canSave || saving}
++        >
++          {saving ? "Salvando…" : saveLabel}
++        </Button>
++      </div>
++
++      <style jsx>{`
++        .form-actions {
++          display: flex;
++          gap: 0.6rem;
++          margin-top: 0.5rem;
++        }
++      `}</style>
++    </div>
++  );
++}
+diff --git a/components/admin/UniverseGameManager.tsx b/components/admin/UniverseGameManager.tsx
+new file mode 100644
+index 0000000..b15c224
+--- /dev/null
++++ b/components/admin/UniverseGameManager.tsx
+@@ -0,0 +1,484 @@
++"use client";
++
++import { useState } from "react";
++import { useRouter } from "next/navigation";
++import { Button, Field, Input } from "@/components/ui/primitives";
++import { ImageUpload } from "@/components/admin/ImageUpload";
++
++type Engine = "WORLD" | "MAZE" | "BLAST" | "CITYRUN";
++type Visibility = "DRAFT" | "TESTING" | "LIVE";
++
++interface UniverseGameRow {
++  id: string;
++  eventId: string;
++  eventName: string;
++  engine: Engine;
++  slug: string;
++  title: string;
++  description: string;
++  tag: string;
++  coverImageUrl: string | null;
++  order: number;
++  visibility: Visibility;
++}
++
++const ENGINE_LABEL: Record<Engine, string> = {
++  WORLD: "Plataforma (AS World Adventure)",
++  MAZE: "Labirinto (AS Neon Maze)",
++  BLAST: "Bombas (AS Blast Arena)",
++  CITYRUN: "Corrida na cidade (AS City Run)",
++};
++
++const VISIBILITY_LABEL: Record<Visibility, string> = {
++  DRAFT: "Rascunho",
++  TESTING: "Teste",
++  LIVE: "Ao vivo",
++};
++const VIS_BADGE_CLASS: Record<Visibility, string> = {
++  DRAFT: "",
++  TESTING: "as-badge-warning",
++  LIVE: "as-badge-success",
++};
++
++function slugify(text: string) {
++  return text
++    .normalize("NFD")
++    .replace(/[̀-ͯ]/g, "")
++    .toLowerCase()
++    .replace(/[^a-z0-9]+/g, "-")
++    .replace(/(^-|-$)/g, "");
++}
++
++const EMPTY_FORM = {
++  eventId: "",
++  engine: "WORLD" as Engine,
++  title: "",
++  slug: "",
++  description: "",
++  tag: "",
++  coverImageUrl: null as string | null,
++  order: 0,
++};
++
++function formFromGame(game: UniverseGameRow) {
++  return {
++    eventId: game.eventId,
++    engine: game.engine,
++    title: game.title,
++    slug: game.slug,
++    description: game.description,
++    tag: game.tag,
++    coverImageUrl: game.coverImageUrl,
++    order: game.order,
++  };
++}
++
++/**
++ * Catálogo do hub Universo AS (/e/[slug]/arcade) por evento - molde direto
++ * de GameManager.tsx, mas cada entrada é um "motor" existente (WORLD/MAZE/
++ * BLAST/CITYRUN) recebendo capa, título, descrição e evento próprios, em
++ * vez de um jogo novo de verdade.
++ */
++export function UniverseGameManager({
++  games: initialGames,
++  events,
++}: {
++  games: UniverseGameRow[];
++  events: { id: string; name: string }[];
++}) {
++  const router = useRouter();
++  const [games, setGames] = useState(initialGames);
++  const [creating, setCreating] = useState(false);
++  const [editingId, setEditingId] = useState<string | null>(null);
++  const [savingVisibilityId, setSavingVisibilityId] = useState<string | null>(null);
++  const [error, setError] = useState<string | null>(null);
++
++  function refresh() {
++    router.refresh();
++    fetch("/api/admin/universe-games")
++      .then((r) => r.json())
++      .then((d) =>
++        setGames(
++          (d.games ?? []).map((g: any) => ({
++            id: g.id,
++            eventId: g.eventId,
++            eventName: g.event?.name ?? "",
++            engine: g.engine,
++            slug: g.slug,
++            title: g.title,
++            description: g.description,
++            tag: g.tag,
++            coverImageUrl: g.coverImageUrl,
++            order: g.order,
++            visibility: g.visibility,
++          }))
++        )
++      );
++  }
++
++  async function updateVisibility(id: string, visibility: Visibility) {
++    setError(null);
++    setSavingVisibilityId(id);
++    const res = await fetch(`/api/admin/universe-games/${id}`, {
++      method: "PATCH",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify({ visibility }),
++    });
++    setSavingVisibilityId(null);
++    if (!res.ok) {
++      const b = await res.json().catch(() => ({}));
++      setError(b.error || "Não deu pra salvar.");
++      return;
++    }
++    setGames((gs) => gs.map((g) => (g.id === id ? { ...g, visibility } : g)));
++  }
++
++  return (
++    <div className="wrap">
++      <div className="section-header">
++        <p className="section-title">Jogos do Universo AS</p>
++        {!creating && <Button onClick={() => setCreating(true)}>+ Novo jogo no catálogo</Button>}
++      </div>
++      <p className="hint">
++        Cada entrada ativa um dos 4 motores de jogo já construídos pra um evento específico, com
++        capa, título e descrição próprios. Pra pedir um motor novo (mecânica diferente), isso ainda
++        precisa ser construído à parte.
++      </p>
++      {error && <p className="error">{error}</p>}
++
++      {creating && (
++        <div className="as-card form">
++          <GameFormFields
++            initial={{ ...EMPTY_FORM, eventId: events[0]?.id ?? "" }}
++            events={events}
++            onCancel={() => setCreating(false)}
++            onSave={async (form) => {
++              const res = await fetch("/api/admin/universe-games", {
++                method: "POST",
++                headers: { "Content-Type": "application/json" },
++                body: JSON.stringify(form),
++              });
++              if (!res.ok) {
++                const b = await res.json().catch(() => ({}));
++                setError(b.error || "Não deu pra criar.");
++                return;
++              }
++              setCreating(false);
++              refresh();
++            }}
++            saveLabel="Criar"
++          />
++        </div>
++      )}
++
++      <div className="list">
++        {games.map((game) => (
++          <div key={game.id} className="as-card row">
++            {editingId === game.id ? (
++              <GameFormFields
++                initial={formFromGame(game)}
++                events={events}
++                onCancel={() => setEditingId(null)}
++                onSave={async (form) => {
++                  const res = await fetch(`/api/admin/universe-games/${game.id}`, {
++                    method: "PATCH",
++                    headers: { "Content-Type": "application/json" },
++                    body: JSON.stringify(form),
++                  });
++                  if (!res.ok) {
++                    const b = await res.json().catch(() => ({}));
++                    setError(b.error || "Não deu pra salvar.");
++                    return;
++                  }
++                  setEditingId(null);
++                  refresh();
++                }}
++                saveLabel="Salvar alterações"
++              />
++            ) : (
++              <>
++                {game.coverImageUrl ? (
++                  <img src={game.coverImageUrl} alt="" className="cover" />
++                ) : (
++                  <div className="cover placeholder">🕹️</div>
++                )}
++                <div className="info">
++                  <div className="badges">
++                    <span className={`as-badge ${VIS_BADGE_CLASS[game.visibility]}`}>
++                      {VISIBILITY_LABEL[game.visibility]}
++                    </span>
++                    <span className="as-badge">{ENGINE_LABEL[game.engine]}</span>
++                  </div>
++                  <p className="name">{game.title}</p>
++                  <p className="meta">{game.eventName}</p>
++                </div>
++                <div className="actions">
++                  <select
++                    className="as-select"
++                    value={game.visibility}
++                    disabled={savingVisibilityId === game.id}
++                    onChange={(e) => updateVisibility(game.id, e.target.value as Visibility)}
++                  >
++                    <option value="DRAFT">Rascunho</option>
++                    <option value="TESTING">Teste</option>
++                    <option value="LIVE">Ao vivo</option>
++                  </select>
++                  <button type="button" className="edit-btn" onClick={() => setEditingId(game.id)}>
++                    ✏️ Editar
++                  </button>
++                  <button
++                    type="button"
++                    className="delete-btn"
++                    onClick={async () => {
++                      if (!confirm(`Excluir "${game.title}" do catálogo do Universo AS?`)) return;
++                      await fetch(`/api/admin/universe-games/${game.id}`, { method: "DELETE" });
++                      refresh();
++                    }}
++                  >
++                    Excluir
++                  </button>
++                </div>
++              </>
++            )}
++          </div>
++        ))}
++        {games.length === 0 && !creating && (
++          <p className="empty">Nenhum jogo do Universo AS cadastrado ainda.</p>
++        )}
++      </div>
++
++      <style jsx>{`
++        .wrap {
++          max-width: 56rem;
++        }
++        .section-header {
++          display: flex;
++          justify-content: space-between;
++          align-items: center;
++          gap: 1rem;
++          margin-bottom: 0.4rem;
++        }
++        .section-title {
++          font-size: 1.05rem;
++          font-weight: 700;
++          margin: 0;
++          font-family: var(--font-display, inherit);
++        }
++        .hint {
++          color: var(--as-muted, var(--text-muted));
++          font-size: 0.85rem;
++          margin: 0 0 1rem;
++          line-height: 1.5;
++          max-width: 42rem;
++        }
++        .error {
++          color: var(--as-red, #c0392b);
++          font-size: 0.85rem;
++          margin: 0 0 0.75rem;
++        }
++        .form {
++          padding: 1.1rem 1.25rem;
++          margin-bottom: 1rem;
++        }
++        .list {
++          display: flex;
++          flex-direction: column;
++          gap: 0.75rem;
++        }
++        .row {
++          display: flex;
++          align-items: center;
++          gap: 1rem;
++          padding: 1rem 1.25rem;
++        }
++        .cover {
++          width: 4.5rem;
++          height: 4.5rem;
++          object-fit: cover;
++          border-radius: 0.6rem;
++          flex-shrink: 0;
++        }
++        .cover.placeholder {
++          display: flex;
++          align-items: center;
++          justify-content: center;
++          font-size: 1.6rem;
++          background: var(--bg);
++        }
++        .info {
++          min-width: 0;
++          flex: 1;
++        }
++        .badges {
++          display: flex;
++          flex-wrap: wrap;
++          gap: 0.4rem;
++          margin-bottom: 0.4rem;
++        }
++        .name {
++          margin: 0 0 0.2rem;
++          font-weight: 600;
++        }
++        .meta {
++          margin: 0;
++          font-size: 0.8rem;
++          color: var(--as-muted, var(--text-muted));
++        }
++        .actions {
++          display: flex;
++          align-items: center;
++          gap: 0.5rem;
++          flex-shrink: 0;
++        }
++        select {
++          min-width: 8rem;
++        }
++        .edit-btn,
++        .delete-btn {
++          font-size: 0.75rem;
++          font-weight: 600;
++          padding: 0.35rem 0.65rem;
++          border-radius: 999px;
++          border: 1px solid var(--border);
++          background: none;
++          color: var(--as-muted, var(--text-muted));
++          cursor: pointer;
++          white-space: nowrap;
++        }
++        .delete-btn {
++          color: #c0392b;
++        }
++        .empty {
++          color: var(--as-muted, var(--text-muted));
++          font-size: 0.9rem;
++        }
++      `}</style>
++    </div>
++  );
++}
++
++function GameFormFields({
++  initial,
++  events,
++  onSave,
++  onCancel,
++  saveLabel,
++}: {
++  initial: typeof EMPTY_FORM;
++  events: { id: string; name: string }[];
++  onSave: (form: typeof EMPTY_FORM) => Promise<void>;
++  onCancel: () => void;
++  saveLabel: string;
++}) {
++  const [form, setForm] = useState(initial);
++  const [slugTouched, setSlugTouched] = useState(true);
++  const [saving, setSaving] = useState(false);
++
++  const canSave = Boolean(form.eventId && form.title.trim() && form.slug.trim());
++
++  return (
++    <div>
++      <Field label="Evento" required hint="Esse jogo só aparece no hub desse evento.">
++        <select
++          className="as-select"
++          value={form.eventId}
++          onChange={(e) => setForm({ ...form, eventId: e.target.value })}
++        >
++          {events.length === 0 && <option value="">Nenhum evento cadastrado</option>}
++          {events.map((ev) => (
++            <option key={ev.id} value={ev.id}>
++              {ev.name}
++            </option>
++          ))}
++        </select>
++      </Field>
++      <Field label="Motor do jogo" required>
++        <select
++          className="as-select"
++          value={form.engine}
++          onChange={(e) => setForm({ ...form, engine: e.target.value as Engine })}
++        >
++          {Object.entries(ENGINE_LABEL).map(([value, label]) => (
++            <option key={value} value={value}>
++              {label}
++            </option>
++          ))}
++        </select>
++      </Field>
++      <Field label="Título exibido no card">
++        <Input
++          value={form.title}
++          onChange={(e) => {
++            const title = e.target.value;
++            setForm((f) => ({ ...f, title, slug: slugTouched ? f.slug : slugify(title) }));
++          }}
++          placeholder="Ex: AS World Adventure"
++        />
++      </Field>
++      <Field label="Slug" required hint="Só letras minúsculas, números e hífen. Precisa ser único.">
++        <Input
++          value={form.slug}
++          onChange={(e) => {
++            setForm({ ...form, slug: slugify(e.target.value) });
++            setSlugTouched(true);
++          }}
++          placeholder="as-world-adventure-bts"
++        />
++      </Field>
++      <Field label="Categoria (tag curta do card)" hint='Ex: "AVENTURA", "LABIRINTO", "ARENA", "RUNNER".'>
++        <Input value={form.tag} onChange={(e) => setForm({ ...form, tag: e.target.value })} />
++      </Field>
++      <Field label="Descrição curta">
++        <textarea
++          className="textarea"
++          rows={2}
++          value={form.description}
++          onChange={(e) => setForm({ ...form, description: e.target.value })}
++        />
++      </Field>
++      <ImageUpload
++        label="Capa do jogo"
++        value={form.coverImageUrl}
++        onChange={(url) => setForm({ ...form, coverImageUrl: url })}
++        folder="universe-games"
++        aspectRatio="16 / 10"
++      />
++
++      <div className="form-actions">
++        <Button variant="ghost" onClick={onCancel} disabled={saving}>
++          Cancelar
++        </Button>
++        <Button
++          onClick={async () => {
++            setSaving(true);
++            await onSave(form);
++            setSaving(false);
++          }}
++          disabled={!canSave || saving}
++        >
++          {saving ? "Salvando…" : saveLabel}
++        </Button>
++      </div>
++
++      <style jsx>{`
++        .textarea {
++          width: 100%;
++          box-sizing: border-box;
++          padding: 0.7rem 0.9rem;
++          border-radius: 0.6rem;
++          border: 1px solid var(--border);
++          font-size: 0.9rem;
++          font-family: inherit;
++          resize: vertical;
++          background: var(--surface);
++          color: var(--text);
++        }
++        .form-actions {
++          display: flex;
++          gap: 0.6rem;
++          margin-top: 0.5rem;
++        }
++      `}</style>
++    </div>
++  );
++}
+diff --git a/components/arcade/ArcadeUniverse.tsx b/components/arcade/ArcadeUniverse.tsx
+index 13f520f..8c0e518 100644
+--- a/components/arcade/ArcadeUniverse.tsx
++++ b/components/arcade/ArcadeUniverse.tsx
+@@ -7,60 +7,218 @@ import { NeonMaze } from "./NeonMaze";
+ import { BlastArena } from "./BlastArena";
+ import { ArcadeSocial } from "./ArcadeSocial";
+ 
+-type GameId = "world" | "maze" | "blast" | "run";
+-type Character = { id:string; name:string; src:string };
+-const CHARS: Character[] = [
+-  ["rm","RM"],["jin","Jin"],["suga","Suga"],["jhope","J-Hope"],["jimin","Jimin"],["v","V"],["jungkook","Jungkook"]
+-].map(([id,name])=>({id,name,src:`/game-universe/characters/${id}.png`}));
+-const GAMES:{id:GameId;title:string;desc:string;tag:string;cover:string}[]=[
+-  {id:"world",title:"AS World Adventure",desc:"Explore cidades, colete moedas e enfrente guardiões.",tag:"AVENTURA",cover:"/game-universe/world-adventure/backgrounds/rio/background_full.webp"},
+-  {id:"maze",title:"AS Neon Maze",desc:"Mundos neon, labirintos e perseguição.",tag:"LABIRINTO",cover:"/game-universe/neon-maze/01_2-cool-4-skool/background_full.webp"},
+-  {id:"blast",title:"AS Blast Arena",desc:"Estratégia, bombas, arenas e power-ups.",tag:"ARENA",cover:"/game-universe/blast-arena/01_2-cool-4-skool/arena.webp"},
+-  {id:"run",title:"AS City Run",desc:"Rotas da turnê, obstáculos e combos.",tag:"RUNNER",cover:"/game-universe/city-run/routes/01_incheon/route.png"},
+-];
+-
+-export function ArcadeUniverse({visibleGames}:{visibleGames?:GameId[]}={}){
+-  const [game,setGame]=useState<GameId|null>(null);
+-  const [socialOpen,setSocialOpen]=useState(false);
+-  const [character,setCharacter]=useState(CHARS[0]);
+-  const [best,setBest]=useState<Record<GameId,number>>({world:0,maze:0,blast:0,run:0});
+-  function finish(id:GameId,score:number){ setBest(b=>({...b,[id]:Math.max(b[id],score)})); }
+-  // Sem a prop (uso avulso do componente) mantém o comportamento de antes:
+-  // os 4 jogos aparecem. Vindo da página /universo-as/arcade, o Server
+-  // Component já filtrou por visibilidade - ver ArcadeGameSetting.
+-  const games = visibleGames ? GAMES.filter(g=>visibleGames.includes(g.id)) : GAMES;
+-  if(socialOpen) return <div className="arcade-shell"><header className="game-head"><button onClick={()=>setSocialOpen(false)}>← HUB</button><div><strong>👥 Amigos & Salas</strong><span>{character.name}</span></div><img src={character.src} alt=""/></header><ArcadeSocial character={character}/><ArcadeStyles/></div>;
+-  if(game) return <div className="arcade-shell"><GameHeader game={game} character={character} onBack={()=>setGame(null)}/><Game game={game} character={character} onFinish={s=>finish(game,s)}/><ArcadeStyles/></div>;
+-  return <div className="arcade-shell">
+-    <section className="arcade-hero"><div><span className="eyebrow">AS BRASIL • GAME UNIVERSE</span><h1>Escolha seu mundo.<br/><em>Entre no jogo.</em></h1><p>Quatro experiências conectadas, sete personagens e novos desafios em cada universo.</p><div className="hero-chips"><span>4 JOGOS</span><span>7 PERSONAGENS</span><span>PROGRESSO SALVO</span></div></div><div className="hero-orb"><b>AS</b><small>GAME UNIVERSE</small></div></section>
+-    <section className="picker"><div className="section-title"><div><small>SEU PERSONAGEM</small><h2>Quem vai com você?</h2></div><b>{character.name}</b></div><div className="characters">{CHARS.map(c=><button key={c.id} className={character.id===c.id?"char active":"char"} onClick={()=>setCharacter(c)}><div className="char-portrait"><img src={c.src} alt={c.name}/></div><span>{c.name}</span></button>)}</div></section>
+-    <section className="social-cta"><button onClick={()=>setSocialOpen(true)}>👥 Amigos & Salas - jogue e compare com quem você conhece</button></section>
+-    {games.length>0
+-      ? <section className="game-grid">{games.map((g,i)=><button key={g.id} className="game-card" onClick={()=>setGame(g.id)}><img className="game-cover" src={g.cover} alt="" /><span className="game-shade"/><span className="game-number">0{i+1}</span><div className="game-copy"><small>{g.tag}</small><h3>{g.title}</h3><p>{g.desc}</p><span>RECORDE <b>{best[g.id]}</b></span></div><strong className="play-cta">JOGAR →</strong></button>)}</section>
+-      : <p className="empty">Nenhum jogo disponível por aqui no momento. Volte em breve!</p>}
+-    <ArcadeStyles/>
+-  </div>
++// Hub do Universo AS (01/10) - deixou de ter jogos/personagens fixos no
++// código e virou data-driven: `games` e `characters` vêm do catálogo por
++// evento (UniverseGame/UniverseCharacter em prisma/schema.prisma),
++// gerenciável no admin em Jogos → 🕹️ Universo AS. `engine` é qual dos 4
++// motores de jogo já construídos essa entrada do catálogo usa.
++export type UniverseEngine = "WORLD" | "MAZE" | "BLAST" | "CITYRUN";
++export interface UniverseGameData {
++  id: string;
++  engine: UniverseEngine;
++  title: string;
++  description: string;
++  tag: string;
++  coverImageUrl: string | null;
++}
++export interface UniverseCharacterData {
++  id: string;
++  name: string;
++  imageUrl: string | null;
++}
++
++const FALLBACK_CHARACTER: UniverseCharacterData = { id: "_none", name: "Convidado", imageUrl: null };
++
++export function ArcadeUniverse({
++  games,
++  characters,
++}: {
++  games: UniverseGameData[];
++  characters: UniverseCharacterData[];
++}) {
++  const [gameId, setGameId] = useState<string | null>(null);
++  const [socialOpen, setSocialOpen] = useState(false);
++  const [character, setCharacter] = useState<UniverseCharacterData>(characters[0] ?? FALLBACK_CHARACTER);
++  const [best, setBest] = useState<Record<string, number>>({});
++  function finish(id: string, score: number) {
++    setBest((b) => ({ ...b, [id]: Math.max(b[id] ?? 0, score) }));
++  }
++
++  const activeGame = games.find((g) => g.id === gameId) ?? null;
++
++  if (socialOpen)
++    return (
++      <div className="arcade-shell">
++        <header className="game-head">
++          <button onClick={() => setSocialOpen(false)}>← HUB</button>
++          <div>
++            <strong>👥 Amigos & Salas</strong>
++            <span>{character.name}</span>
++          </div>
++          <CharacterPortrait character={character} size={54} />
++        </header>
++        <ArcadeSocial character={{ id: character.id, name: character.name, src: character.imageUrl ?? "" }} />
++        <ArcadeStyles />
++      </div>
++    );
++
++  if (activeGame)
++    return (
++      <div className="arcade-shell">
++        <header className="game-head">
++          <button onClick={() => setGameId(null)}>← HUB</button>
++          <div>
++            <strong>{activeGame.title}</strong>
++            <span>{character.name}</span>
++          </div>
++          <CharacterPortrait character={character} size={54} />
++        </header>
++        <Game engine={activeGame.engine} character={character} onFinish={(s) => finish(activeGame.id, s)} />
++        <ArcadeStyles />
++      </div>
++    );
++
++  return (
++    <div className="arcade-shell">
++      <section className="arcade-hero">
++        <div>
++          <span className="eyebrow">AS BRASIL • GAME UNIVERSE</span>
++          <h1>
++            Escolha seu mundo.
++            <br />
++            <em>Entre no jogo.</em>
++          </h1>
++          <p>
++            {games.length} {games.length === 1 ? "experiência" : "experiências"} conectadas
++            {characters.length > 0 ? `, ${characters.length} personagens` : ""} e novos desafios em
++            cada universo.
++          </p>
++          <div className="hero-chips">
++            <span>
++              {games.length} {games.length === 1 ? "JOGO" : "JOGOS"}
++            </span>
++            {characters.length > 0 && <span>{characters.length} PERSONAGENS</span>}
++            <span>PROGRESSO SALVO</span>
++          </div>
++        </div>
++        <div className="hero-orb">
++          <b>AS</b>
++          <small>GAME UNIVERSE</small>
++        </div>
++      </section>
++
++      {characters.length > 0 && (
++        <section className="picker">
++          <div className="section-title">
++            <div>
++              <small>SEU PERSONAGEM</small>
++              <h2>Quem vai com você?</h2>
++            </div>
++            <b>{character.name}</b>
++          </div>
++          <div className="characters">
++            {characters.map((c) => (
++              <button
++                key={c.id}
++                className={character.id === c.id ? "char active" : "char"}
++                onClick={() => setCharacter(c)}
++              >
++                <div className="char-portrait">
++                  <CharacterPortrait character={c} size={98} />
++                </div>
++                <span>{c.name}</span>
++              </button>
++            ))}
++          </div>
++        </section>
++      )}
++
++      <section className="social-cta">
++        <button onClick={() => setSocialOpen(true)}>👥 Amigos & Salas - jogue e compare com quem você conhece</button>
++      </section>
++
++      {games.length > 0 ? (
++        <section className="game-grid">
++          {games.map((g, i) => (
++            <button key={g.id} className="game-card" onClick={() => setGameId(g.id)}>
++              {g.coverImageUrl ? (
++                <img className="game-cover" src={g.coverImageUrl} alt="" />
++              ) : (
++                <span className="game-cover game-cover-placeholder" />
++              )}
++              <span className="game-shade" />
++              <span className="game-number">0{i + 1}</span>
++              <div className="game-copy">
++                {g.tag && <small>{g.tag}</small>}
++                <h3>{g.title}</h3>
++                <p>{g.description}</p>
++                <span>
++                  RECORDE <b>{best[g.id] ?? 0}</b>
++                </span>
++              </div>
++              <strong className="play-cta">JOGAR →</strong>
++            </button>
++          ))}
++        </section>
++      ) : (
++        <p className="empty">Nenhum jogo disponível por aqui no momento. Volte em breve!</p>
++      )}
++      <ArcadeStyles />
++    </div>
++  );
++}
++
++function CharacterPortrait({ character, size }: { character: UniverseCharacterData; size: number }) {
++  if (!character.imageUrl) {
++    return (
++      <div
++        style={{
++          width: size,
++          height: size,
++          display: "flex",
++          alignItems: "center",
++          justifyContent: "center",
++          fontSize: size * 0.4,
++        }}
++      >
++        🎮
++      </div>
++    );
++  }
++  return <img src={character.imageUrl} alt={character.name} width={size} height={size} style={{ objectFit: "contain" }} />;
++}
++
++function Game({
++  engine,
++  character,
++  onFinish,
++}: {
++  engine: UniverseEngine;
++  character: UniverseCharacterData;
++  onFinish: (s: number) => void;
++}) {
++  const c = { id: character.id, name: character.name, src: character.imageUrl ?? "" };
++  if (engine === "WORLD") return <WorldAdventure character={c} onFinish={onFinish} />;
++  if (engine === "MAZE") return <NeonMaze character={c} onFinish={onFinish} />;
++  if (engine === "BLAST") return <BlastArena character={c} onFinish={onFinish} />;
++  return <CityRun character={c} onFinish={onFinish} />;
+ }
+-function GameHeader({game,character,onBack}:{game:GameId;character:Character;onBack:()=>void}){const g=GAMES.find(x=>x.id===game)!;return <header className="game-head"><button onClick={onBack}>← HUB</button><div><strong>{g.title}</strong><span>{character.name}</span></div><img src={character.src} alt=""/></header>}
+-function Game({game,character,onFinish}:{game:GameId;character:Character;onFinish:(s:number)=>void}){if(game==="world")return <WorldAdventure character={character} onFinish={onFinish}/>;if(game==="maze")return <NeonMaze character={character} onFinish={onFinish}/>;if(game==="blast")return <BlastArena character={character} onFinish={onFinish}/>;return <CityRun character={character} onFinish={onFinish}/>}
+ 
+-// AS World Adventure (id "world") mudou pra components/arcade/WorldAdventure.tsx -
++// AS World Adventure (engine "WORLD") - components/arcade/WorldAdventure.tsx -
+ // 3 cidades com progresso permanente, ver ArcadeProgress em prisma/schema.prisma.
+-// O antigo minigame de uma faixa só saiu daqui.
+ 
+-// AS Neon Maze (id "maze") mudou pra components/arcade/NeonMaze.tsx - 8 mundos
++// AS Neon Maze (engine "MAZE") - components/arcade/NeonMaze.tsx - 8 mundos
+ // por era/álbum do BTS com progresso permanente, ver NeonMazeProgress em
+-// prisma/schema.prisma. O antigo minigame de labirinto único saiu daqui.
++// prisma/schema.prisma.
+ 
+-// AS Blast Arena (id "blast") mudou pra components/arcade/BlastArena.tsx - 12
++// AS Blast Arena (engine "BLAST") - components/arcade/BlastArena.tsx - 12
+ // arenas por era/álbum do BTS com progresso permanente, ver
+-// BlastArenaProgress em prisma/schema.prisma. O antigo minigame de arena
+-// única saiu daqui.
++// BlastArenaProgress em prisma/schema.prisma.
+ 
+-// AS City Run (id "run") mudou pra components/arcade/CityRun.tsx - 7 rotas
++// AS City Run (engine "CITYRUN") - components/arcade/CityRun.tsx - 7 rotas
+ // da turnê com progresso permanente, ver CityRunProgress em
+-// prisma/schema.prisma. O antigo minigame de tela única saiu daqui.
++// prisma/schema.prisma.
+ 
+ function ArcadeStyles(){return <style jsx global>{`
+-.arcade-shell{min-height:100vh;background:radial-gradient(circle at 12% -8%,#193d6c 0,transparent 34%),radial-gradient(circle at 92% 5%,#391b5d 0,transparent 30%),linear-gradient(180deg,#07111f,#050813 60%,#03050b);color:#fff;padding:28px 24px 56px;font-family:Inter,system-ui,sans-serif;overflow-x:hidden}.arcade-hero{position:relative;max-width:1180px;margin:auto;min-height:300px;display:flex;align-items:center;justify-content:space-between;padding:44px 30px;border:1px solid #ffffff16;border-radius:34px;background:linear-gradient(120deg,#0a2038e8,#10152ee8 58%,#25113cd6);overflow:hidden;box-shadow:0 30px 90px #0008}.arcade-hero h1{font-size:clamp(44px,6vw,76px);line-height:.93;letter-spacing:-.055em;margin:12px 0 17px;color:#fff}.arcade-hero h1 em{font-style:normal;background:linear-gradient(90deg,#63e4ff,#ad8aff,#ff77b8);-webkit-background-clip:text;color:transparent}.arcade-hero p{color:#b8c8dc;max-width:610px;font-size:16px;line-height:1.6}.eyebrow{font-size:10px;font-weight:900;letter-spacing:.28em;color:#69ddff}.hero-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px}.hero-chips span{font-size:8px;font-weight:900;letter-spacing:.1em;padding:7px 10px;border:1px solid #ffffff1c;border-radius:99px;background:#ffffff08}.hero-orb{width:170px;height:170px;flex:0 0 170px;border-radius:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(145deg,#1c7dba,#5741c6 55%,#d13c91);box-shadow:0 0 0 1px #ffffff30,0 30px 80px #4f5fff55;transform:rotate(7deg)}.hero-orb b{font-size:52px;letter-spacing:-.08em}.hero-orb small{font-size:8px;font-weight:900;letter-spacing:.16em}.picker,.game-grid,.social-cta{max-width:1180px;margin:28px auto 0}.social-cta button{width:100%;background:linear-gradient(145deg,#1d2c56,#141e39);border:1px solid #405180;color:#dfe6ff;border-radius:18px;padding:14px 20px;font-weight:700;text-align:left;cursor:pointer}.social-cta button:hover{border-color:#7184ff}.empty{max-width:1180px;margin:28px auto;color:#9faed1}.section-title{display:flex;align-items:end;justify-content:space-between;margin:0 2px 14px}.section-title small{font-size:9px;color:#65dcff;font-weight:900;letter-spacing:.2em}.section-title h2{font-size:24px;margin:4px 0 0}.section-title>b{font-size:11px;padding:8px 12px;border-radius:99px;background:#ffffff0b;border:1px solid #ffffff16}.characters{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}.char{min-width:0;background:linear-gradient(180deg,#13233b,#0b1325);border:1px solid #ffffff14;color:#fff;border-radius:20px;padding:8px;cursor:pointer;transition:.2s}.char:hover{transform:translateY(-3px);border-color:#5bdcff66}.char.active{border-color:#63ddff;box-shadow:0 0 0 2px #63ddff20,0 14px 34px #0ad0ff18}.char-portrait{height:112px;border-radius:14px;display:grid;place-items:center;overflow:hidden;background:radial-gradient(circle,#294c6d,#0a1527 72%)}.char img{width:98px;height:98px;object-fit:contain;display:block;filter:contrast(1.06) saturate(.94)}.char span{display:block;font-size:12px;font-weight:800;margin-top:8px}.game-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.game-card{position:relative;text-align:left;height:300px;border:1px solid #ffffff18;border-radius:28px;background:#0b1324;color:#fff;padding:0;overflow:hidden;cursor:pointer;box-shadow:0 18px 48px #0005;transition:.25s}.game-card:hover{transform:translateY(-5px);border-color:#71dcff66}.game-cover{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:.5s}.game-card:hover .game-cover{transform:scale(1.035)}.game-shade{position:absolute;inset:0;background:linear-gradient(180deg,#02081708 10%,#06101d55 46%,#030813f7 100%)}.game-number{position:absolute;top:17px;right:18px;font-size:10px;font-weight:900;letter-spacing:.15em;padding:7px 9px;border-radius:9px;background:#06101daa;border:1px solid #ffffff20}.game-copy{position:absolute;z-index:2;left:21px;right:21px;bottom:20px}.game-copy>small{font-size:9px;font-weight:900;letter-spacing:.18em;color:#6de5ff}.game-copy h3{margin:5px 0 6px;font-size:25px}.game-copy p{max-width:72%;margin:0 0 11px;color:#bdc9d9;font-size:12px}.game-copy>span{font-size:9px;color:#8799b1}.game-copy>span b{color:#ffe36b}.play-cta{position:absolute;z-index:3;right:18px;bottom:18px;font-size:9px;letter-spacing:.08em;padding:10px 12px;border-radius:11px;background:#147fb0dd;border:1px solid #65dfff55}.game-head{max-width:900px;margin:0 auto 14px;display:flex;align-items:center;gap:16px}.game-head button{background:#141e39;border:1px solid #30416c;color:#fff;border-radius:14px;padding:12px 16px}.game-head div{flex:1}.game-head strong,.game-head span{display:block}.game-head span{font-size:12px;color:#9faed1}.game-head img{width:54px;height:54px;object-fit:contain}.game-frame{max-width:820px;margin:auto}.hud{display:flex;justify-content:space-between;gap:10px;padding:12px 16px;background:#111a31;border:1px solid #2c3a62;border-radius:18px 18px 0 0}.hud span{color:#9eabd0;font-size:13px}.canvas-wrap{background:linear-gradient(145deg,#050711,#101a35);box-shadow:0 25px 80px #0008;padding:12px;border:1px solid #2c3a62;border-top:0;border-radius:0 0 18px 18px}.canvas-wrap canvas{display:block;width:100%;height:auto;max-height:68vh;object-fit:contain;border-radius:10px;touch-action:none;image-rendering:auto}.mobile-controls{display:flex;justify-content:space-between;gap:10px;margin-top:10px}.mobile-controls div{display:flex;gap:8px;flex-wrap:wrap}.mobile-controls button{min-width:58px;min-height:48px;border:1px solid #405180;background:#172341;color:white;border-radius:14px;font-weight:800;touch-action:none}@media(max-width:820px){.arcade-shell{padding:12px 12px 34px}.arcade-hero{min-height:0;padding:34px 20px}.hero-orb{display:none}.characters{display:flex;overflow:auto;padding-bottom:8px}.char{min-width:112px}.game-grid{grid-template-columns:1fr}.game-card{height:265px}.arcade-hero h1{font-size:44px}.game-head{margin-top:8px}}@media(max-width:480px){.game-card{height:230px;border-radius:22px}.game-copy p{display:none}.social-cta button{font-size:11px}}
++.arcade-shell{min-height:100vh;background:radial-gradient(circle at 12% -8%,#193d6c 0,transparent 34%),radial-gradient(circle at 92% 5%,#391b5d 0,transparent 30%),linear-gradient(180deg,#07111f,#050813 60%,#03050b);color:#fff;padding:28px 24px 56px;font-family:Inter,system-ui,sans-serif;overflow-x:hidden}.arcade-hero{position:relative;max-width:1180px;margin:auto;min-height:300px;display:flex;align-items:center;justify-content:space-between;padding:44px 30px;border:1px solid #ffffff16;border-radius:34px;background:linear-gradient(120deg,#0a2038e8,#10152ee8 58%,#25113cd6);overflow:hidden;box-shadow:0 30px 90px #0008}.arcade-hero h1{font-size:clamp(44px,6vw,76px);line-height:.93;letter-spacing:-.055em;margin:12px 0 17px;color:#fff}.arcade-hero h1 em{font-style:normal;background:linear-gradient(90deg,#63e4ff,#ad8aff,#ff77b8);-webkit-background-clip:text;color:transparent}.arcade-hero p{color:#b8c8dc;max-width:610px;font-size:16px;line-height:1.6}.eyebrow{font-size:10px;font-weight:900;letter-spacing:.28em;color:#69ddff}.hero-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px}.hero-chips span{font-size:8px;font-weight:900;letter-spacing:.1em;padding:7px 10px;border:1px solid #ffffff1c;border-radius:99px;background:#ffffff08}.hero-orb{width:170px;height:170px;flex:0 0 170px;border-radius:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(145deg,#1c7dba,#5741c6 55%,#d13c91);box-shadow:0 0 0 1px #ffffff30,0 30px 80px #4f5fff55;transform:rotate(7deg)}.hero-orb b{font-size:52px;letter-spacing:-.08em}.hero-orb small{font-size:8px;font-weight:900;letter-spacing:.16em}.picker,.game-grid,.social-cta{max-width:1180px;margin:28px auto 0}.social-cta button{width:100%;background:linear-gradient(145deg,#1d2c56,#141e39);border:1px solid #405180;color:#dfe6ff;border-radius:18px;padding:14px 20px;font-weight:700;text-align:left;cursor:pointer}.social-cta button:hover{border-color:#7184ff}.empty{max-width:1180px;margin:28px auto;color:#9faed1}.section-title{display:flex;align-items:end;justify-content:space-between;margin:0 2px 14px}.section-title small{font-size:9px;color:#65dcff;font-weight:900;letter-spacing:.2em}.section-title h2{font-size:24px;margin:4px 0 0}.section-title>b{font-size:11px;padding:8px 12px;border-radius:99px;background:#ffffff0b;border:1px solid #ffffff16}.characters{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}.char{min-width:0;background:linear-gradient(180deg,#13233b,#0b1325);border:1px solid #ffffff14;color:#fff;border-radius:20px;padding:8px;cursor:pointer;transition:.2s}.char:hover{transform:translateY(-3px);border-color:#5bdcff66}.char.active{border-color:#63ddff;box-shadow:0 0 0 2px #63ddff20,0 14px 34px #0ad0ff18}.char-portrait{height:112px;border-radius:14px;display:grid;place-items:center;overflow:hidden;background:radial-gradient(circle,#294c6d,#0a1527 72%)}.char img{width:98px;height:98px;object-fit:contain;display:block;filter:contrast(1.06) saturate(.94)}.char span{display:block;font-size:12px;font-weight:800;margin-top:8px}.game-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.game-card{position:relative;text-align:left;height:300px;border:1px solid #ffffff18;border-radius:28px;background:#0b1324;color:#fff;padding:0;overflow:hidden;cursor:pointer;box-shadow:0 18px 48px #0005;transition:.25s}.game-card:hover{transform:translateY(-5px);border-color:#71dcff66}.game-cover{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:.5s}.game-cover-placeholder{background:linear-gradient(145deg,#1c3156,#0b1324)}.game-card:hover .game-cover{transform:scale(1.035)}.game-shade{position:absolute;inset:0;background:linear-gradient(180deg,#02081708 10%,#06101d55 46%,#030813f7 100%)}.game-number{position:absolute;top:17px;right:18px;font-size:10px;font-weight:900;letter-spacing:.15em;padding:7px 9px;border-radius:9px;background:#06101daa;border:1px solid #ffffff20}.game-copy{position:absolute;z-index:2;left:21px;right:21px;bottom:20px}.game-copy>small{font-size:9px;font-weight:900;letter-spacing:.18em;color:#6de5ff}.game-copy h3{margin:5px 0 6px;font-size:25px}.game-copy p{max-width:72%;margin:0 0 11px;color:#bdc9d9;font-size:12px}.game-copy>span{font-size:9px;color:#8799b1}.game-copy>span b{color:#ffe36b}.play-cta{position:absolute;z-index:3;right:18px;bottom:18px;font-size:9px;letter-spacing:.08em;padding:10px 12px;border-radius:11px;background:#147fb0dd;border:1px solid #65dfff55}.game-head{max-width:900px;margin:0 auto 14px;display:flex;align-items:center;gap:16px}.game-head button{background:#141e39;border:1px solid #30416c;color:#fff;border-radius:14px;padding:12px 16px}.game-head div{flex:1}.game-head strong,.game-head span{display:block}.game-head span{font-size:12px;color:#9faed1}.game-head img{width:54px;height:54px;object-fit:contain}.game-frame{max-width:820px;margin:auto}.hud{display:flex;justify-content:space-between;gap:10px;padding:12px 16px;background:#111a31;border:1px solid #2c3a62;border-radius:18px 18px 0 0}.hud span{color:#9eabd0;font-size:13px}.canvas-wrap{background:linear-gradient(145deg,#050711,#101a35);box-shadow:0 25px 80px #0008;padding:12px;border:1px solid #2c3a62;border-top:0;border-radius:0 0 18px 18px}.canvas-wrap canvas{display:block;width:100%;height:auto;max-height:68vh;object-fit:contain;border-radius:10px;touch-action:none;image-rendering:auto}.mobile-controls{display:flex;justify-content:space-between;gap:10px;margin-top:10px}.mobile-controls div{display:flex;gap:8px;flex-wrap:wrap}.mobile-controls button{min-width:58px;min-height:48px;border:1px solid #405180;background:#172341;color:white;border-radius:14px;font-weight:800;touch-action:none}@media(max-width:820px){.arcade-shell{padding:12px 12px 34px}.arcade-hero{min-height:0;padding:34px 20px}.hero-orb{display:none}.characters{display:flex;overflow:auto;padding-bottom:8px}.char{min-width:112px}.game-grid{grid-template-columns:1fr}.game-card{height:265px}.arcade-hero h1{font-size:44px}.game-head{margin-top:8px}}@media(max-width:480px){.game-card{height:230px;border-radius:22px}.game-copy p{display:none}.social-cta button{font-size:11px}}
+ `}</style>}
+diff --git a/lib/arcade.ts b/lib/arcade.ts
+index 06f77d4..782fd21 100644
+--- a/lib/arcade.ts
++++ b/lib/arcade.ts
+@@ -6,8 +6,10 @@
+ 
+ import type { GameVisibility } from "@prisma/client";
+ 
+-// Os 4 jogos fixos do hub (ver GAMES em components/arcade/ArcadeUniverse.tsx)
+-// - mesmos ids usados em ArcadeGameSetting.gameId.
++// Os 4 motores de jogo em si (independente de qual evento/entrada do
++// catálogo os ativa) - usado pelo "Amigos & Salas" (lib/arcade-social.ts),
++// que compara pontuação direto por motor, sem depender do UniverseGame de
++// nenhum evento específico.
+ export const ARCADE_GAME_IDS = ["world", "maze", "blast", "run"] as const;
+ export type ArcadeGameId = (typeof ARCADE_GAME_IDS)[number];
+ 
+@@ -18,6 +20,25 @@ export const ARCADE_GAME_NAMES: Record<ArcadeGameId, string> = {
+   run: "AS City Run",
+ };
+ 
++// Motores de jogo do hub Universo AS já construídos (ver UniverseGame em
++// prisma/schema.prisma) - o painel admin (components/admin/
++// UniverseGameManager.tsx) só deixa escolher um desses pra cada entrada do
++// catálogo, nunca um GameType qualquer (os outros são fases de sorteio
++// normais, sem tela de hub).
++export const UNIVERSE_ENGINES = ["WORLD", "MAZE", "BLAST", "CITYRUN"] as const;
++export type UniverseEngine = (typeof UNIVERSE_ENGINES)[number];
++
++export function isUniverseEngine(value: unknown): value is UniverseEngine {
++  return typeof value === "string" && (UNIVERSE_ENGINES as readonly string[]).includes(value);
++}
++
++export const UNIVERSE_ENGINE_LABEL: Record<UniverseEngine, string> = {
++  WORLD: "Plataforma (AS World Adventure)",
++  MAZE: "Labirinto (AS Neon Maze)",
++  BLAST: "Bombas (AS Blast Arena)",
++  CITYRUN: "Corrida na cidade (AS City Run)",
++};
++
+ /**
+  * Mesma regra de Game.visibility (ver games/phases/[phaseId]/complete/route.ts):
+  * LIVE é aberto pra todo mundo; DRAFT/TESTING só pra admin ou quem está na
+diff --git a/prisma/migrations/20261001090000_universe_games/migration.sql b/prisma/migrations/20261001090000_universe_games/migration.sql
+new file mode 100644
+index 0000000..40c896c
+--- /dev/null
++++ b/prisma/migrations/20261001090000_universe_games/migration.sql
+@@ -0,0 +1,49 @@
++-- Catálogo do hub "Universo AS" (/e/[slug]/arcade) por evento - 2 tabelas
++-- novas e aditivas, nenhuma tabela existente é alterada. GameType e
++-- GameVisibility já existem (reaproveitados aqui).
++
++-- CreateTable
++CREATE TABLE "UniverseGame" (
++    "id" TEXT NOT NULL,
++    "eventId" TEXT NOT NULL,
++    "engine" "GameType" NOT NULL,
++    "slug" TEXT NOT NULL,
++    "title" TEXT NOT NULL,
++    "description" TEXT NOT NULL DEFAULT '',
++    "tag" TEXT NOT NULL DEFAULT '',
++    "coverImageUrl" TEXT,
++    "order" INTEGER NOT NULL DEFAULT 0,
++    "visibility" "GameVisibility" NOT NULL DEFAULT 'DRAFT',
++    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
++    "updatedAt" TIMESTAMP(3) NOT NULL,
++
++    CONSTRAINT "UniverseGame_pkey" PRIMARY KEY ("id")
++);
++
++-- CreateTable
++CREATE TABLE "UniverseCharacter" (
++    "id" TEXT NOT NULL,
++    "eventId" TEXT NOT NULL,
++    "name" TEXT NOT NULL,
++    "imageUrl" TEXT,
++    "order" INTEGER NOT NULL DEFAULT 0,
++    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
++    "updatedAt" TIMESTAMP(3) NOT NULL,
++
++    CONSTRAINT "UniverseCharacter_pkey" PRIMARY KEY ("id")
++);
++
++-- CreateIndex
++CREATE UNIQUE INDEX "UniverseGame_slug_key" ON "UniverseGame"("slug");
++
++-- CreateIndex
++CREATE INDEX "UniverseGame_eventId_idx" ON "UniverseGame"("eventId");
++
++-- CreateIndex
++CREATE INDEX "UniverseCharacter_eventId_idx" ON "UniverseCharacter"("eventId");
++
++-- AddForeignKey
++ALTER TABLE "UniverseGame" ADD CONSTRAINT "UniverseGame_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "Event"("id") ON DELETE CASCADE ON UPDATE CASCADE;
++
++-- AddForeignKey
++ALTER TABLE "UniverseCharacter" ADD CONSTRAINT "UniverseCharacter_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "Event"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+diff --git a/prisma/schema.prisma b/prisma/schema.prisma
+index af476a1..3e6fd7e 100644
+--- a/prisma/schema.prisma
++++ b/prisma/schema.prisma
+@@ -181,6 +181,8 @@ model Event {
+   participantNotices   ParticipantNotice[]
+   unlockCards          GameCard[] @relation("EventUnlockCards")
+   games                Game[]
++  universeGames        UniverseGame[]
++  universeCharacters   UniverseCharacter[]
+ 
+   @@index([active])
+   @@index([archived])
+@@ -902,12 +904,62 @@ model BlastArenaProgress {
+ // é testador de um jogo TESTING também vê um jogo do arcade em TESTING/DRAFT.
+ // Sem linha pra um gameId = tratado como LIVE (aberto pra todo mundo), igual
+ // o comportamento de antes dessa feature existir.
++// Substituído por UniverseGame (abaixo) em 01/10 - o hub do arcade deixou
++// de ser global/fixo e virou um catálogo por evento. Tabela mantida sem uso
++// (nenhuma migration destrutiva) pra não mexer em dado existente à toa.
+ model ArcadeGameSetting {
+   gameId     String         @id
+   visibility GameVisibility @default(LIVE)
+   updatedAt  DateTime       @updatedAt
+ }
+ 
++// Catálogo de jogos do hub "Universo AS" (/e/[slug]/arcade) por evento -
++// pedido do Paulo em 01/10 pra poder gerenciar isso num painel (capa,
++// título, descrição, visibilidade), igual já faz na aba Jogos, em vez de
++// ficar fixo no código (era hardcoded em ArcadeUniverse.tsx). `engine` é
++// qual dos 4 motores de jogo já construídos (WORLD/MAZE/BLAST/CITYRUN, os
++// mesmos tipos de GamePhase.type) essa entrada usa - o painel ativa e
++// personaliza um motor existente, não cria um jogo novo do zero (isso
++// ainda depende de eu construir o motor). Validado na API, não no banco.
++model UniverseGame {
++  id      String @id @default(cuid())
++  eventId String
++  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
++
++  engine        GameType
++  slug          String         @unique
++  title         String
++  description   String         @default("")
++  tag           String         @default("")
++  coverImageUrl String?
++  order         Int            @default(0)
++  visibility    GameVisibility @default(DRAFT)
++
++  createdAt DateTime @default(now())
++  updatedAt DateTime @updatedAt
++
++  @@index([eventId])
++}
++
++// Elenco de personagens-avatar do hub do Universo AS, por evento - separado
++// de propósito do model Character (personagem-recompensa por Experience,
++// ganho jogando): esse aqui é só visual, pra escolher com quem jogar no
++// arcade, sem nenhuma lógica de desbloqueio por trás.
++model UniverseCharacter {
++  id      String @id @default(cuid())
++  eventId String
++  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
++
++  name     String
++  imageUrl String?
++  order    Int     @default(0)
++
++  createdAt DateTime @default(now())
++  updatedAt DateTime @updatedAt
++
++  @@index([eventId])
++}
++
+ // Só a primeira tentativa pontua (firstScore) pro ranking/XP - joga de
+ // novo "por diversão" depois não altera nada, mesmo padrão já usado em
+ // Participant/Mission pra impedir a pessoa de inflar a própria pontuação.

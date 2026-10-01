@@ -4,6 +4,7 @@ const TABS = [
   { key: "jogos", href: "/admin/jogos", label: "Jogos" },
   { key: "cards", href: "/admin/jogos/cards", label: "Álbum de figurinhas" },
     { key: "testadores", href: "/admin/jogos/testadores", label: "Testadores" },
+  { key: "arcade", href: "/admin/jogos/arcade", label: "🕹️ Universo AS (arcade)" },
   { key: "ranking", href: "/admin/jogos/ranking", label: "🏆 Ranking" },
 ] as const;
 
