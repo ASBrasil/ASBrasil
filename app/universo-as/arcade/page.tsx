@@ -10,17 +10,19 @@ export const metadata = { title: "AS Game Universe" };
 export const dynamic = "force-dynamic";
 
 /**
- * Desde 01/10 o hub do Universo AS é por evento (/e/[slug]/arcade, ver
- * UniverseGame/UniverseCharacter em prisma/schema.prisma) - esse endereço
- * global virou só uma porta de entrada: manda direto pro evento certo
- * quando só tem um com jogo visível, ou mostra uma lista pra escolher.
+ * Desde 01/10 o hub do Universo AS é por EXPERIÊNCIA (ajustado nesse mesmo
+ * dia - era por evento individual, ver git history), em
+ * /eventos/[slug]/arcade (ver UniverseGame/UniverseCharacter em
+ * prisma/schema.prisma) - esse endereço global virou só uma porta de
+ * entrada: manda direto pra experiência certa quando só tem uma com jogo
+ * visível, ou mostra uma lista pra escolher.
  */
 export default async function ArcadeEntryPage() {
-  const [email, adminId, events] = await Promise.all([
+  const [email, adminId, experiences] = await Promise.all([
     getParticipantEmail(),
     getSessionAdminId(),
-    db.event.findMany({
-      where: { active: true, archived: false, universeGames: { some: {} } },
+    db.experience.findMany({
+      where: { active: true, universeGames: { some: {} } },
       orderBy: [{ order: "asc" }, { createdAt: "desc" }],
       include: { universeGames: true },
     }),
@@ -29,12 +31,12 @@ export default async function ArcadeEntryPage() {
   const isAdmin = Boolean(adminId);
   const isTester = email ? Boolean(await db.gameTester.findUnique({ where: { email } })) : false;
 
-  const eventsWithVisibleGames = events.filter((ev) =>
-    ev.universeGames.some((g) => canViewArcadeGame(g.visibility, isAdmin, isTester))
+  const experiencesWithVisibleGames = experiences.filter((ex) =>
+    ex.universeGames.some((g) => canViewArcadeGame(g.visibility, isAdmin, isTester))
   );
 
-  if (eventsWithVisibleGames.length === 1) {
-    redirect(`/e/${eventsWithVisibleGames[0].slug}/arcade`);
+  if (experiencesWithVisibleGames.length === 1) {
+    redirect(`/eventos/${experiencesWithVisibleGames[0].slug}/arcade`);
   }
 
   return (
@@ -45,17 +47,17 @@ export default async function ArcadeEntryPage() {
           <span className="as-eyebrow">AS Brasil • Game Universe</span>
           <h1 className="as-title">Escolha seu mundo</h1>
           <p className="as-subtitle">
-            Cada evento tem seu próprio arcade, com jogos e personagens diferentes.
+            Cada experiência tem seu próprio arcade, com jogos e personagens diferentes.
           </p>
         </div>
 
-        {eventsWithVisibleGames.length === 0 ? (
+        {experiencesWithVisibleGames.length === 0 ? (
           <p className="empty">Nenhum arcade disponível por aqui no momento. Volte em breve!</p>
         ) : (
           <div className="grid">
-            {eventsWithVisibleGames.map((ev) => (
-              <Link key={ev.id} href={`/e/${ev.slug}/arcade`} className="as-card as-card-hover card">
-                <p className="name">{ev.name}</p>
+            {experiencesWithVisibleGames.map((ex) => (
+              <Link key={ex.id} href={`/eventos/${ex.slug}/arcade`} className="as-card as-card-hover card">
+                <p className="name">{ex.name}</p>
                 <span className="cta">Jogar →</span>
               </Link>
             ))}

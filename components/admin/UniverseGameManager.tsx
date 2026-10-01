@@ -10,8 +10,8 @@ type Visibility = "DRAFT" | "TESTING" | "LIVE";
 
 interface UniverseGameRow {
   id: string;
-  eventId: string;
-  eventName: string;
+  experienceId: string;
+  experienceName: string;
   engine: Engine;
   slug: string;
   title: string;
@@ -50,7 +50,7 @@ function slugify(text: string) {
 }
 
 const EMPTY_FORM = {
-  eventId: "",
+  experienceId: "",
   engine: "WORLD" as Engine,
   title: "",
   slug: "",
@@ -62,7 +62,7 @@ const EMPTY_FORM = {
 
 function formFromGame(game: UniverseGameRow) {
   return {
-    eventId: game.eventId,
+    experienceId: game.experienceId,
     engine: game.engine,
     title: game.title,
     slug: game.slug,
@@ -74,17 +74,17 @@ function formFromGame(game: UniverseGameRow) {
 }
 
 /**
- * Catálogo do hub Universo AS (/e/[slug]/arcade) por evento - molde direto
- * de GameManager.tsx, mas cada entrada é um "motor" existente (WORLD/MAZE/
- * BLAST/CITYRUN) recebendo capa, título, descrição e evento próprios, em
- * vez de um jogo novo de verdade.
+ * Catálogo do hub Universo AS (/eventos/[slug]/arcade) por experiência -
+ * molde direto de GameManager.tsx, mas cada entrada é um "motor" existente
+ * (WORLD/MAZE/BLAST/CITYRUN) recebendo capa, título, descrição e
+ * experiência próprios, em vez de um jogo novo de verdade.
  */
 export function UniverseGameManager({
   games: initialGames,
-  events,
+  experiences,
 }: {
   games: UniverseGameRow[];
-  events: { id: string; name: string }[];
+  experiences: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [games, setGames] = useState(initialGames);
@@ -101,8 +101,8 @@ export function UniverseGameManager({
         setGames(
           (d.games ?? []).map((g: any) => ({
             id: g.id,
-            eventId: g.eventId,
-            eventName: g.event?.name ?? "",
+            experienceId: g.experienceId,
+            experienceName: g.experience?.name ?? "",
             engine: g.engine,
             slug: g.slug,
             title: g.title,
@@ -140,7 +140,7 @@ export function UniverseGameManager({
         {!creating && <Button onClick={() => setCreating(true)}>+ Novo jogo no catálogo</Button>}
       </div>
       <p className="hint">
-        Cada entrada ativa um dos 4 motores de jogo já construídos pra um evento específico, com
+        Cada entrada ativa um dos 4 motores de jogo já construídos pra uma experiência específica, com
         capa, título e descrição próprios. Pra pedir um motor novo (mecânica diferente), isso ainda
         precisa ser construído à parte.
       </p>
@@ -149,8 +149,8 @@ export function UniverseGameManager({
       {creating && (
         <div className="as-card form">
           <GameFormFields
-            initial={{ ...EMPTY_FORM, eventId: events[0]?.id ?? "" }}
-            events={events}
+            initial={{ ...EMPTY_FORM, experienceId: experiences[0]?.id ?? "" }}
+            experiences={experiences}
             onCancel={() => setCreating(false)}
             onSave={async (form) => {
               const res = await fetch("/api/admin/universe-games", {
@@ -177,7 +177,7 @@ export function UniverseGameManager({
             {editingId === game.id ? (
               <GameFormFields
                 initial={formFromGame(game)}
-                events={events}
+                experiences={experiences}
                 onCancel={() => setEditingId(null)}
                 onSave={async (form) => {
                   const res = await fetch(`/api/admin/universe-games/${game.id}`, {
@@ -210,7 +210,7 @@ export function UniverseGameManager({
                     <span className="as-badge">{ENGINE_LABEL[game.engine]}</span>
                   </div>
                   <p className="name">{game.title}</p>
-                  <p className="meta">{game.eventName}</p>
+                  <p className="meta">{game.experienceName}</p>
                 </div>
                 <div className="actions">
                   <select
@@ -359,13 +359,13 @@ export function UniverseGameManager({
 
 function GameFormFields({
   initial,
-  events,
+  experiences,
   onSave,
   onCancel,
   saveLabel,
 }: {
   initial: typeof EMPTY_FORM;
-  events: { id: string; name: string }[];
+  experiences: { id: string; name: string }[];
   onSave: (form: typeof EMPTY_FORM) => Promise<void>;
   onCancel: () => void;
   saveLabel: string;
@@ -374,20 +374,20 @@ function GameFormFields({
   const [slugTouched, setSlugTouched] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const canSave = Boolean(form.eventId && form.title.trim() && form.slug.trim());
+  const canSave = Boolean(form.experienceId && form.title.trim() && form.slug.trim());
 
   return (
     <div>
-      <Field label="Evento" required hint="Esse jogo só aparece no hub desse evento.">
+      <Field label="Experiência" required hint="Esse jogo só aparece no arcade dessa experiência.">
         <select
           className="as-select"
-          value={form.eventId}
-          onChange={(e) => setForm({ ...form, eventId: e.target.value })}
+          value={form.experienceId}
+          onChange={(e) => setForm({ ...form, experienceId: e.target.value })}
         >
-          {events.length === 0 && <option value="">Nenhum evento cadastrado</option>}
-          {events.map((ev) => (
-            <option key={ev.id} value={ev.id}>
-              {ev.name}
+          {experiences.length === 0 && <option value="">Nenhuma experiência cadastrada</option>}
+          {experiences.map((ex) => (
+            <option key={ex.id} value={ex.id}>
+              {ex.name}
             </option>
           ))}
         </select>

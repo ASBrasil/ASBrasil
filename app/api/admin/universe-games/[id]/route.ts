@@ -33,10 +33,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
     data.engine = body.engine;
   }
-  if (body.eventId !== undefined) {
-    const event = await db.event.findUnique({ where: { id: body.eventId } });
-    if (!event) return NextResponse.json({ error: "Evento não encontrado" }, { status: 404 });
-    data.eventId = body.eventId;
+  if (body.experienceId !== undefined) {
+    const experience = await db.experience.findUnique({ where: { id: body.experienceId } });
+    if (!experience) return NextResponse.json({ error: "Experiência não encontrada" }, { status: 404 });
+    data.experienceId = body.experienceId;
   }
   if (body.description !== undefined) data.description = body.description ?? "";
   if (body.tag !== undefined) data.tag = body.tag ?? "";

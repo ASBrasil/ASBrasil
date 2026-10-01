@@ -6,8 +6,8 @@ import { isUniverseEngine } from "@/lib/arcade";
 export async function GET() {
   await requireAdmin();
   const games = await db.universeGame.findMany({
-    include: { event: { select: { name: true, slug: true } } },
-    orderBy: [{ eventId: "asc" }, { order: "asc" }, { createdAt: "desc" }],
+    include: { experience: { select: { name: true, slug: true } } },
+    orderBy: [{ experienceId: "asc" }, { order: "asc" }, { createdAt: "desc" }],
   });
   return NextResponse.json({ games });
 }
@@ -16,10 +16,10 @@ export async function POST(req: NextRequest) {
   await requireAdmin();
   const body = await req.json().catch(() => ({}));
 
-  const { eventId, slug, title, engine } = body;
-  if (!eventId || !slug || !title || !engine) {
+  const { experienceId, slug, title, engine } = body;
+  if (!experienceId || !slug || !title || !engine) {
     return NextResponse.json(
-      { error: "eventId, slug, title e engine são obrigatórios" },
+      { error: "experienceId, slug, title e engine são obrigatórios" },
       { status: 400 }
     );
   }
@@ -27,9 +27,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "engine inválido" }, { status: 400 });
   }
 
-  const event = await db.event.findUnique({ where: { id: eventId } });
-  if (!event) {
-    return NextResponse.json({ error: "Evento não encontrado" }, { status: 404 });
+  const experience = await db.experience.findUnique({ where: { id: experienceId } });
+  if (!experience) {
+    return NextResponse.json({ error: "Experiência não encontrada" }, { status: 404 });
   }
 
   const slugTaken = await db.universeGame.findUnique({ where: { slug } });
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   // pra Teste/Ao vivo.
   const game = await db.universeGame.create({
     data: {
-      eventId,
+      experienceId,
       engine,
       slug,
       title,

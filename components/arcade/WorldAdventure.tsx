@@ -12,11 +12,12 @@
 // desenhar a fase de cada uma.
 //
 // Inimigos (caranguejo/morcego/arara) e o chefão usam sprites reais (pacote
-// "curado" com fundo isolado de verdade - ver claude/pendencias-sorteios.md)
-// - só existe o estado "idle" por enquanto, walk/hit/defeat ficam pendentes
-// de produção. Plataforma, moedas, checkpoint e corações ainda são formas
-// desenhadas no canvas (nenhum pacote aprovado pra eles ainda). Os
-// personagens (7) e o cenário/tileset do Rio usam os assets reais.
+// "curado" com fundo isolado de verdade - ver claude/pendencias-sorteios.md),
+// já com walk/hit/defeat (lote 2). Plataforma, moedas, checkpoint e
+// corações ainda são formas desenhadas no canvas - o lote 2 trouxe essas
+// peças também, mas num estilo flat que não bateu com a prévia aprovada
+// (ver pendências), então ficaram de fora até vir uma versão consistente.
+// Os personagens (7) e o cenário/tileset do Rio usam os assets reais.
 
 import { useEffect, useRef, useState } from "react";
 
@@ -136,7 +137,7 @@ const RIO_LEVEL = {
   bossX: 3150,
 };
 
-type EntityState = { x: number; y: number; d: 1 | -1; baseX: number; range: number; alive: boolean; hitCooldown: number; variant: number };
+type EntityState = { x: number; y: number; d: 1 | -1; baseX: number; range: number; alive: boolean; hitCooldown: number; variant: number; dying: number };
 
 function WorldAdventureGame({ character, city, onExit, onCleared }: { character: Character; city: CityId; onExit: () => void; onCleared: (result: { coins: number; elapsedMs: number; cleared: boolean }) => void }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -168,22 +169,31 @@ function WorldAdventureGame({ character, city, onExit, onCleared }: { character:
     const idleFrames = animFrames(character.id, "idle", 2);
     const slideFrames = animFrames(character.id, "slide", 2);
     const hitFrames = animFrames(character.id, "hit", 2);
-    // e.variant (0/1/2, ver criação de `enemies` abaixo) indexa este array:
-    // 0 = caranguejo, 1 = morcego, 2 = arara. Araras só têm 1 frame curado.
-    const enemySpriteSets = [
-      loadFrameSet("/game-universe/world-adventure/rio/enemies/1", "idle", 2),
-      loadFrameSet("/game-universe/world-adventure/rio/enemies/2", "idle", 2),
-      loadFrameSet("/game-universe/world-adventure/rio/enemies/3", "idle", 1),
+    // e.variant (0/1/2, ver criação de `enemies` abaixo) indexa estes arrays:
+    // 0 = caranguejo, 1 = morcego, 2 = arara. "walk" anima a patrulha; "hit"
+    // e "defeat" tocam na sequência quando o inimigo é pisoteado (ver
+    // `e.dying` no loop de update/desenho mais abaixo).
+    const enemyWalkSets = [1, 2, 3].map((n) => loadFrameSet(`/game-universe/world-adventure/rio/enemies/${n}`, "walk", 2));
+    const enemyHitSets = [1, 2, 3].map((n) => loadFrameSet(`/game-universe/world-adventure/rio/enemies/${n}`, "hit", 1));
+    const enemyDefeatSets = [1, 2, 3].map((n) => loadFrameSet(`/game-universe/world-adventure/rio/enemies/${n}`, "defeat", 2));
+    // Chefão não patrulha (fica parado esperando o jogador) - "idle"+"walk"
+    // juntos viram um ciclo de 4 frames só pra dar uma respirada/balanço
+    // (em vez de ficar estático). "hit" toca durante a invencibilidade pós-
+    // dano, "defeat" toca na animação de derrota antes da fase acabar.
+    const bossIdleCycle = [
+      ...loadFrameSet("/game-universe/world-adventure/rio/boss", "idle", 2),
+      ...loadFrameSet("/game-universe/world-adventure/rio/boss", "walk", 2),
     ];
-    const bossSpriteFrames = loadFrameSet("/game-universe/world-adventure/rio/boss", "idle", 2);
+    const bossHitFrames = loadFrameSet("/game-universe/world-adventure/rio/boss", "hit", 2);
+    const bossDefeatFrames = loadFrameSet("/game-universe/world-adventure/rio/boss", "defeat", 3);
 
     let px = 70, py = 300, vx = 0, vy = 0, cam = 0;
     let coins = 0, lives = 3, invuln = 0, sliding = 0;
     let checkpointX = 70, elapsedMs = 0, started = performance.now();
-    let bossHp = 5, bossDefeated = false, bossInvuln = 0; // era 3 - chefão mais resistente
+    let bossHp = 5, bossDefeated = false, bossInvuln = 0, bossDefeatTimer = 0; // era 3 - chefão mais resistente
     const bossX = level.bossX, bossY = level.ground - 70;
 
-    const enemies: EntityState[] = level.enemies.map((e, i) => ({ x: e.x, y: e.y, d: 1, baseX: e.x, range: e.range, alive: true, hitCooldown: 0, variant: i % 3 }));
+    const enemies: EntityState[] = level.enemies.map((e, i) => ({ x: e.x, y: e.y, d: 1, baseX: e.x, range: e.range, alive: true, hitCooldown: 0, variant: i % 3, dying: 0 }));
     const coinsLeft = level.coins.map((c) => ({ ...c, taken: false }));
     const heartsLeft = level.hearts.map((h) => ({ ...h, taken: false }));
 
@@ -229,12 +239,14 @@ function WorldAdventureGame({ character, city, onExit, onCleared }: { character:
       for (const h of heartsLeft) if (!h.taken && Math.hypot(px - h.x, py - h.y) < 40) { h.taken = true; lives = Math.min(5, lives + 1); }
 
       for (const e of enemies) {
-        if (!e.alive) continue;
+        if (!e.alive) { if (e.dying > 0) e.dying -= now - last + 16; continue; }
         e.x += e.d * 0.85 * dt; // era 0.6 - patrulha mais rápida
         if (e.x > e.baseX + e.range || e.x < e.baseX - e.range) e.d = e.d === 1 ? -1 : 1;
         if (e.hitCooldown > 0) e.hitCooldown -= now - last + 16;
         const dx = Math.abs(px - e.x), dy = py - e.y;
-        if (dx < 32 && dy < 6 && dy > -34 && vy > 0) { e.alive = false; vy = -7.5; coins += 2; sfx("pickup"); }
+        // dying: tempo que o sprite ainda fica na tela tocando hit->defeat
+        // antes de sumir de vez (650ms - ver desenho mais abaixo).
+        if (dx < 32 && dy < 6 && dy > -34 && vy > 0) { e.alive = false; e.dying = 650; vy = -7.5; coins += 2; sfx("pickup"); }
         else if (dx < 30 && Math.abs(dy) < 36) damage();
       }
       if (ended) return; // damage() acabou de reportar derrota - para aqui, sem agendar novo frame
@@ -244,9 +256,10 @@ function WorldAdventureGame({ character, city, onExit, onCleared }: { character:
       if (bossActive) {
         const dx = Math.abs(px - bossX), dy = py - bossY;
         if (dx < 46 && dy < 10 && dy > -60 && vy > 0) {
-          if (bossInvuln <= 0) { bossHp--; bossInvuln = 700; vy = -8; if (bossHp <= 0) { bossDefeated = true; sfx("pickup"); } }
+          if (bossInvuln <= 0) { bossHp--; bossInvuln = 700; vy = -8; if (bossHp <= 0) { bossDefeated = true; bossDefeatTimer = 900; sfx("pickup"); } }
         } else if (dx < 40 && Math.abs(dy) < 50) damage();
       }
+      if (bossDefeatTimer > 0) bossDefeatTimer -= now - last + 16;
       if (bossDefeated && px > bossX + 40) { ended = true; onCleared({ coins, elapsedMs, cleared: true }); return; }
 
       setHud({ coins, lives, elapsedMs, bossHp, bossVisible: bossActive && !bossDefeated, progress: Math.min(100, Math.round((px / level.length) * 100)) });
@@ -295,13 +308,16 @@ function WorldAdventureGame({ character, city, onExit, onCleared }: { character:
       }
       for (const c of coinsLeft) if (!c.taken) { const sx = c.x - cam; if (sx < -20 || sx > W + 20) continue; ctx.fillStyle = "#ffd52a"; ctx.beginPath(); ctx.arc(sx, c.y, 10, 0, 7); ctx.fill(); ctx.strokeStyle = "#fff4a0"; ctx.stroke(); }
       for (const h of heartsLeft) if (!h.taken) { const sx = h.x - cam; if (sx < -20 || sx > W + 20) continue; ctx.fillStyle = "#ff5b8a"; ctx.font = "20px sans-serif"; ctx.fillText("❤", sx - 9, h.y + 7); }
-      for (const e of enemies) if (e.alive) {
+      for (const e of enemies) if (e.alive || e.dying > 0) {
         const sx = e.x - cam; if (sx < -40 || sx > W + 40) continue;
         const bob = Math.sin(now / 190 + e.baseX) * 2;
-        const frames = enemySpriteSets[e.variant];
-        const im = frames[Math.floor(now / 260) % frames.length];
+        // Vivo = caminhando (walk). Morto = hit (instante do pisão) depois
+        // defeat (resto do tempo de `dying`), sumindo com fade.
+        const frames = e.alive ? enemyWalkSets[e.variant] : e.dying > 420 ? enemyHitSets[e.variant] : enemyDefeatSets[e.variant];
+        const im = frames[Math.floor(now / 220) % frames.length];
         const ew = 58, eh = 58, ey = e.y + bob - 42;
         ctx.save();
+        ctx.globalAlpha = e.alive ? 1 : Math.max(0, e.dying / 650);
         ctx.shadowColor = "rgba(0,0,0,.28)"; ctx.shadowBlur = 8; ctx.shadowOffsetY = 5;
         if (im?.complete) {
           if (e.d === -1) { ctx.translate(sx, 0); ctx.scale(-1, 1); ctx.drawImage(im, -ew / 2, ey, ew, eh); }
@@ -309,19 +325,26 @@ function WorldAdventureGame({ character, city, onExit, onCleared }: { character:
         }
         ctx.restore();
       }
-      if (bossActive) {
+      if (bossActive || bossDefeatTimer > 0) {
         const sx = bossX - cam;
-        const flash = bossInvuln > 0;
-        const bossIm = bossSpriteFrames[Math.floor(now / 260) % bossSpriteFrames.length];
+        const flash = bossInvuln > 0 && !bossDefeated;
+        // Parado = ciclo idle+walk (respirando). Tomando dano = hit. Depois
+        // de zerar a vida = defeat, tocando até `bossDefeatTimer` acabar
+        // (ou a fase encerrar, o que vier primeiro - ver update acima).
+        const bossFrames = bossDefeated ? bossDefeatFrames : flash ? bossHitFrames : bossIdleCycle;
+        const bossIm = bossFrames[Math.floor(now / 220) % bossFrames.length];
         const bw = 150, bh = 150, by = bossY - bh + 60;
         ctx.save();
+        ctx.globalAlpha = bossDefeated ? Math.max(0, bossDefeatTimer / 900) : 1;
         ctx.shadowColor = flash ? "#fff" : "#b96cff"; ctx.shadowBlur = flash ? 30 : 18;
-        ctx.filter = flash ? "brightness(2.6) saturate(0)" : "none";
+        ctx.filter = flash ? "brightness(1.6)" : "none";
         if (bossIm?.complete) ctx.drawImage(bossIm, sx - bw / 2, by, bw, bh);
         ctx.filter = "none";
         ctx.restore();
-        ctx.fillStyle = "#fff"; ctx.font = "800 13px sans-serif"; ctx.textAlign = "center";
-        ctx.shadowColor = "#000"; ctx.shadowBlur = 6; ctx.fillText(meta.bossName, sx, by - 10); ctx.shadowBlur = 0; ctx.textAlign = "left";
+        if (!bossDefeated) {
+          ctx.fillStyle = "#fff"; ctx.font = "800 13px sans-serif"; ctx.textAlign = "center";
+          ctx.shadowColor = "#000"; ctx.shadowBlur = 6; ctx.fillText(meta.bossName, sx, by - 10); ctx.shadowBlur = 0; ctx.textAlign = "left";
+        }
       }
       const state = invuln > 0 ? hitFrames : sliding > 0 ? slideFrames : vy !== 0 ? jumpFrames : vx !== 0 ? runFrames : idleFrames;
       ctx.globalAlpha = invuln > 0 ? (Math.floor(now / 90) % 2 ? 0.4 : 1) : 1;

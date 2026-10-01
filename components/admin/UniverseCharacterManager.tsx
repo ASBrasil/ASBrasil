@@ -7,30 +7,31 @@ import { ImageUpload } from "@/components/admin/ImageUpload";
 
 interface UniverseCharacterRow {
   id: string;
-  eventId: string;
-  eventName: string;
+  experienceId: string;
+  experienceName: string;
   name: string;
   imageUrl: string | null;
   order: number;
 }
 
-const EMPTY_FORM = { eventId: "", name: "", imageUrl: null as string | null, order: 0 };
+const EMPTY_FORM = { experienceId: "", name: "", imageUrl: null as string | null, order: 0 };
 
 function formFromCharacter(c: UniverseCharacterRow) {
-  return { eventId: c.eventId, name: c.name, imageUrl: c.imageUrl, order: c.order };
+  return { experienceId: c.experienceId, name: c.name, imageUrl: c.imageUrl, order: c.order };
 }
 
 /**
- * Avatares pickáveis do hub Universo AS (/e/[slug]/arcade), por evento - só
- * nome + imagem, sem nenhuma lógica de desbloqueio. Separado de propósito
- * do sistema de Personagens-recompensa (ExperienceCharactersManager.tsx).
+ * Avatares pickáveis do hub Universo AS (/eventos/[slug]/arcade), por
+ * experiência - só nome + imagem, sem nenhuma lógica de desbloqueio.
+ * Separado de propósito do sistema de Personagens-recompensa
+ * (ExperienceCharactersManager.tsx).
  */
 export function UniverseCharacterManager({
   characters: initialCharacters,
-  events,
+  experiences,
 }: {
   characters: UniverseCharacterRow[];
-  events: { id: string; name: string }[];
+  experiences: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [characters, setCharacters] = useState(initialCharacters);
@@ -46,8 +47,8 @@ export function UniverseCharacterManager({
         setCharacters(
           (d.characters ?? []).map((c: any) => ({
             id: c.id,
-            eventId: c.eventId,
-            eventName: c.event?.name ?? "",
+            experienceId: c.experienceId,
+            experienceName: c.experience?.name ?? "",
             name: c.name,
             imageUrl: c.imageUrl,
             order: c.order,
@@ -63,16 +64,16 @@ export function UniverseCharacterManager({
         {!creating && <Button onClick={() => setCreating(true)}>+ Novo personagem</Button>}
       </div>
       <p className="hint">
-        Elenco de avatares escolhíveis no hub do arcade, por evento - puramente visual, sem relação
-        com o sistema de Personagens-prêmio das Experiências.
+        Elenco de avatares escolhíveis no hub do arcade, por experiência - puramente visual, sem
+        relação com o sistema de Personagens-prêmio das Experiências.
       </p>
       {error && <p className="error">{error}</p>}
 
       {creating && (
         <div className="as-card form">
           <CharacterFormFields
-            initial={{ ...EMPTY_FORM, eventId: events[0]?.id ?? "" }}
-            events={events}
+            initial={{ ...EMPTY_FORM, experienceId: experiences[0]?.id ?? "" }}
+            experiences={experiences}
             onCancel={() => setCreating(false)}
             onSave={async (form) => {
               const res = await fetch("/api/admin/universe-characters", {
@@ -99,7 +100,7 @@ export function UniverseCharacterManager({
             {editingId === character.id ? (
               <CharacterFormFields
                 initial={formFromCharacter(character)}
-                events={events}
+                experiences={experiences}
                 onCancel={() => setEditingId(null)}
                 onSave={async (form) => {
                   const res = await fetch(`/api/admin/universe-characters/${character.id}`, {
@@ -125,7 +126,7 @@ export function UniverseCharacterManager({
                   <div className="thumb placeholder">🧸</div>
                 )}
                 <p className="name">{character.name}</p>
-                <span className="event-name">{character.eventName}</span>
+                <span className="event-name">{character.experienceName}</span>
                 <div className="actions">
                   <button type="button" className="edit-btn" onClick={() => setEditingId(character.id)}>
                     ✏️ Editar
@@ -251,13 +252,13 @@ export function UniverseCharacterManager({
 
 function CharacterFormFields({
   initial,
-  events,
+  experiences,
   onSave,
   onCancel,
   saveLabel,
 }: {
   initial: typeof EMPTY_FORM;
-  events: { id: string; name: string }[];
+  experiences: { id: string; name: string }[];
   onSave: (form: typeof EMPTY_FORM) => Promise<void>;
   onCancel: () => void;
   saveLabel: string;
@@ -265,20 +266,20 @@ function CharacterFormFields({
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
 
-  const canSave = Boolean(form.eventId && form.name.trim());
+  const canSave = Boolean(form.experienceId && form.name.trim());
 
   return (
     <div>
-      <Field label="Evento" required>
+      <Field label="Experiência" required>
         <select
           className="as-select"
-          value={form.eventId}
-          onChange={(e) => setForm({ ...form, eventId: e.target.value })}
+          value={form.experienceId}
+          onChange={(e) => setForm({ ...form, experienceId: e.target.value })}
         >
-          {events.length === 0 && <option value="">Nenhum evento cadastrado</option>}
-          {events.map((ev) => (
-            <option key={ev.id} value={ev.id}>
-              {ev.name}
+          {experiences.length === 0 && <option value="">Nenhuma experiência cadastrada</option>}
+          {experiences.map((ex) => (
+            <option key={ex.id} value={ex.id}>
+              {ex.name}
             </option>
           ))}
         </select>

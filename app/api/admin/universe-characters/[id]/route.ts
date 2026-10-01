@@ -10,10 +10,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.name !== undefined) data.name = body.name;
   if (body.imageUrl !== undefined) data.imageUrl = body.imageUrl || null;
   if (body.order !== undefined && Number.isFinite(body.order)) data.order = body.order;
-  if (body.eventId !== undefined) {
-    const event = await db.event.findUnique({ where: { id: body.eventId } });
-    if (!event) return NextResponse.json({ error: "Evento não encontrado" }, { status: 404 });
-    data.eventId = body.eventId;
+  if (body.experienceId !== undefined) {
+    const experience = await db.experience.findUnique({ where: { id: body.experienceId } });
+    if (!experience) return NextResponse.json({ error: "Experiência não encontrada" }, { status: 404 });
+    data.experienceId = body.experienceId;
   }
 
   const character = await db.universeCharacter.update({ where: { id: params.id }, data });

@@ -81,6 +81,12 @@ model Experience {
 
   events      Event[]
   characters  Character[]
+  // Universo AS (/eventos/[slug]/arcade) - catálogo de jogos/personagens do
+  // arcade, por experiência (não por evento individual: uma experiência
+  // pode agrupar vários sorteios, e todos compartilham o mesmo arcade). Um
+  // Event "avulso" (sem experienceId) simplesmente não tem Universo AS.
+  universeGames      UniverseGame[]
+  universeCharacters UniverseCharacter[]
 
   @@index([active])
 }
@@ -181,8 +187,6 @@ model Event {
   participantNotices   ParticipantNotice[]
   unlockCards          GameCard[] @relation("EventUnlockCards")
   games                Game[]
-  universeGames        UniverseGame[]
-  universeCharacters   UniverseCharacter[]
 
   @@index([active])
   @@index([archived])
@@ -913,18 +917,20 @@ model ArcadeGameSetting {
   updatedAt  DateTime       @updatedAt
 }
 
-// Catálogo de jogos do hub "Universo AS" (/e/[slug]/arcade) por evento -
-// pedido do Paulo em 01/10 pra poder gerenciar isso num painel (capa,
-// título, descrição, visibilidade), igual já faz na aba Jogos, em vez de
-// ficar fixo no código (era hardcoded em ArcadeUniverse.tsx). `engine` é
-// qual dos 4 motores de jogo já construídos (WORLD/MAZE/BLAST/CITYRUN, os
-// mesmos tipos de GamePhase.type) essa entrada usa - o painel ativa e
-// personaliza um motor existente, não cria um jogo novo do zero (isso
-// ainda depende de eu construir o motor). Validado na API, não no banco.
+// Catálogo de jogos do hub "Universo AS" (/eventos/[slug]/arcade) por
+// EXPERIÊNCIA (ajustado em 01/10 - era por evento individual até então, ver
+// git history) - pedido do Paulo: o arcade é um bônus da experiência como
+// um todo (ex: turnê com vários sorteios), não de um sorteio específico, e
+// um Event "avulso" sem experienceId não tem arcade nenhum. Painel em Jogos
+// → 🕹️ Universo AS. `engine` é qual dos 4 motores de jogo já construídos
+// (WORLD/MAZE/BLAST/CITYRUN, os mesmos tipos de GamePhase.type) essa
+// entrada usa - o painel ativa e personaliza um motor existente, não cria
+// um jogo novo do zero (isso ainda depende de eu construir o motor).
+// Validado na API, não no banco.
 model UniverseGame {
-  id      String @id @default(cuid())
-  eventId String
-  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  id           String     @id @default(cuid())
+  experienceId String
+  experience   Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
 
   engine        GameType
   slug          String         @unique
@@ -938,17 +944,18 @@ model UniverseGame {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([eventId])
+  @@index([experienceId])
 }
 
-// Elenco de personagens-avatar do hub do Universo AS, por evento - separado
-// de propósito do model Character (personagem-recompensa por Experience,
-// ganho jogando): esse aqui é só visual, pra escolher com quem jogar no
-// arcade, sem nenhuma lógica de desbloqueio por trás.
+// Elenco de personagens-avatar do hub do Universo AS, por EXPERIÊNCIA (ver
+// comentário de UniverseGame acima) - separado de propósito do model
+// Character (personagem-recompensa por Experience, ganho jogando): esse
+// aqui é só visual, pra escolher com quem jogar no arcade, sem nenhuma
+// lógica de desbloqueio por trás.
 model UniverseCharacter {
-  id      String @id @default(cuid())
-  eventId String
-  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  id           String     @id @default(cuid())
+  experienceId String
+  experience   Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
 
   name     String
   imageUrl String?
@@ -957,7 +964,7 @@ model UniverseCharacter {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([eventId])
+  @@index([experienceId])
 }
 
 // Só a primeira tentativa pontua (firstScore) pro ranking/XP - joga de

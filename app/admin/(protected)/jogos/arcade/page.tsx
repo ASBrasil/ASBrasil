@@ -6,16 +6,16 @@ import { UniverseCharacterManager } from "@/components/admin/UniverseCharacterMa
 export const dynamic = "force-dynamic";
 
 export default async function UniverseArcadePage() {
-  const [games, characters, events] = await Promise.all([
+  const [games, characters, experiences] = await Promise.all([
     db.universeGame.findMany({
-      include: { event: { select: { name: true } } },
-      orderBy: [{ eventId: "asc" }, { order: "asc" }, { createdAt: "desc" }],
+      include: { experience: { select: { name: true } } },
+      orderBy: [{ experienceId: "asc" }, { order: "asc" }, { createdAt: "desc" }],
     }),
     db.universeCharacter.findMany({
-      include: { event: { select: { name: true } } },
-      orderBy: [{ eventId: "asc" }, { order: "asc" }, { createdAt: "desc" }],
+      include: { experience: { select: { name: true } } },
+      orderBy: [{ experienceId: "asc" }, { order: "asc" }, { createdAt: "desc" }],
     }),
-    db.event.findMany({ select: { id: true, name: true }, orderBy: { startAt: "desc" } }),
+    db.experience.findMany({ select: { id: true, name: true }, orderBy: { order: "asc" } }),
   ]);
 
   return (
@@ -24,10 +24,11 @@ export default async function UniverseArcadePage() {
         <span className="as-eyebrow">Universo AS</span>
         <h1 className="as-title">🕹️ Universo AS (arcade)</h1>
         <p className="as-subtitle">
-          O hub de arcade bônus (hoje em <code>/e/[evento]/arcade</code>) agora é por evento: cada
-          jogo e cada personagem-avatar pertence a um evento específico, com capa e textos próprios.
-          Nasce em Rascunho - só vira visível pra participantes quando você mudar pra Teste ou Ao
-          vivo.
+          O hub de arcade bônus (hoje em <code>/eventos/[experiencia]/arcade</code>) é por
+          experiência: cada jogo e cada personagem-avatar pertence a uma experiência específica
+          (compartilhado por todos os sorteios dela), com capa e textos próprios. Um sorteio avulso,
+          sem experiência vinculada, não tem Universo AS. Nasce em Rascunho - só vira visível pra
+          participantes quando você mudar pra Teste ou Ao vivo.
         </p>
       </div>
 
@@ -36,8 +37,8 @@ export default async function UniverseArcadePage() {
       <UniverseGameManager
         games={games.map((g) => ({
           id: g.id,
-          eventId: g.eventId,
-          eventName: g.event.name,
+          experienceId: g.experienceId,
+          experienceName: g.experience.name,
           engine: g.engine as any,
           slug: g.slug,
           title: g.title,
@@ -47,19 +48,19 @@ export default async function UniverseArcadePage() {
           order: g.order,
           visibility: g.visibility,
         }))}
-        events={events}
+        experiences={experiences}
       />
 
       <UniverseCharacterManager
         characters={characters.map((c) => ({
           id: c.id,
-          eventId: c.eventId,
-          eventName: c.event.name,
+          experienceId: c.experienceId,
+          experienceName: c.experience.name,
           name: c.name,
           imageUrl: c.imageUrl,
           order: c.order,
         }))}
-        events={events}
+        experiences={experiences}
       />
 
       <style>{`
