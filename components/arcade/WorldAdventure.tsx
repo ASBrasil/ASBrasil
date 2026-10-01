@@ -11,11 +11,12 @@
 // travadas com "Em breve" - o desbloqueio sequencial já funciona, falta só
 // desenhar a fase de cada uma.
 //
-// Inimigos, chefão e ícones de coletável/power-up são formas simples
-// desenhadas no canvas (não os recortes do kit de produção, que vieram sem
-// separação por sprite - ver decisão registrada em
-// claude/pendencias-sorteios.md). Os personagens (7) e o cenário/tileset do
-// Rio usam os assets reais.
+// Inimigos (caranguejo/morcego/arara) e o chefão usam sprites reais (pacote
+// "curado" com fundo isolado de verdade - ver claude/pendencias-sorteios.md)
+// - só existe o estado "idle" por enquanto, walk/hit/defeat ficam pendentes
+// de produção. Plataforma, moedas, checkpoint e corações ainda são formas
+// desenhadas no canvas (nenhum pacote aprovado pra eles ainda). Os
+// personagens (7) e o cenário/tileset do Rio usam os assets reais.
 
 import { useEffect, useRef, useState } from "react";
 
@@ -38,6 +39,17 @@ function animFrames(character: string, state: string, count: number) {
   return Array.from({ length: count }, (_, i) => {
     const im = new Image();
     im.src = `/game-universe/animated/${character}/${state}/${state}_${String(i).padStart(2, "0")}.png`;
+    return im;
+  });
+}
+// Sprites reais dos inimigos/chefão do Rio (substituindo as formas vetoriais
+// - ver nota de topo do arquivo). Só existe o estado "idle" por enquanto (o
+// pacote curado não trouxe walk/hit/defeat ainda - integração parcial, de
+// propósito, enquanto o resto da produção não chega).
+function loadFrameSet(basePath: string, name: string, count: number) {
+  return Array.from({ length: count }, (_, i) => {
+    const im = new Image();
+    im.src = `${basePath}/${name}_${String(i).padStart(2, "0")}.png`;
     return im;
   });
 }
@@ -156,6 +168,14 @@ function WorldAdventureGame({ character, city, onExit, onCleared }: { character:
     const idleFrames = animFrames(character.id, "idle", 2);
     const slideFrames = animFrames(character.id, "slide", 2);
     const hitFrames = animFrames(character.id, "hit", 2);
+    // e.variant (0/1/2, ver criação de `enemies` abaixo) indexa este array:
+    // 0 = caranguejo, 1 = morcego, 2 = arara. Araras só têm 1 frame curado.
+    const enemySpriteSets = [
+      loadFrameSet("/game-universe/world-adventure/rio/enemies/1", "idle", 2),
+      loadFrameSet("/game-universe/world-adventure/rio/enemies/2", "idle", 2),
+      loadFrameSet("/game-universe/world-adventure/rio/enemies/3", "idle", 1),
+    ];
+    const bossSpriteFrames = loadFrameSet("/game-universe/world-adventure/rio/boss", "idle", 2);
 
     let px = 70, py = 300, vx = 0, vy = 0, cam = 0;
     let coins = 0, lives = 3, invuln = 0, sliding = 0;
@@ -276,42 +296,32 @@ function WorldAdventureGame({ character, city, onExit, onCleared }: { character:
       for (const c of coinsLeft) if (!c.taken) { const sx = c.x - cam; if (sx < -20 || sx > W + 20) continue; ctx.fillStyle = "#ffd52a"; ctx.beginPath(); ctx.arc(sx, c.y, 10, 0, 7); ctx.fill(); ctx.strokeStyle = "#fff4a0"; ctx.stroke(); }
       for (const h of heartsLeft) if (!h.taken) { const sx = h.x - cam; if (sx < -20 || sx > W + 20) continue; ctx.fillStyle = "#ff5b8a"; ctx.font = "20px sans-serif"; ctx.fillText("❤", sx - 9, h.y + 7); }
       for (const e of enemies) if (e.alive) {
-        const sx = e.x - cam; if (sx < -36 || sx > W + 36) continue;
+        const sx = e.x - cam; if (sx < -40 || sx > W + 40) continue;
         const bob = Math.sin(now / 190 + e.baseX) * 2;
-        ctx.save(); ctx.translate(sx, e.y + bob);
+        const frames = enemySpriteSets[e.variant];
+        const im = frames[Math.floor(now / 260) % frames.length];
+        const ew = 58, eh = 58, ey = e.y + bob - 42;
+        ctx.save();
         ctx.shadowColor = "rgba(0,0,0,.28)"; ctx.shadowBlur = 8; ctx.shadowOffsetY = 5;
-        const enemyColors = ["#ffcf3f", "#54d6c8", "#ff78a9"];
-        ctx.fillStyle = enemyColors[e.variant]; ctx.beginPath(); ctx.roundRect(-20, -18, 40, 34, 12); ctx.fill();
-        ctx.shadowColor = "transparent";
-        ctx.strokeStyle = "#17334a"; ctx.lineWidth = 4;
-        ctx.beginPath(); ctx.moveTo(-18, 2); ctx.lineTo(-26, 9); ctx.moveTo(18, 2); ctx.lineTo(26, 9); ctx.stroke();
-        ctx.fillStyle = "#163149"; ctx.beginPath(); ctx.roundRect(-14, -10, 28, 12, 6); ctx.fill();
-        ctx.fillStyle = "#8ff7ff"; ctx.beginPath(); ctx.arc(-6, -4, 2.6, 0, Math.PI * 2); ctx.arc(6, -4, 2.6, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#17334a"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -18); ctx.lineTo(0, -27); ctx.stroke();
-        ctx.fillStyle = "#ff5b8a"; ctx.beginPath(); ctx.arc(0, -29, 4, 0, Math.PI * 2); ctx.fill();
+        if (im?.complete) {
+          if (e.d === -1) { ctx.translate(sx, 0); ctx.scale(-1, 1); ctx.drawImage(im, -ew / 2, ey, ew, eh); }
+          else ctx.drawImage(im, sx - ew / 2, ey, ew, eh);
+        }
         ctx.restore();
       }
       if (bossActive) {
         const sx = bossX - cam;
         const flash = bossInvuln > 0;
-        ctx.save(); ctx.translate(sx, bossY);
-        ctx.shadowColor = flash ? "#fff" : "#b96cff"; ctx.shadowBlur = flash ? 28 : 16;
-        const bossGrad = ctx.createLinearGradient(-42, -52, 42, 48);
-        bossGrad.addColorStop(0, flash ? "#fff" : "#8050a8");
-        bossGrad.addColorStop(.55, flash ? "#fff" : "#513071");
-        bossGrad.addColorStop(1, flash ? "#eee" : "#271d4a");
-        ctx.fillStyle = bossGrad; ctx.beginPath();
-        ctx.moveTo(-40, 36); ctx.quadraticCurveTo(-52, 0, -27, -39);
-        ctx.quadraticCurveTo(0, -61, 29, -38); ctx.quadraticCurveTo(53, 0, 40, 36);
-        ctx.quadraticCurveTo(0, 50, -40, 36); ctx.fill();
-        ctx.shadowColor = "transparent";
-        ctx.fillStyle = "#171d3a"; ctx.beginPath(); ctx.roundRect(-27, -23, 54, 24, 10); ctx.fill();
-        ctx.fillStyle = flash ? "#fff" : "#ff78cf"; ctx.beginPath(); ctx.arc(-11, -11, 5, 0, Math.PI * 2); ctx.arc(11, -11, 5, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#62f3da"; ctx.beginPath(); ctx.arc(0, 17, 9, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "rgba(255,255,255,.72)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 17, 14, 0, Math.PI * 2); ctx.stroke();
+        const bossIm = bossSpriteFrames[Math.floor(now / 260) % bossSpriteFrames.length];
+        const bw = 150, bh = 150, by = bossY - bh + 60;
+        ctx.save();
+        ctx.shadowColor = flash ? "#fff" : "#b96cff"; ctx.shadowBlur = flash ? 30 : 18;
+        ctx.filter = flash ? "brightness(2.6) saturate(0)" : "none";
+        if (bossIm?.complete) ctx.drawImage(bossIm, sx - bw / 2, by, bw, bh);
+        ctx.filter = "none";
         ctx.restore();
         ctx.fillStyle = "#fff"; ctx.font = "800 13px sans-serif"; ctx.textAlign = "center";
-        ctx.shadowColor = "#000"; ctx.shadowBlur = 6; ctx.fillText(meta.bossName, sx, bossY - 68); ctx.shadowBlur = 0; ctx.textAlign = "left";
+        ctx.shadowColor = "#000"; ctx.shadowBlur = 6; ctx.fillText(meta.bossName, sx, by - 10); ctx.shadowBlur = 0; ctx.textAlign = "left";
       }
       const state = invuln > 0 ? hitFrames : sliding > 0 ? slideFrames : vy !== 0 ? jumpFrames : vx !== 0 ? runFrames : idleFrames;
       ctx.globalAlpha = invuln > 0 ? (Math.floor(now / 90) % 2 ? 0.4 : 1) : 1;
