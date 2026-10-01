@@ -104,6 +104,7 @@ function CityRunGame({ character, route, onExit, onCleared }: { character: Chara
   useEffect(() => {
     const canvas = ref.current!;
     const ctx = canvas.getContext("2d")!;
+    canvas.width=W*2;canvas.height=H*2;ctx.setTransform(2,0,0,2,0,0);ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
     const cfg = ROUTES[route];
 
     const runFrames = animFrames(character.id, "run", 3);
@@ -202,7 +203,7 @@ function CityRunGame({ character, route, onExit, onCleared }: { character: Chara
         <span className="cr-hud-item">{pct}%</span>
         <button className="cr-pause" onClick={() => setPaused((p) => !p)}>{paused ? "▶" : "⏸"}</button>
       </div>
-      <div className="canvas-wrap"><canvas ref={ref} width={W} height={H} /></div>
+      <div className="canvas-wrap"><canvas ref={ref} width={W*2} height={H*2} /></div>
       {paused && (
         <div className="cr-overlay">
           <h3>Pausado</h3>

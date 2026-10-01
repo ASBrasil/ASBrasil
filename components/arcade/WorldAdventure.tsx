@@ -134,6 +134,7 @@ function WorldAdventureGame({ character, city, onExit, onCleared }: { character:
   useEffect(() => {
     const canvas = ref.current!;
     const ctx = canvas.getContext("2d")!;
+    canvas.width=W*2;canvas.height=H*2;ctx.setTransform(2,0,0,2,0,0);ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
     const meta = CITY_META[city];
     const level = RIO_LEVEL; // única fase montada por enquanto
 
@@ -338,7 +339,7 @@ function WorldAdventureGame({ character, city, onExit, onCleared }: { character:
         <strong>FASE {CITY_ORDER.indexOf(city) + 1}</strong><span>{meta.name.toUpperCase()}</span>
         <div className="wa-stage-track"><i style={{ width: `${hud.progress}%` }} /></div>
       </div>
-      <div className="canvas-wrap"><canvas ref={ref} width={W} height={H} /></div>
+      <div className="canvas-wrap"><canvas ref={ref} width={W*2} height={H*2} /></div>
       {paused && (
         <div className="wa-overlay">
           <h3>Pausado</h3>

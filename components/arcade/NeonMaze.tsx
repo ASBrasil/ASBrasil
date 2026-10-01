@@ -91,6 +91,7 @@ function NeonMazeGame({ character, world, onExit, onCleared }: { character: Char
   useEffect(() => {
     const canvas = ref.current!;
     const ctx = canvas.getContext("2d")!;
+    canvas.width=W*2;canvas.height=H*2;ctx.setTransform(2,0,0,2,0,0);ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
     const cfg = WORLDS[world];
     const grid = cfg.grid;
     const cols = cfg.cols, rows = cfg.rows;
@@ -287,7 +288,7 @@ function NeonMazeGame({ character, world, onExit, onCleared }: { character: Char
         <strong>MUNDO {WORLD_ORDER.indexOf(world) + 1}</strong><span>{cfg.name.toUpperCase()}</span>
         <div className="mz-stage-track"><i style={{ width: `${hud.progress}%` }} /></div>
       </div>
-      <div className="canvas-wrap"><canvas ref={ref} width={W} height={H} /></div>
+      <div className="canvas-wrap"><canvas ref={ref} width={W*2} height={H*2} /></div>
       {paused && (
         <div className="mz-overlay">
           <h3>Pausado</h3>
