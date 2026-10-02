@@ -26,7 +26,7 @@ export default async function UniversoAsPage() {
     visibilities.push("TESTING", "DRAFT");
   }
 
-  const [games, cards, ownedCards, ranking] = await Promise.all([
+  const [games, cards, ownedCards, characters, ownedCharacters, ranking] = await Promise.all([
     db.game.findMany({
       where: { visibility: { in: visibilities as any } },
       include: { event: { select: { name: true } }, phases: { select: { id: true } } },
@@ -36,10 +36,19 @@ export default async function UniversoAsPage() {
     email
       ? db.playerCard.findMany({ where: { email }, select: { cardId: true } })
       : Promise.resolve([]),
+    // Coleção de Personagens (02/10) - mesmo padrão do álbum de figurinhas
+    // acima (global, sem filtro de experiência), ver model Character em
+    // prisma/schema.prisma. Desbloqueia via fase perfeita, inicial grátis ou
+    // Loja do arcade (ArcadeUniverse.tsx).
+    db.character.findMany({ orderBy: [{ rarity: "asc" }, { name: "asc" }] }),
+    email
+      ? db.playerCharacter.findMany({ where: { email }, select: { characterId: true } })
+      : Promise.resolve([]),
     getGlobalRanking(),
   ]);
 
   const ownedCardIds = new Set(ownedCards.map((c: { cardId: string }) => c.cardId));
+  const ownedCharacterIds = new Set(ownedCharacters.map((c: { characterId: string }) => c.characterId));
 
   return (
     <main className="as-shell page">
@@ -132,6 +141,31 @@ export default async function UniversoAsPage() {
                     </div>
                   )}
                   <p className="album-name">{owned ? card.name : "???"}</p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <h2 className="album-title">
+          <IconCardBack size={19} className="title-icon" />
+          Minha coleção de personagens
+        </h2>
+        {characters.length === 0 ? (
+          <p className="empty">Ainda não existe nenhum personagem cadastrado no Universo AS.</p>
+        ) : (
+          <div className="album-grid">
+            {characters.map((character: any) => {
+              const owned = ownedCharacterIds.has(character.id);
+              const art = character.cardImageUrl || character.imageUrl;
+              return (
+                <div key={character.id} className={`as-card album-card ${owned ? "owned" : "locked"}`}>
+                  {owned && art ? (
+                    <img src={art} alt={character.name} className="album-thumb" />
+                  ) : (
+                    <div className="album-thumb placeholder">{owned ? "🧸" : "?"}</div>
+                  )}
+                  <p className="album-name">{owned ? character.name : "???"}</p>
                 </div>
               );
             })}

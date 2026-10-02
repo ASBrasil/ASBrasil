@@ -10,21 +10,24 @@ interface Character {
   name: string;
   rarity: string;
   imageUrl: string | null;
+  cardImageUrl: string | null;
   description: string | null;
   spriteId: string | null;
   pointsCost: number;
   isStarter: boolean;
 }
 
-// Esqueletos de animação prontos (mesma lista de SPRITE_IDS em
-// lib/characters.ts) - vários personagens/peles podem apontar pro mesmo,
-// só a imagem/nome mostrados fora do jogo mudam.
-const SPRITE_OPTIONS = ["jhope", "jimin", "jin", "jungkook", "rm", "suga", "v"];
+// Esqueletos de animação que já existem hoje (ver
+// public/game-universe/animated) - só uma dica no admin, o campo é texto
+// livre (ver Field "Esqueleto de animação" abaixo) pra registrar um
+// esqueleto novo assim que a arte dele existir, sem precisar de deploy.
+const KNOWN_SPRITE_IDS = ["jhope", "jimin", "jin", "jungkook", "rm", "suga", "v"];
 
 const EMPTY_FORM = {
   name: "",
   rarity: "comum",
   imageUrl: null as string | null,
+  cardImageUrl: null as string | null,
   description: "",
   spriteId: "" as string,
   pointsCost: 0,
@@ -36,6 +39,7 @@ function formFromCharacter(character: Character) {
     name: character.name,
     rarity: character.rarity,
     imageUrl: character.imageUrl,
+    cardImageUrl: character.cardImageUrl,
     description: character.description ?? "",
     spriteId: character.spriteId ?? "",
     pointsCost: character.pointsCost,
@@ -407,12 +411,22 @@ function CharacterFormFields({
         <Input value={form.rarity} onChange={(e) => setForm({ ...form, rarity: e.target.value })} />
       </Field>
       <ImageUpload
-        label="Imagem do personagem"
+        label="Imagem do personagem (menu e loja)"
         value={form.imageUrl}
         onChange={(url) => setForm({ ...form, imageUrl: url })}
         folder="characters"
         aspectRatio="1 / 1"
       />
+      <ImageUpload
+        label="Imagem do card (Coleção de Personagens)"
+        value={form.cardImageUrl}
+        onChange={(url) => setForm({ ...form, cardImageUrl: url })}
+        folder="character-cards"
+        aspectRatio="1 / 1"
+      />
+      <p className="field-note">
+        Sem imagem de card, a Coleção usa a imagem do personagem acima mesmo.
+      </p>
       <Field label="Descrição" hint="Opcional.">
         <textarea
           className="textarea"
@@ -423,20 +437,13 @@ function CharacterFormFields({
       </Field>
       <Field
         label="Esqueleto de animação (moveset)"
-        hint="Decide os movimentos quando a pessoa joga com ele. Vários personagens podem usar o mesmo - só a imagem acima muda. Sem escolher, cai num padrão em vez de travar o jogo."
+        hint={`Decide os movimentos quando a pessoa joga com ele. Vários personagens podem usar o mesmo - só a imagem acima muda. Hoje já existem prontos: ${KNOWN_SPRITE_IDS.join(", ")}. Pra um personagem com moveset próprio (ex: bater asa), primeiro precisa existir a arte dele em public/game-universe/animated/<nome> - me avisa quando quiser encomendar. Em branco, cai num padrão em vez de travar o jogo.`}
       >
-        <select
-          className="as-select"
+        <Input
           value={form.spriteId}
-          onChange={(e) => setForm({ ...form, spriteId: e.target.value })}
-        >
-          <option value="">— padrão —</option>
-          {SPRITE_OPTIONS.map((id) => (
-            <option key={id} value={id}>
-              {id}
-            </option>
-          ))}
-        </select>
+          onChange={(e) => setForm({ ...form, spriteId: e.target.value.trim() })}
+          placeholder="ex: jin (deixe em branco pro padrão)"
+        />
       </Field>
       <Field label="Preço na Loja (moedas)" hint="0 = não aparece na Loja (só por recompensa ou concessão manual).">
         <Input
@@ -491,6 +498,11 @@ function CharacterFormFields({
         }
       `}</style>
       <style jsx>{`
+        .field-note {
+          font-size: 0.76rem;
+          color: var(--text-muted);
+          margin: -0.5rem 0 0.9rem;
+        }
         .starter-check {
           display: flex;
           align-items: center;

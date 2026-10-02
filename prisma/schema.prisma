@@ -790,7 +790,16 @@ model Character {
   imageUrl    String?
   rarity      String     @default("comum")
 
+  // Arte do "card" de colecionável (02/10) - usada na tela Coleção de
+  // Personagens (/universo-as) quando a pessoa já desbloqueou - pensada
+  // pra ser mais elaborada (moldura, raridade) que `imageUrl`, que
+  // continua sendo só o retrato simples usado no menu/loja do arcade. Sem
+  // cardImageUrl configurado, a Coleção cai pra `imageUrl` mesmo.
+  cardImageUrl String?
+
   // Esqueleto de animação (moveset) usado em jogo - ver comentário acima.
+  // Texto livre (não mais limitado aos 7 prontos) - permite registrar um
+  // esqueleto novo assim que a arte dele existir, sem precisar de deploy.
   spriteId String?
 
   // Preço em moedas da Loja de Personagens - 0 = não vendido na loja (só

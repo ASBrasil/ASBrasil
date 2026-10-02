@@ -113,6 +113,7 @@ export default async function ExperienceDetailPage({ params }: { params: { id: s
           name: c.name,
           rarity: c.rarity,
           imageUrl: c.imageUrl,
+          cardImageUrl: c.cardImageUrl,
           description: c.description,
           spriteId: c.spriteId,
           pointsCost: c.pointsCost,
